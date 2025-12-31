@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f6cb5f3249888ca4493b12b04fd09cfa
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/GameStates/UVC_TriggerGroupsMenu.asset
+  uploadId: 801764

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a1de4231f4e995243841cf48a86594dd
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/MeshesTextures/Ships/SpaceFighter/Materials/SpaceFighter_Base_Enemy.mat
+  uploadId: 801764

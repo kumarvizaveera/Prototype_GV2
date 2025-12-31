@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 6ebe43b2fa4593f4d8d2da4a903439f5
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/WeaponsSystem/Scripts/TargetProximityTriggerMode.cs
+  uploadId: 801764

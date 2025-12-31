@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 495fa160402391a4a970cc570882acd7
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/MainMenu/DemoButton.prefab
+  uploadId: 801764

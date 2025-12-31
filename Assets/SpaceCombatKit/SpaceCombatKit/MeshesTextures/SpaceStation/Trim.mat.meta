@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 51255c7c6f6cc0b468366ae579fd384b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/MeshesTextures/SpaceStation/Trim.mat
+  uploadId: 801764

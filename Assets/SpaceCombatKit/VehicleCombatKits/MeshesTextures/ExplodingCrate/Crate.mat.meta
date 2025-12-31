@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: da199e17422fb6345b3b4d17d7501d3f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/ExplodingCrate/Crate.mat
+  uploadId: 801764

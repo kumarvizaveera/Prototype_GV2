@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 94bad94c887347d4b9137b4549189f3a
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/UI/Misc/UIImageColor.cs
+  uploadId: 801764

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 29921b3c57b363a449e53a5ec2c6f30b
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/Controls/UnityInputSystem/ControlsMenuBuilder_InputSystem.cs
+  uploadId: 801764

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: f3f0ed399f12c49489534a4397c16a1e
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/VehiclesSystem/Modules/IModulesUser.cs
+  uploadId: 801764

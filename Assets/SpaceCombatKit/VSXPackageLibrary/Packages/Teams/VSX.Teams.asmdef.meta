@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b69d26a326c852849bb5390e098feb8d
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/Teams/VSX.Teams.asmdef
+  uploadId: 801764

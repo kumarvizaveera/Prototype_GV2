@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 345aa530d37052745b17ae9af4f45383
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/VehicleAnimations/VSX.Vehicles.ControlAnimations.asmdef
+  uploadId: 801764

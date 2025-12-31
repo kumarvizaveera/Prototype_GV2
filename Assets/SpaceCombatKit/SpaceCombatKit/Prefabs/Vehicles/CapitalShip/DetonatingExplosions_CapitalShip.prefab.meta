@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4043dc35b88048d45b8c831e87fb1839
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Vehicles/CapitalShip/DetonatingExplosions_CapitalShip.prefab
+  uploadId: 801764

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d60e812c034c8fd4c872f50998a368e8
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Weapons/WeaponKit/Meshes/Prefabs/Body_Square.prefab
+  uploadId: 801764

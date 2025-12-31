@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 21bcbb938da2a32458136af214f3e09f
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Environment/Background_Space.prefab
+  uploadId: 801764

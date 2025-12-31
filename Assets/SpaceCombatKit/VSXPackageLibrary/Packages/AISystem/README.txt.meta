@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4077a4ffbee57344f9ee371fc21f5043
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/AISystem/README.txt
+  uploadId: 801764

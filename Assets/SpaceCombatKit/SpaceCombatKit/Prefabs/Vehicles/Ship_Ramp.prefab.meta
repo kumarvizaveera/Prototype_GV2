@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 3f76f5cf1846b4b429583313ad523db4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Vehicles/Ship_Ramp.prefab
+  uploadId: 801764

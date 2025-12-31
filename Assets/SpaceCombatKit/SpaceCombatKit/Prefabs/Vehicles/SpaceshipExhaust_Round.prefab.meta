@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 39918afc914b5794a991bbe51b876a1e
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Vehicles/SpaceshipExhaust_Round.prefab
+  uploadId: 801764

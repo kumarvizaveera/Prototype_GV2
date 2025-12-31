@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 9398898c2e689404b8fbf79879cc068f
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Vehicles/Fighters/SpaceFighter_Heavy.prefab
+  uploadId: 801764

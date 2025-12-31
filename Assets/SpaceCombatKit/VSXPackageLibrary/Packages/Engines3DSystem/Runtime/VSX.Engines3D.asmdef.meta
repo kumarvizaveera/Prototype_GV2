@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: aea62bcdd4300a44dbd40a1e30c74d5f
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/Engines3DSystem/Runtime/VSX.Engines3D.asmdef
+  uploadId: 801764

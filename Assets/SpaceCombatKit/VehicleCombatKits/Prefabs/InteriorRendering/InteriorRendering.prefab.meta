@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c60626a4698722a45b82b8382a4e079b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/InteriorRendering/InteriorRendering.prefab
+  uploadId: 801764

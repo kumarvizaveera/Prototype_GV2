@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 251329239a6132a48bc476c4e25acf74
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Prefabs/Exhaust_Jetpack.prefab
+  uploadId: 801764

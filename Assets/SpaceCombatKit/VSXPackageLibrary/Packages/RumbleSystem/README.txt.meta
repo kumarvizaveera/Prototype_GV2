@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e7cb9c90d4d864f44a1715a68a46e774
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/RumbleSystem/README.txt
+  uploadId: 801764

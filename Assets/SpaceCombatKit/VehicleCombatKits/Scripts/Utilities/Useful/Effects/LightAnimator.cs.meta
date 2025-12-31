@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: b95963ca46ff38d4fa2639e187e6be6a
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Scripts/Utilities/Useful/Effects/LightAnimator.cs
+  uploadId: 801764

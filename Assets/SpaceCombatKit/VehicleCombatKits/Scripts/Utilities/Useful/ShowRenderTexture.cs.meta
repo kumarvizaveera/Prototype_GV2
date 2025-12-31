@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: d0edbc4d675f24c49b6fb1863543c65b
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Scripts/Utilities/Useful/ShowRenderTexture.cs
+  uploadId: 801764

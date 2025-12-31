@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 6f77946205663b64596c85d6253063ac
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/UI/XBoxControlsIcons/XBoxControls_Stick_R_AllDirections.prefab
+  uploadId: 801764

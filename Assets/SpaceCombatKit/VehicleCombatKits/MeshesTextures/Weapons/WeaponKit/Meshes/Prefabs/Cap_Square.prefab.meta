@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 005426802d8bdec45ada447b565aa138
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Weapons/WeaponKit/Meshes/Prefabs/Cap_Square.prefab
+  uploadId: 801764

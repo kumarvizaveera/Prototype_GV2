@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 84bd7c42fb1efaa4ab8ef8822bf5d41f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/HUD/HUDRadar/Radar3D/HUDRadarSphere.mat
+  uploadId: 801764

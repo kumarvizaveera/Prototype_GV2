@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d74f2a084738b4d48ac016ef1bed9c47
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Weapons/WeaponKit/Meshes/Prefabs/Cap_Cylinder.prefab
+  uploadId: 801764

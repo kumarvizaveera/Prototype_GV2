@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7f61f6eeeeb6d154795fa51d8e41a24f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Explosions/ExplosionFlash_Bright.mat
+  uploadId: 801764

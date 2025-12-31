@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8845d6f40d7b7ce44ada355d3d2d151e
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Prefabs/Resources/Audio/ExplosionAudio_Template.prefab
+  uploadId: 801764

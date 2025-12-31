@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2a2fee3b3ecb9fe459c710b7ba101a1f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/MeshesTextures/Ships/ShipWithInterior/LandingGear/Ship_LandingGear_Retracted.anim
+  uploadId: 801764

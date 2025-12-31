@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 805beb3593d4d0d478c5f84ff60ac879
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/HealthSystem/Scripts/IHealthInfo.cs
+  uploadId: 801764

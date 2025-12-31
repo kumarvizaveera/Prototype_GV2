@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 580e314e6eaae934098e0aed4eb726f8
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Characters/Prefabs/Projectile_Energy_Rifle.prefab
+  uploadId: 801764

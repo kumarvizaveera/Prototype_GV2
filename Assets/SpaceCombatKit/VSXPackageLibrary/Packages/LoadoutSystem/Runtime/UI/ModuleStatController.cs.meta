@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: f43a76b4d0dee3543a94440872e19bfe
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/LoadoutSystem/Runtime/UI/ModuleStatController.cs
+  uploadId: 801764

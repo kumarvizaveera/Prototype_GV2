@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 35e0e6cb9942c15499878e40575bfd05
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 112000000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Scenes/MainScenes/SCK_MainMenu/LightingData.asset
+  uploadId: 801764

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8b56b00cd6d38184eae29c42d81929c5
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/TrackableTypes/Object.asset
+  uploadId: 801764

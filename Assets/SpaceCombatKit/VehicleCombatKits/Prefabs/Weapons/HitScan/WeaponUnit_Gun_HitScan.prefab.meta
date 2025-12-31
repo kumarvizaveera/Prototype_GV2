@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1cf9f3acec213a34e93fa3e82fdc0ce7
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Weapons/HitScan/WeaponUnit_Gun_HitScan.prefab
+  uploadId: 801764

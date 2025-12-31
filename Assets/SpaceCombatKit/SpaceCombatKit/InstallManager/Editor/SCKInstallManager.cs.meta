@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 637aacd9bf7d80c4e9be46ff19335621
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/InstallManager/Editor/SCKInstallManager.cs
+  uploadId: 801764

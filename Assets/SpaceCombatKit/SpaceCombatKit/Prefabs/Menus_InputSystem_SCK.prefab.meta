@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1ca945ad3d14dfd43ac7229d119865b8
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Menus_InputSystem_SCK.prefab
+  uploadId: 801764

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cb54f0b5c952cdd4b96a0a0e6dd6abaa
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/MeshesTextures/Ships/ShipWithInterior/Model/Ship_CockpitCollider.prefab
+  uploadId: 801764

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 57d8b63fd04ed8747967b6ac75c047e2
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Prefabs/Waypoint_DistanceActivated.prefab
+  uploadId: 801764

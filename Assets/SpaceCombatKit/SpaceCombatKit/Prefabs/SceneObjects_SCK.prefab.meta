@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a2d322618011b154bb8a64feecdfc19f
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/SceneObjects_SCK.prefab
+  uploadId: 801764

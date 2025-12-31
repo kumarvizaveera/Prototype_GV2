@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b8a9e8128f11032418c52c12f19074b0
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/RadarSystem/README.txt
+  uploadId: 801764

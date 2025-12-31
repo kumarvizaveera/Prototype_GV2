@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 9a70237f814308145840a255a555f6bf
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Weapons/Missiles/Model_Turret_Missile.prefab
+  uploadId: 801764

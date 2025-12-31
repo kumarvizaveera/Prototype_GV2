@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: ecda9994d72627f4c9a4512af8f29c3b
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Scripts/Utilities/Useful/Spawning/MassObjectSpawner.cs
+  uploadId: 801764

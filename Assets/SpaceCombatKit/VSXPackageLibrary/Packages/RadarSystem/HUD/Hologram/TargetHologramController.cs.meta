@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: e81b5c40b9ce58543b2ec6d456c8edaa
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/RadarSystem/HUD/Hologram/TargetHologramController.cs
+  uploadId: 801764

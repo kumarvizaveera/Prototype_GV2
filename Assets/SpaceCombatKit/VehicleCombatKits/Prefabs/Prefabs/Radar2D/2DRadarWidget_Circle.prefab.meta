@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5803de7821f44be4c9b69534a8396c02
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Prefabs/Radar2D/2DRadarWidget_Circle.prefab
+  uploadId: 801764

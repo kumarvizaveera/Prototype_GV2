@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 0c47b39dbe7735344948e3d72b4e805a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Exhausts/Exhaust_Smoke.mat
+  uploadId: 801764

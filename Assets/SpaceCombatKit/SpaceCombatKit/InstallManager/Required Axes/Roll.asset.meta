@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 9eb47741683be7643b8932d0a2dc1f9a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/InstallManager/Required Axes/Roll.asset
+  uploadId: 801764

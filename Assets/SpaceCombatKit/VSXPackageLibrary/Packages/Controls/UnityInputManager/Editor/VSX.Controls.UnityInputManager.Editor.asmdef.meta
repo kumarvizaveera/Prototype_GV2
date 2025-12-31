@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 714858b5ea53e8743975e4285473ff23
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/Controls/UnityInputManager/Editor/VSX.Controls.UnityInputManager.Editor.asmdef
+  uploadId: 801764

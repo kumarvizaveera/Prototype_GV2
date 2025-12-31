@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 0730e61e52a346743a852308eeaa2696
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Weapons/Common/Brass.mat
+  uploadId: 801764

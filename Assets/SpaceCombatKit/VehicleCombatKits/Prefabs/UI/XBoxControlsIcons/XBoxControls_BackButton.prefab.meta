@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ca7d76fe18384894aaa8437613d9fc5f
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/UI/XBoxControlsIcons/XBoxControls_BackButton.prefab
+  uploadId: 801764

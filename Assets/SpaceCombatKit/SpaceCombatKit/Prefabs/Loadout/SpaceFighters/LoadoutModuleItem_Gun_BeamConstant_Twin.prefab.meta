@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 3ea44f7a766fcc34084f9833c60161ae
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Loadout/SpaceFighters/LoadoutModuleItem_Gun_BeamConstant_Twin.prefab
+  uploadId: 801764

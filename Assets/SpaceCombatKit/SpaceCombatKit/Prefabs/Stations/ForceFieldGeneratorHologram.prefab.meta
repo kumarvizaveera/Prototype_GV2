@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 977b165be78220a4e9255dae76b535d4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Stations/ForceFieldGeneratorHologram.prefab
+  uploadId: 801764

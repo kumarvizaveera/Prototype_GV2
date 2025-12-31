@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d03b920e68f22974180f9a5574c91d32
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Loadout/CapitalShips/LoadoutModuleItem_CapitalTurret_ConstantBeam.prefab
+  uploadId: 801764

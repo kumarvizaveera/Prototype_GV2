@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7ed2633962f7c6b4f835c0158e095f2f
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Weapons/EnergyProjectile/Audio_EnergyProjectile_LongRange.prefab
+  uploadId: 801764

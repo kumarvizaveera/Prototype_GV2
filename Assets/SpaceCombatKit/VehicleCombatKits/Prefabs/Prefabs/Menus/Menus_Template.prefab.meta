@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 199fc6b08f2a0e44b9225d9d1144bd74
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Prefabs/Menus/Menus_Template.prefab
+  uploadId: 801764

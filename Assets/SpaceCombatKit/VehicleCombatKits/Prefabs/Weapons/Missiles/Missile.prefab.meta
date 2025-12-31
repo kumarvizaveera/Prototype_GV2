@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c361eafa321af18478d2c8bc852cad5f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Weapons/Missiles/Missile.prefab
+  uploadId: 801764

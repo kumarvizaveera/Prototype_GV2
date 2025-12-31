@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4fc8a0eacb0633b44b451fa7496db8db
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Weapons/WeaponKit/Meshes/Prefabs/Body_Cylinder.prefab
+  uploadId: 801764

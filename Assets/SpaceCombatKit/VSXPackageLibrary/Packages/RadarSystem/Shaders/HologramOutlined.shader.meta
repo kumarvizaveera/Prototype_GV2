@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6e7b897f4cae9174da25a5ec64eb598f
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/RadarSystem/Shaders/HologramOutlined.shader
+  uploadId: 801764

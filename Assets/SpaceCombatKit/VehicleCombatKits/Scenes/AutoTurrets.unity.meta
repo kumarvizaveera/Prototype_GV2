@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 9124ebfb03b73f04cbf6a62a7d0b9c7f
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Scenes/AutoTurrets.unity
+  uploadId: 801764

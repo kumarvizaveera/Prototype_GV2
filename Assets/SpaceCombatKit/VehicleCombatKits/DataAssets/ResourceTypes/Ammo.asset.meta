@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 731b4804bae22a64bbdbb02fa3b343e8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/ResourceTypes/Ammo.asset
+  uploadId: 801764

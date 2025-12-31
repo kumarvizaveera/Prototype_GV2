@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 10f87d972b6017646abc85854dd677fe
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/GamepadControls/StickRightPress.asset
+  uploadId: 801764

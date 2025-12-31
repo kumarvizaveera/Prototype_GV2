@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 90f2eb9fd17ac3842a79d33db1aa1bb5
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/CameraViews/FirstPersonView.asset
+  uploadId: 801764

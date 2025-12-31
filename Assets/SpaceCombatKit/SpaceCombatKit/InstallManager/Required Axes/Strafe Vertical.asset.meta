@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: e102fc5cc077595488461ba70071f1e1
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/InstallManager/Required Axes/Strafe
+    Vertical.asset
+  uploadId: 801764

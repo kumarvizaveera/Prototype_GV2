@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1bf55bdab1a8f064fb2ed08ba869902b
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/README.txt
+  uploadId: 801764

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a147dd8efeb126849b94ec4f9ef2f2f1
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Weapons/WeaponKit/Meshes/Prefabs/Foot_01.prefab
+  uploadId: 801764

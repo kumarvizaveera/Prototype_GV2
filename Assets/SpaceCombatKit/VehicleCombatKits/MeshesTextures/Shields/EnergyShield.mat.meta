@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 83b356c327adf6c4eacc40c64e13731e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Shields/EnergyShield.mat
+  uploadId: 801764

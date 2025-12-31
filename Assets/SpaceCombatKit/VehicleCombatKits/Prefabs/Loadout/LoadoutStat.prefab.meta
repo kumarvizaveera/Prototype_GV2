@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f1fcb5af7e4d56140be023563f9417e0
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Loadout/LoadoutStat.prefab
+  uploadId: 801764

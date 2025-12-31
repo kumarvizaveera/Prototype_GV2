@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 4678cb968e4bade4ea7cfd4c35e5c1e3
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Scripts/Input/InputSystem/InputActionAssets/LoadoutInputAsset.cs
+  uploadId: 801764

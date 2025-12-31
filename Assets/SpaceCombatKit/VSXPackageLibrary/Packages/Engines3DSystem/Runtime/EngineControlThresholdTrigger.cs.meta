@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 44d7cbbba37a5d44a9c4b57a6fb16155
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/Engines3DSystem/Runtime/EngineControlThresholdTrigger.cs
+  uploadId: 801764

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4576a8884c9259b499868d5efc6293a3
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Loadout/SpaceFighters/LoadoutModuleItem_Gun_BeamPulsed_Twin.prefab
+  uploadId: 801764

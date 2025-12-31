@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: fbd2414837836c14f8dad45a9a828452
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Scripts/Utilities/Useful/Physics/RigidbodyMover.cs
+  uploadId: 801764

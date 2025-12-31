@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ba9b3802bbc43f44daa1c691c5c4d314
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/UI/XBoxControlsIcons/XBoxControls_DPad_Vertical.prefab
+  uploadId: 801764

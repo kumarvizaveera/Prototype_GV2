@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: ad0f34df3f3f77044b7e191d9d507500
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 112000000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Scenes/MainScenes/SCK_ShipInteriors/LightingData.asset
+  uploadId: 801764

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8e4ea61aa4802894ba82027823376113
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Weapons/CapitalShip/Turret_CapitalShip_Template.prefab
+  uploadId: 801764

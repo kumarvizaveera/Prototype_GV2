@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 91646dc78ec780b469ff647749f45a0e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/GamepadControls/DPadVertical.asset
+  uploadId: 801764

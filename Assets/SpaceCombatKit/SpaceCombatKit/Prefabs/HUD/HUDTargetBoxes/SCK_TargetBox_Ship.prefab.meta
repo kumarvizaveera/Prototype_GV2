@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: fe4891def639e0a4bb1e5448e2907b65
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/HUD/HUDTargetBoxes/SCK_TargetBox_Ship.prefab
+  uploadId: 801764

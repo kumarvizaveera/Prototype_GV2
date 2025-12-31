@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6bb136c320a3e524bb59008e36cca049
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/GamepadControls/ShoulderRight.asset
+  uploadId: 801764

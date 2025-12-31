@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 2796243f056d56e42973f70c44130a9b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Vehicles/Ship_LandingGear.prefab
+  uploadId: 801764

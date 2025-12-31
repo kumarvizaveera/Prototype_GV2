@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: a0cf42d025f38a3489d268c8dce78f3b
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/WeaponsSystem/Scripts/GunWeapons/ProjectileWeapons/RigidbodyProjectile.cs
+  uploadId: 801764

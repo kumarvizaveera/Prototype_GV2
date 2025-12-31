@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 36226d487c2962440baca18742e6846c
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/UI/VSX.UI.asmdef
+  uploadId: 801764

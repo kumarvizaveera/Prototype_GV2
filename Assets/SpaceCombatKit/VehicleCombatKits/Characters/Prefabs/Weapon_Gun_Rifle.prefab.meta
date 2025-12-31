@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 96cf353ed4a783048b9942df0b6f5814
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Characters/Prefabs/Weapon_Gun_Rifle.prefab
+  uploadId: 801764

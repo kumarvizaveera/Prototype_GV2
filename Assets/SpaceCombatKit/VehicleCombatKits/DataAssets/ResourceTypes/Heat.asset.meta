@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: ae4c13a14fdf6364093bcb3222ee7133
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/ResourceTypes/Heat.asset
+  uploadId: 801764

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d535d6b5535813a46b9d0839a83fe53f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Package Dependencies/TextMesh
+    Pro/Resources/Fonts & Materials/LiberationSans SDF - Underlay.mat
+  uploadId: 801764

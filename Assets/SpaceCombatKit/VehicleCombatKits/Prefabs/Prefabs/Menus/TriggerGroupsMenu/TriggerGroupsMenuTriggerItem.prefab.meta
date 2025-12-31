@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b134fa0be8af7ea42b0b00c8405401bb
+timeCreated: 1499755348
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Prefabs/Menus/TriggerGroupsMenu/TriggerGroupsMenuTriggerItem.prefab
+  uploadId: 801764

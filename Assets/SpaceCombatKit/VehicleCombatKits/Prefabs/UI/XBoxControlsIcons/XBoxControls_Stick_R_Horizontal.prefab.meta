@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ce2cd8f58352785429f7dace72d1b09d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/UI/XBoxControlsIcons/XBoxControls_Stick_R_Horizontal.prefab
+  uploadId: 801764

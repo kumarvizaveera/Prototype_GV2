@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f5da15f9a239ec947861d03438b320f4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Vehicles/SpaceFighter_Heavy_Hologram.prefab
+  uploadId: 801764

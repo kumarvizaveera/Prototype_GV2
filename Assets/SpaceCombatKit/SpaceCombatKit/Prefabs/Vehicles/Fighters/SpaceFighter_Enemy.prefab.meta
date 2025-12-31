@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 0cf3581f1155fb84f8eca656a6870178
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Vehicles/Fighters/SpaceFighter_Enemy.prefab
+  uploadId: 801764

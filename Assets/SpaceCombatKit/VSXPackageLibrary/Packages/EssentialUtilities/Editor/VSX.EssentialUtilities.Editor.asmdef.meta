@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: abfe9e5a60132ad41bddc6131ebde84a
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/EssentialUtilities/Editor/VSX.EssentialUtilities.Editor.asmdef
+  uploadId: 801764

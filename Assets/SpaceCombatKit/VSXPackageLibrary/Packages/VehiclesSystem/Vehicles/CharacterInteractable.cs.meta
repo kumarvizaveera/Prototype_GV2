@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: ec92a5ce91a9d834cb6dd16b59d655a3
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/VehiclesSystem/Vehicles/CharacterInteractable.cs
+  uploadId: 801764

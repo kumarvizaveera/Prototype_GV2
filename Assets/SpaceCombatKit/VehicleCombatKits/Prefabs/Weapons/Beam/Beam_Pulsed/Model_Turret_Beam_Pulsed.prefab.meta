@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cb4c57793687ea64295acc547ad93056
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Weapons/Beam/Beam_Pulsed/Model_Turret_Beam_Pulsed.prefab
+  uploadId: 801764

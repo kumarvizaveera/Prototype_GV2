@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d852f4f39917bd44894c218a5c3c3941
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Characters/Scripts/Editor/VSX.Characters.Editor.asmdef
+  uploadId: 801764

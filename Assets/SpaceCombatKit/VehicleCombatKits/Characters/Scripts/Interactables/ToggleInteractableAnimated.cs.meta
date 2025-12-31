@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 787d135f586364348be80a7c2929d16c
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Characters/Scripts/Interactables/ToggleInteractableAnimated.cs
+  uploadId: 801764

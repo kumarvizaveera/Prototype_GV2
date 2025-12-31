@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 03e326d90c7cda84cbf0ffad37fb024b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/HealthModifierTypes/Collision.asset
+  uploadId: 801764

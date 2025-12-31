@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: d7b6f386cd1946f48889b113f4832c99
+timeCreated: 1499751471
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/WeaponsSystem/Scripts/Triggerables/Menu/TriggerGroupsMenuLabelItemController.cs
+  uploadId: 801764

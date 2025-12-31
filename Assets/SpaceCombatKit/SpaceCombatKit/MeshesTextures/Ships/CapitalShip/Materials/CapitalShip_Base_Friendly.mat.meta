@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5da00b171f6801c48ade3e3c3d05afdf
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/MeshesTextures/Ships/CapitalShip/Materials/CapitalShip_Base_Friendly.mat
+  uploadId: 801764

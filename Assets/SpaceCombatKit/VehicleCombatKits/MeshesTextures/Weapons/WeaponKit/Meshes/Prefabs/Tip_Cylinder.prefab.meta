@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7e535ed5a14912e4fbb9c0112c9575a5
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Weapons/WeaponKit/Meshes/Prefabs/Tip_Cylinder.prefab
+  uploadId: 801764

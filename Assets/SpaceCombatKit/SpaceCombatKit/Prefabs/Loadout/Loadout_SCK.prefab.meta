@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7fde5a737be485a46b7ca4a462aa557b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Loadout/Loadout_SCK.prefab
+  uploadId: 801764

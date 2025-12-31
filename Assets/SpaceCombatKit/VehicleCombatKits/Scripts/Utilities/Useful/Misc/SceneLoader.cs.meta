@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: cbf7a02bc03fd734bb1a07a4f239c959
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Scripts/Utilities/Useful/Misc/SceneLoader.cs
+  uploadId: 801764

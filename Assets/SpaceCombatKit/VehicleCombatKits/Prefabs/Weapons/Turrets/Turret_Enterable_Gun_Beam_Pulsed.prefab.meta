@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5011ae2b8cf1ce942a9ca4af27c0be86
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Weapons/Turrets/Turret_Enterable_Gun_Beam_Pulsed.prefab
+  uploadId: 801764

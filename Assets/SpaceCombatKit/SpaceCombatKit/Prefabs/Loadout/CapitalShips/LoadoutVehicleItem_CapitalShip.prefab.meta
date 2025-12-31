@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 920773c4b1f66bf4284df81ab7e1cb1c
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Loadout/CapitalShips/LoadoutVehicleItem_CapitalShip.prefab
+  uploadId: 801764

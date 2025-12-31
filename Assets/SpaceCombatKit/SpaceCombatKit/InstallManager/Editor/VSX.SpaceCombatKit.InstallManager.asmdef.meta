@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b0a5d9f7f08999348bd8295a10400a20
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/InstallManager/Editor/VSX.SpaceCombatKit.InstallManager.asmdef
+  uploadId: 801764

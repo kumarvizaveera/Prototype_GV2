@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 1cde4cfb392d6a24c9161711fd7ddcda
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/GameStateSystem/GameStateCondition.cs
+  uploadId: 801764

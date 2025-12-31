@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 64d381e71e4fa644d922602b079b262d
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/ObjectivesSystem/VSX.Objectives.asmdef
+  uploadId: 801764

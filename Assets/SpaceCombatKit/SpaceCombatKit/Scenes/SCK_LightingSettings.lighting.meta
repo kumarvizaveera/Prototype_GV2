@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 34ba37e4ac27a224597af72d060c2ac7
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 4890085278179872738
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Scenes/SCK_LightingSettings.lighting
+  uploadId: 801764

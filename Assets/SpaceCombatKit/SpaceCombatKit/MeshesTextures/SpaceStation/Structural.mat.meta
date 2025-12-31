@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 23c454488aa84b242abe08c7ed3e7a0c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/MeshesTextures/SpaceStation/Structural.mat
+  uploadId: 801764

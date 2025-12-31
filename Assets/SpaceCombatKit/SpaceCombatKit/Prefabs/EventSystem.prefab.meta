@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d8b8f509e8a6f704a956b0e0d2dc1b7d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/EventSystem.prefab
+  uploadId: 801764

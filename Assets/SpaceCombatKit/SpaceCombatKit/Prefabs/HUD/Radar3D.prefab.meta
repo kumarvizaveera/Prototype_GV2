@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 35db48c70c802ea4a928adcf8d25fc39
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/HUD/Radar3D.prefab
+  uploadId: 801764

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 810acd0b95887114d9b03a204542e7a5
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/Engines3DSystem/Editor/VehicleEngines3DEditor.cs
+  uploadId: 801764

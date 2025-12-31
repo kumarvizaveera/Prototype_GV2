@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 2415e2c064cc4e14580a797e719a02db
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Scenes/MainScenes/SCK_MainMenu.unity
+  uploadId: 801764

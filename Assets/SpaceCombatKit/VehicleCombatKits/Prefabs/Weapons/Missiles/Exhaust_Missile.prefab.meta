@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b23f18f1346ace14e98f3e1172c52972
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Weapons/Missiles/Exhaust_Missile.prefab
+  uploadId: 801764

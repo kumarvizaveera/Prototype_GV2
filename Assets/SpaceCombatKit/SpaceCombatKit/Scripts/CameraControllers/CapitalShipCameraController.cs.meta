@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 1665a57031f06f04bbad4b3df67d6080
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Scripts/CameraControllers/CapitalShipCameraController.cs
+  uploadId: 801764

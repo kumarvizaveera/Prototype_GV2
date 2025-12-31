@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: db7c10b91bb5bf04ebaa23acf7f5d28a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Prefabs/Resources/Explosions_Standard/Explosion_Standard_Large.prefab
+  uploadId: 801764

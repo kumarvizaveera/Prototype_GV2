@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 86ed2168ea12a63499f6ee1b920cc454
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Prefabs/Radar3D/RadarWidget3D_Waypoint.prefab
+  uploadId: 801764

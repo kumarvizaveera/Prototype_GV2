@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8849994249cd811498a169c6a3eaf51b
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Scenes/MainScenes/SCK_SpaceFighters.unity
+  uploadId: 801764

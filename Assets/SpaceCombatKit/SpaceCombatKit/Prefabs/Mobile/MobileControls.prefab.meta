@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 10ea13c2adc20f64780ff7302a2f0e92
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Mobile/MobileControls.prefab
+  uploadId: 801764

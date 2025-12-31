@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d5b0d2f18a0ed06458b6ec990e225a5a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/MeshesTextures/Ships/SpaceFighter/Materials/SpaceFighter_Canopy_Outside.mat
+  uploadId: 801764

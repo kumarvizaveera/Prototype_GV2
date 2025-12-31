@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 3e894105d49d8da4f9875e503e165843
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Weapons/Turrets/Turret_Enterable_Missile.prefab
+  uploadId: 801764

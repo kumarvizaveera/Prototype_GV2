@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 028434632c94d5146b4cc5e59f028c69
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/MeshesTextures/SpaceStation/Light_Blue.mat
+  uploadId: 801764

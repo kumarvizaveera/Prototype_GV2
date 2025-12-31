@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4f959f18a23c59949aba960dd7bc8222
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Vehicles/CapitalShip/HUDHealth_CapitalShip.prefab
+  uploadId: 801764

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1ce9d774e0e51cb40820695be1d4e62e
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Scripts/Utilities/Useful/VSX.Utilities.Useful.asmdef
+  uploadId: 801764

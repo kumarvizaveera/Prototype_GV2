@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 201348ab521ec4845af3d70ed16ae0f0
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/UI/XBoxControlsIcons/XBoxControls_Shoulder_L.prefab
+  uploadId: 801764

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: c69abf0ddfa3f604a85acb1908af7979
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/EssentialUtilities/Volumes/VolumeManager.cs
+  uploadId: 801764

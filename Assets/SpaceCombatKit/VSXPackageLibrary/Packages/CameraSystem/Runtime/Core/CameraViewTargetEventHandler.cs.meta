@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 3cd58bc342860924c87288c7342fd568
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/CameraSystem/Runtime/Core/CameraViewTargetEventHandler.cs
+  uploadId: 801764

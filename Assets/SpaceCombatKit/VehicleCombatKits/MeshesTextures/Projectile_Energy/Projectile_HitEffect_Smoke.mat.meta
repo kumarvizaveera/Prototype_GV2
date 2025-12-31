@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a8cdc8cf8d6d7a04c9a0fe59a180c025
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Projectile_Energy/Projectile_HitEffect_Smoke.mat
+  uploadId: 801764

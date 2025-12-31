@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a31b77b54695e0a469debf85b3c6c495
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Characters/Scripts/Input/PlayerInput_InputManager_FirstPersonCharacterControls.cs
+  uploadId: 801764

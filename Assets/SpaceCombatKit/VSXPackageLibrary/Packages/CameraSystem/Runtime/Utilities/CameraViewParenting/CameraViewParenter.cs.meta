@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 566a8f6d9386c204a9c841e01f10441f
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/CameraSystem/Runtime/Utilities/CameraViewParenting/CameraViewParenter.cs
+  uploadId: 801764

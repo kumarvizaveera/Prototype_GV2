@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 32c9443addf5ac84283bdb42fc2fc888
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/VehicleInteriorRendering/VSX.Vehicles.InteriorRendering.asmdef
+  uploadId: 801764

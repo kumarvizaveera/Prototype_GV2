@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: c153a68472eaa3d44a89937344d26e93
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Scripts/AI/SpaceshipFormationBehaviour.cs
+  uploadId: 801764

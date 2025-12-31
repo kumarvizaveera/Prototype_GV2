@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5db9ac5656eabbe4daa5e4bb277f77eb
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/ModuleTypes/Resources/MissileWeapon.asset
+  uploadId: 801764

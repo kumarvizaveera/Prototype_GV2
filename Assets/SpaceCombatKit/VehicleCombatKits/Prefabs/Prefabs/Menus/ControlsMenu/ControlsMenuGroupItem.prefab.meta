@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: da5b24f96381ad14fb896c78bd8f6ec0
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Prefabs/Menus/ControlsMenu/ControlsMenuGroupItem.prefab
+  uploadId: 801764

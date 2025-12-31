@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5b59fbcb9af5be44dabc1e873b183ada
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/DataAssets/VehicleClasses/Turret.asset
+  uploadId: 801764

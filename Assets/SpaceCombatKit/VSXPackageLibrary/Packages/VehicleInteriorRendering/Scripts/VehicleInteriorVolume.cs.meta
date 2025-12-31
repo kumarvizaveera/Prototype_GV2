@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 5da23375e00a5fb4ba959e99145967c1
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/VehicleInteriorRendering/Scripts/VehicleInteriorVolume.cs
+  uploadId: 801764

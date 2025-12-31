@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1cbba6122d094de43855a72e05730aae
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Vehicles/CapitalShip/CapitalShip_Part_Bridge.prefab
+  uploadId: 801764

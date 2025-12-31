@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 43371a107099a8b41b3c7c48df2b8480
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/Controls/Common/VSX.Controls.asmdef
+  uploadId: 801764

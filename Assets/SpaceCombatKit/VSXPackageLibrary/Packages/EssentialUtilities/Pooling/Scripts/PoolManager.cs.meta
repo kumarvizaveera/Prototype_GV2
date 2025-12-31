@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: e44f750be980295409cecf31d4d13db4
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/EssentialUtilities/Pooling/Scripts/PoolManager.cs
+  uploadId: 801764

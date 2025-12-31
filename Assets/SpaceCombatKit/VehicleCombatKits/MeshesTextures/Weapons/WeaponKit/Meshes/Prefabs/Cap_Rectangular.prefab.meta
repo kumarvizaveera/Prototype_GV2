@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 6b33ef797f97fbb4eb66931005213468
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Weapons/WeaponKit/Meshes/Prefabs/Cap_Rectangular.prefab
+  uploadId: 801764

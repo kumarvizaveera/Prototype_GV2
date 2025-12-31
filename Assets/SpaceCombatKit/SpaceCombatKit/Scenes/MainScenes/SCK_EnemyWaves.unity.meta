@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8a4288098fa4c804d9b5440a8fabea5d
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Scenes/MainScenes/SCK_EnemyWaves.unity
+  uploadId: 801764

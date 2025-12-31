@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 35d39c21261cc1e49a8c8a95be19ec23
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/EssentialUtilities/AimControllerBase.cs
+  uploadId: 801764

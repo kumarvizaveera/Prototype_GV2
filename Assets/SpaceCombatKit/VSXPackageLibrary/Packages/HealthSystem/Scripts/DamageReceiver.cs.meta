@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 55a02bc56ef76a84eb9912465a09b49c
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/HealthSystem/Scripts/DamageReceiver.cs
+  uploadId: 801764

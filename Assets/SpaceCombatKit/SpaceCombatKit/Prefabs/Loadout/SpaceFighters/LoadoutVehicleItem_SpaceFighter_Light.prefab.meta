@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7f52879bfcab28c44879d0a895411a26
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Loadout/SpaceFighters/LoadoutVehicleItem_SpaceFighter_Light.prefab
+  uploadId: 801764

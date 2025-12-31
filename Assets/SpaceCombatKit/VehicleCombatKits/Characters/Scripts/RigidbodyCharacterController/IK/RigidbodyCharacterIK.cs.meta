@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 2fa01dd3da7158f4aabec6a11742b792
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Characters/Scripts/RigidbodyCharacterController/IK/RigidbodyCharacterIK.cs
+  uploadId: 801764

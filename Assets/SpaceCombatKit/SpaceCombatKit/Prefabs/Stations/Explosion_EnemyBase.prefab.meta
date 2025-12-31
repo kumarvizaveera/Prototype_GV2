@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: dcdff8e5a23c50840944177c366d6460
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/Prefabs/Stations/Explosion_EnemyBase.prefab
+  uploadId: 801764

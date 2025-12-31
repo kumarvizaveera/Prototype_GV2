@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 56fab148c2378b0439151c8f6e08db14
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Prefabs/Debris.prefab
+  uploadId: 801764

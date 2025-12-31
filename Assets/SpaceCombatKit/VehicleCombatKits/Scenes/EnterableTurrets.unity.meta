@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: dbfdc6cceaf2f7d4dbcf5464d0fd27e3
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Scenes/EnterableTurrets.unity
+  uploadId: 801764

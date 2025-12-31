@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 66fe034133c1ad24589e3f630d2afd04
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/MeshesTextures/Ships/SpaceFighter/SpaceFighterShield_Collider.prefab
+  uploadId: 801764

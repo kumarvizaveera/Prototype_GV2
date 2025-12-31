@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5b0bdfb6ca166b24da25c6401625ede1
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/MeshesTextures/Weapons/WeaponKit/Meshes/Prefabs/Orifice_Cylinder.prefab
+  uploadId: 801764

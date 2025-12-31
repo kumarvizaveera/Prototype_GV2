@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 6f1285fc6e25b4741b84e80312765b0c
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/VehiclesSystem/GameAgents/IGameAgentOwnable.cs
+  uploadId: 801764

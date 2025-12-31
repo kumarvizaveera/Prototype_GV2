@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d8b7f4fa9077be04ca5d054016b33fde
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/UI/XBoxControlsIcons/XBoxControls_MenuButton.prefab
+  uploadId: 801764

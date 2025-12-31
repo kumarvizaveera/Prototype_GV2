@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 0263bddc0d9bfc34890c97870aefb0c1
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Weapons/Beam/Beam_Pulsed/WeaponUnit_Gun_Beam_Pulsed.prefab
+  uploadId: 801764

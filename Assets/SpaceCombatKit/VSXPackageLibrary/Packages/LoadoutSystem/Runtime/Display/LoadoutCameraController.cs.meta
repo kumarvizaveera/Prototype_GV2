@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 4356b8dc4455e4a499a747e882c89cd7
+timeCreated: 1526255600
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VSXPackageLibrary/Packages/LoadoutSystem/Runtime/Display/LoadoutCameraController.cs
+  uploadId: 801764

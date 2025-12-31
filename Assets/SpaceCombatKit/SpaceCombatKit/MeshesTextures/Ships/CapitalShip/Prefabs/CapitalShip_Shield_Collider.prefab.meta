@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 3bd622cfb99e5114db2660b4ae24f5cf
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/SpaceCombatKit/MeshesTextures/Ships/CapitalShip/Prefabs/CapitalShip_Shield_Collider.prefab
+  uploadId: 801764

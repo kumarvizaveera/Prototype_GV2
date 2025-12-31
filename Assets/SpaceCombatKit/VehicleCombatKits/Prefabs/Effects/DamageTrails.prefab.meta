@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 6319801439a670a4887ebdfdd70e844b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 108097
+  packageName: Space Combat Kit
+  packageVersion: 2.11.1
+  assetPath: Assets/SpaceCombatKit/VehicleCombatKits/Prefabs/Effects/DamageTrails.prefab
+  uploadId: 801764
