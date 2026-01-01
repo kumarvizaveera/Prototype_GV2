@@ -389,7 +389,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: +12
+  m_text: +11
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -670,7 +670,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: +12
+  m_text: +11
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -885,7 +885,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: +12
+  m_text: +11
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -1092,7 +1092,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 3bc9997d53f41154d8b8a81970f9a6d2, type: 2}
+  - {fileID: 2100000, guid: 20d029f1bd2a3f34e99fc02538ba8feb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1155,11 +1155,11 @@ MonoBehaviour:
   playerTag: Player
   cooldownSeconds: 1
   keepVelocity: 1
-  behindDistanceOnPath: 8
+  behindDistanceOnPath: 2
   upOffset: 0
   rightOffset: 0
   autoPilotAfterTeleport: 1
-  autoPilotSeconds: 1.5
+  autoPilotSeconds: 1
   autoPilotUseCurrentSpeed: 1
   autoPilotSpeed: 50
   autoPilotSpeedMultiplier: 1
@@ -1270,7 +1270,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: +12
+  m_text: +11
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -1663,4 +1663,4 @@ MonoBehaviour:
   rollInterval: 5
   rollOnStart: 1
   isForward: 1
-  diceValue: 12
+  diceValue: 11
