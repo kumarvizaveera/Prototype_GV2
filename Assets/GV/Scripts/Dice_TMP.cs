@@ -13,8 +13,6 @@ public class DiceRingIndicator : MonoBehaviour
     [Header("TMP Text Color")]
     [Tooltip("If enabled, TMP text color changes to forward/backward color.")]
     public bool colorizeTMP = true;
-
-    [Tooltip("Use these colors for TMP when 'colorizeTMP' is enabled.")]
     public Color tmpForwardGreen = Color.green;
     public Color tmpBackwardRed = Color.red;
 
@@ -23,10 +21,7 @@ public class DiceRingIndicator : MonoBehaviour
     [Min(1)] public int maxValue = 6;
 
     [Header("Backward (Minus) Restriction")]
-    [Tooltip("If true, backward (red) dice value is capped to 'maxBackwardValue'.")]
     public bool restrictBackwardMax = true;
-
-    [Tooltip("Maximum value allowed when backward (red). Example: 6 means -1..-6 only.")]
     [Min(1)] public int maxBackwardValue = 6;
 
     [Header("Visual (Emission)")]
@@ -40,6 +35,13 @@ public class DiceRingIndicator : MonoBehaviour
     public bool autoRoll = true;
     [Min(0.05f)] public float rollInterval = 0.5f;
     public bool rollOnStart = true;
+
+    [Header("TMP Face Camera (Auto)")]
+    public bool faceCamera = true;
+    [Tooltip("If true, rotates only around world Y (keeps text upright).")]
+    public bool faceYawOnly = true;
+    [Tooltip("Flip if text appears backwards.")]
+    public bool invertFacing = false;
 
     [Header("Read-only (for later teleport logic)")]
     [SerializeField] private bool isForward = true;
@@ -58,6 +60,7 @@ public class DiceRingIndicator : MonoBehaviour
 
         if (Application.isPlaying && rollOnStart) Roll();
         ApplyVisuals();
+        FaceAllTMP();
     }
 
     void Update()
@@ -76,6 +79,12 @@ public class DiceRingIndicator : MonoBehaviour
             _t = 0f;
             Roll();
         }
+    }
+
+    // Run AFTER other scripts so it doesn't get overwritten.
+    void LateUpdate()
+    {
+        FaceAllTMP();
     }
 
     [ContextMenu("Roll Now")]
@@ -109,14 +118,11 @@ public class DiceRingIndicator : MonoBehaviour
 
     void ApplyVisuals()
     {
-        // Text string
         string s = showSign ? ((isForward ? "+" : "-") + diceValue) : diceValue.ToString();
 
-        // Colors
         Color ringBaseCol = isForward ? forwardGreen : backwardRed;
         Color tmpCol = isForward ? tmpForwardGreen : tmpBackwardRed;
 
-        // TMP update
         if (tmpTexts != null)
         {
             for (int i = 0; i < tmpTexts.Length; i++)
@@ -125,9 +131,7 @@ public class DiceRingIndicator : MonoBehaviour
                 if (!t) continue;
 
                 t.text = s;
-
-                if (colorizeTMP)
-                    t.color = tmpCol;
+                if (colorizeTMP) t.color = tmpCol;
 
 #if UNITY_EDITOR
                 t.ForceMeshUpdate();
@@ -135,7 +139,6 @@ public class DiceRingIndicator : MonoBehaviour
             }
         }
 
-        // Emission update
         Color emissionCol = ringBaseCol * emissionIntensity;
 
         if (_mpb == null) _mpb = new MaterialPropertyBlock();
@@ -152,6 +155,79 @@ public class DiceRingIndicator : MonoBehaviour
                 r.SetPropertyBlock(_mpb);
             }
         }
+    }
+
+    void FaceAllTMP()
+    {
+        if (!faceCamera || tmpTexts == null || tmpTexts.Length == 0) return;
+
+        Camera cam = GetBestCamera();
+        if (!cam) return;
+
+        Vector3 camPos = cam.transform.position;
+
+        for (int i = 0; i < tmpTexts.Length; i++)
+        {
+            var t = tmpTexts[i];
+            if (!t) continue;
+
+            Transform tr = t.transform;
+
+            Vector3 dir = camPos - tr.position;   // text -> camera
+            if (faceYawOnly) dir.y = 0f;
+
+            if (dir.sqrMagnitude < 0.000001f) continue;
+
+            Quaternion rot = Quaternion.LookRotation(dir.normalized, Vector3.up);
+            if (invertFacing) rot *= Quaternion.Euler(0f, 180f, 0f);
+
+            tr.rotation = rot;
+        }
+    }
+
+    Camera GetBestCamera()
+    {
+        // 1) Play Mode: Main Camera if tagged
+        if (Application.isPlaying)
+        {
+            var main = Camera.main;
+            if (main && main.isActiveAndEnabled) return main;
+        }
+
+        // 2) Any enabled camera (highest depth wins)
+        Camera best = null;
+        float bestDepth = float.NegativeInfinity;
+
+        int n = Camera.allCamerasCount;
+        if (n > 0)
+        {
+            var cams = new Camera[n];
+            Camera.GetAllCameras(cams);
+            for (int i = 0; i < cams.Length; i++)
+            {
+                var c = cams[i];
+                if (!c || !c.isActiveAndEnabled) continue;
+                if (c.depth >= bestDepth)
+                {
+                    bestDepth = c.depth;
+                    best = c;
+                }
+            }
+            if (best) return best;
+        }
+
+        // 3) Edit Mode fallback: SceneView camera
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            var sv = UnityEditor.SceneView.lastActiveSceneView;
+            if (sv != null && sv.camera != null) return sv.camera;
+        }
+#endif
+
+        // 4) Last resort
+        if (Camera.current) return Camera.current;
+        return null;
     }
 
     void EnableEmissionKeyword()
@@ -181,5 +257,6 @@ public class DiceRingIndicator : MonoBehaviour
         if (_mpb == null) _mpb = new MaterialPropertyBlock();
         EnableEmissionKeyword();
         ApplyVisuals();
+        FaceAllTMP();
     }
 }

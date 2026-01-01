@@ -308,7 +308,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2841196773540911189}
-  m_LocalRotation: {x: 0, y: -1, z: 0, w: 0}
+  m_LocalRotation: {x: -0, y: 0.035854984, z: -0, w: -0.99935704}
   m_LocalPosition: {x: 0, y: 0, z: 45.897476}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -495,6 +495,9 @@ MonoBehaviour:
   autoRoll: 1
   rollInterval: 3
   rollOnStart: 1
+  faceCamera: 1
+  faceYawOnly: 1
+  invertFacing: 0
   isForward: 0
   diceValue: 6
 --- !u!1 &3065138055779325133
@@ -589,7 +592,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4417313310622268095}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: -0, y: 0.9896667, z: -0, w: 0.14338729}
   m_LocalPosition: {x: 0, y: 0, z: -46.55}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -776,6 +779,9 @@ MonoBehaviour:
   autoRoll: 1
   rollInterval: 3
   rollOnStart: 1
+  faceCamera: 1
+  faceYawOnly: 1
+  invertFacing: 0
   isForward: 0
   diceValue: 4
 --- !u!1 &4484468792415180643
@@ -804,7 +810,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4484468792415180643}
-  m_LocalRotation: {x: -0, y: 0.7071068, z: -0, w: 0.7071068}
+  m_LocalRotation: {x: -0, y: 0.6742919, z: -0, w: -0.7384649}
   m_LocalPosition: {x: 0, y: 0, z: -11.26946}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -991,6 +997,9 @@ MonoBehaviour:
   autoRoll: 1
   rollInterval: 3
   rollOnStart: 1
+  faceCamera: 1
+  faceYawOnly: 1
+  invertFacing: 0
   isForward: 0
   diceValue: 6
 --- !u!1 &4845797989219989338
@@ -1189,7 +1198,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7316546376659457468}
-  m_LocalRotation: {x: -0, y: -0.7071068, z: -0, w: 0.7071068}
+  m_LocalRotation: {x: -0, y: 0.5216045, z: -0, w: 0.85318744}
   m_LocalPosition: {x: 0, y: 0, z: 7.05054}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -1376,6 +1385,9 @@ MonoBehaviour:
   autoRoll: 1
   rollInterval: 3
   rollOnStart: 1
+  faceCamera: 1
+  faceYawOnly: 1
+  invertFacing: 0
   isForward: 1
   diceValue: 2
 --- !u!1 &8482705978456437519
@@ -1662,5 +1674,8 @@ MonoBehaviour:
   autoRoll: 1
   rollInterval: 5
   rollOnStart: 1
+  faceCamera: 1
+  faceYawOnly: 1
+  invertFacing: 1
   isForward: 1
   diceValue: 11
