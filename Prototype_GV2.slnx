@@ -11,6 +11,7 @@
   <Project Path="VSX.Weapons.csproj" />
   <Project Path="VSX.Characters.csproj" />
   <Project Path="VSX.Vehicles.ControlAnimations.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="VSX.EssentialUtilities.csproj" />
   <Project Path="VSX.ResourceSystem.csproj" />
   <Project Path="VSX.Controls.UnityInputSystem.csproj" />
@@ -19,7 +20,6 @@
   <Project Path="VSX.Rumbles.csproj" />
   <Project Path="VSX.Loadouts.csproj" />
   <Project Path="VSX.SpaceCombatKit.InstallManager.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="VSX.GameStates.csproj" />
   <Project Path="VSX.Controls.csproj" />
   <Project Path="VSX.Vehicles.InteriorRendering.csproj" />
