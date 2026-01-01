@@ -26,6 +26,7 @@ Material:
   m_ModifiedSerializedProperties: 18
   m_ValidKeywords:
   - _ALPHAPREMULTIPLY_ON
+  - _EMISSION
   - _SURFACE_TYPE_TRANSPARENT
   m_InvalidKeywords: []
   m_LightmapFlags: 0
@@ -75,7 +76,7 @@ Material:
     - _DstBlend: 10
     - _DstBlendAlpha: 10
     - _Metallic: 0
-    - _Smoothness: 1
+    - _Smoothness: 0.59000003
     - _Surface: 1
     - _ZWrite: 0
     m_Colors:
