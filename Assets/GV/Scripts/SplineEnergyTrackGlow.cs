@@ -27,7 +27,14 @@ public class SplineEnergyTrackGlow : MonoBehaviour
     [Header("Glow Colors")]
     public Color baseGlowColor = Color.cyan;
     public Color highlightGlowColor = Color.magenta;
-    [Min(0f)] public float emissionIntensity = 5f;
+
+    [Header("Glow Intensities")]
+    [Min(0f)] public float baseIntensity = 2.5f;
+    [Min(0f)] public float highlightIntensity = 5f;
+
+    [Tooltip("If your shader only has a single _Intensity property, this will be set to baseIntensity for backward compatibility.")]
+    public bool setLegacyIntensityToo = true;
+
     public Vector2 emissionMaskTiling = new Vector2(10f, 1f);
 
     [Header("Dynamic Highlight Window (meters)")]
@@ -50,7 +57,14 @@ public class SplineEnergyTrackGlow : MonoBehaviour
     // Shader property IDs
     static readonly int BaseColorID = Shader.PropertyToID("_BaseColor");
     static readonly int PulseColorID = Shader.PropertyToID("_PulseColor");
+
+    // New: separate intensities
+    static readonly int BaseIntensityID = Shader.PropertyToID("_BaseIntensity");
+    static readonly int PulseIntensityID = Shader.PropertyToID("_PulseIntensity");
+
+    // Legacy (single intensity) support
     static readonly int IntensityID = Shader.PropertyToID("_Intensity");
+
     static readonly int MaskTilingID = Shader.PropertyToID("_MaskTiling");
     static readonly int WindowStartID = Shader.PropertyToID("_WindowStart");
     static readonly int WindowEndID = Shader.PropertyToID("_WindowEnd");
@@ -123,7 +137,15 @@ public class SplineEnergyTrackGlow : MonoBehaviour
 
         mat.SetColor(BaseColorID, baseGlowColor);
         mat.SetColor(PulseColorID, highlightGlowColor);
-        mat.SetFloat(IntensityID, emissionIntensity);
+
+        // New: separate intensity properties (your shader must support these)
+        mat.SetFloat(BaseIntensityID, baseIntensity);
+        mat.SetFloat(PulseIntensityID, highlightIntensity);
+
+        // Backward compatibility: old shader uses only _Intensity
+        if (setLegacyIntensityToo)
+            mat.SetFloat(IntensityID, baseIntensity);
+
         mat.SetVector(MaskTilingID, new Vector4(emissionMaskTiling.x, emissionMaskTiling.y, 0, 0));
     }
 
@@ -249,7 +271,7 @@ public class SplineEnergyTrackGlow : MonoBehaviour
         // Approx distance along track (meters)
         float distApprox = tNorm * totalLenWorld;
 
-        // NEW: apply independent offsets to start/end
+        // apply independent offsets to start/end
         float startDist = distApprox - highlightLengthBehind + startOffsetMeters;
         float endDist   = distApprox + highlightLengthAhead + endOffsetMeters;
 
@@ -263,7 +285,6 @@ public class SplineEnergyTrackGlow : MonoBehaviour
             startDist = Mathf.Clamp(startDist, 0f, totalLenWorld);
             endDist = Mathf.Clamp(endDist, 0f, totalLenWorld);
 
-            // Keep valid ordering on non-loop splines
             if (endDist < startDist) endDist = startDist;
         }
 

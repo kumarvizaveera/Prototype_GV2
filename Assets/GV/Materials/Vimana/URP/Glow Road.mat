@@ -113,12 +113,12 @@ Material:
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
-    - _EdgeSoftness: 0.0017540172
+    - _EdgeSoftness: 0.0014981142
     - _EnvironmentReflections: 1
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
-    - _Intensity: 1
+    - _Intensity: 0.5
     - _IsLoop: 1
     - _Metallic: 0
     - _OcclusionStrength: 1
@@ -131,8 +131,8 @@ Material:
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _WindowEnd: 0.0054194387
-    - _WindowStart: 0.0036654219
+    - _WindowEnd: 0.038915027
+    - _WindowStart: 0.037416913
     - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
