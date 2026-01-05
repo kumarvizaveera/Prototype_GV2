@@ -21,6 +21,10 @@ public class SplineEnergyTrackGlow : MonoBehaviour
 
     public bool doubleSided = true;
 
+    [Header("Track Rotation")]
+    [Tooltip("Roll (bank) the ribbon cross-section around the spline tangent (in DEGREES).")]
+    [Range(-180f, 180f)] public float rollDegrees = 0f;
+
     [Header("Material")]
     public Material trackMaterial;
 
@@ -201,6 +205,13 @@ public class SplineEnergyTrackGlow : MonoBehaviour
             Vector3 tanLocal = tr.InverseTransformDirection(tanWorld).normalized;
             Vector3 upLocal = tr.InverseTransformDirection(upWorld).normalized;
 
+            // NEW: roll/bank the cross-section around the tangent
+            if (Mathf.Abs(rollDegrees) > 0.0001f && tanLocal.sqrMagnitude > 1e-8f)
+            {
+                var rollQ = Quaternion.AngleAxis(rollDegrees, tanLocal);
+                upLocal = (rollQ * upLocal).normalized;
+            }
+
             Vector3 rightLocal = Vector3.Cross(upLocal, tanLocal);
             if (rightLocal.sqrMagnitude < 1e-8f)
                 rightLocal = Vector3.right;
@@ -273,7 +284,7 @@ public class SplineEnergyTrackGlow : MonoBehaviour
 
         // apply independent offsets to start/end
         float startDist = distApprox - highlightLengthBehind + startOffsetMeters;
-        float endDist   = distApprox + highlightLengthAhead + endOffsetMeters;
+        float endDist = distApprox + highlightLengthAhead + endOffsetMeters;
 
         if (isLoop)
         {

@@ -1,13 +1,14 @@
 using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
+using UnityEngine.Rendering;
 
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
 /// <summary>
-/// Procedurally builds a ribbon "road" mesh along a Unity SplineContainer.
+/// Procedurally builds a CYLINDRICAL "tunnel" mesh along a Unity SplineContainer.
 /// Attach to the SAME GameObject that has SplineContainer.
 /// Requires MeshFilter + MeshRenderer.
 /// </summary>
@@ -22,13 +23,21 @@ public class SplineAerialRoadMesh : MonoBehaviour
 
     [Header("Shape")]
     [Min(8)] public int samples = 256;
+
+    [Tooltip("For tunnel: this is the DIAMETER (radius = width * 0.5).")]
     [Min(0.01f)] public float width = 6f;
 
-    [Tooltip("Offsets the road along the spline up-vector (world space).")]
+    [Tooltip("Offsets the tunnel center along the spline up-vector (world space).")]
     public float verticalOffset = 0f;
 
+    [Header("Tunnel")]
+    [Min(3)] public int radialSegments = 24;
+
+    [Tooltip("If true, the tunnel is visible from INSIDE (triangles face inward).")]
+    public bool inwardFacing = true;
+
     [Header("UVs")]
-    [Tooltip("X = across width (0..1), Y = tiling per meter along length.")]
+    [Tooltip("X = around circumference (0..1), Y = tiling per meter along length.")]
     public Vector2 uvTiling = new Vector2(1f, 0.25f);
 
     [Header("Options")]
@@ -56,7 +65,6 @@ public class SplineAerialRoadMesh : MonoBehaviour
     void OnDisable()
     {
 #if UNITY_EDITOR
-        // Clean up the generated mesh in edit mode to avoid leaks in the editor.
         if (!Application.isPlaying && _mesh != null)
         {
             DestroyImmediate(_mesh);
@@ -86,19 +94,23 @@ public class SplineAerialRoadMesh : MonoBehaviour
             return;
 
         splineIndex = Mathf.Clamp(splineIndex, 0, _container.Splines.Count - 1);
-        int s = Mathf.Max(samples, 2);
 
-        int vertCount = s * 2;
+        int s = Mathf.Max(samples, 2);
+        int rSeg = Mathf.Max(radialSegments, 3);
+        int ringVertCount = rSeg + 1; // duplicate seam vertex for clean UV wrap
+        float radius = width * 0.5f;
+
+        int vertCount = s * ringVertCount;
         var verts = new Vector3[vertCount];
         var normals = new Vector3[vertCount];
         var uvs = new Vector2[vertCount];
 
         int segCount = s - 1;
-        int trisPerSeg = doubleSided ? 12 : 6;
-        var tris = new int[segCount * trisPerSeg];
+        int quadCount = segCount * rSeg;
+        int trisPerQuad = doubleSided ? 12 : 6;
+        var tris = new int[quadCount * trisPerQuad];
 
         float distance = 0f;
-
         Vector3 prevPWorld = Vector3.zero;
         Vector3 prevRight = Vector3.right;
 
@@ -106,7 +118,6 @@ public class SplineAerialRoadMesh : MonoBehaviour
         {
             float t = (s == 1) ? 0f : (i / (float)(s - 1));
 
-            // Fast path: get pos/tangent/up in one call. :contentReference[oaicite:1]{index=1}
             if (!_container.Evaluate(splineIndex, t, out float3 pos, out float3 tangent, out float3 up))
                 continue;
 
@@ -114,7 +125,7 @@ public class SplineAerialRoadMesh : MonoBehaviour
             Vector3 tan = ((Vector3)tangent).normalized;
             Vector3 upv = ((Vector3)up).normalized;
 
-            // Build a stable-ish frame: right = up x tangent
+            // Stable-ish frame: right = up x tangent
             Vector3 right = Vector3.Cross(upv, tan);
             if (right.sqrMagnitude < 1e-8f)
                 right = Vector3.Cross(transform.up, tan);
@@ -125,51 +136,85 @@ public class SplineAerialRoadMesh : MonoBehaviour
             upv = Vector3.Cross(tan, right).normalized;
             prevRight = right;
 
-            // Offset along up vector (world)
+            // Offset centerline along up vector (world)
             p += upv * verticalOffset;
 
             if (i > 0) distance += Vector3.Distance(prevPWorld, p);
             prevPWorld = p;
 
-            float halfW = width * 0.5f;
-
-            // Store vertices in LOCAL space of this object
-            int vi = i * 2;
-            verts[vi + 0] = transform.InverseTransformPoint(p - right * halfW);
-            verts[vi + 1] = transform.InverseTransformPoint(p + right * halfW);
-
-            // Normals in LOCAL space
-            Vector3 nLocal = transform.InverseTransformDirection(upv).normalized;
-            normals[vi + 0] = nLocal;
-            normals[vi + 1] = nLocal;
-
             float v = distance * uvTiling.y;
-            uvs[vi + 0] = new Vector2(0f * uvTiling.x, v);
-            uvs[vi + 1] = new Vector2(1f * uvTiling.x, v);
+
+            int baseVi = i * ringVertCount;
+
+            for (int j = 0; j <= rSeg; j++)
+            {
+                float u01 = j / (float)rSeg;
+                float ang = u01 * Mathf.PI * 2f;
+
+                // Outward direction from tunnel center at this ring
+                Vector3 dir = (Mathf.Cos(ang) * right) + (Mathf.Sin(ang) * upv);
+
+                Vector3 worldV = p + dir * radius;
+
+                int vi = baseVi + j;
+                verts[vi] = transform.InverseTransformPoint(worldV);
+
+                Vector3 nWorld = inwardFacing ? -dir : dir;
+                normals[vi] = transform.InverseTransformDirection(nWorld).normalized;
+
+                uvs[vi] = new Vector2(u01 * uvTiling.x, v);
+            }
         }
 
         int ti = 0;
         for (int i = 0; i < segCount; i++)
         {
-            int a = i * 2 + 0;
-            int b = i * 2 + 1;
-            int c = i * 2 + 2;
-            int d = i * 2 + 3;
+            int ring0 = i * ringVertCount;
+            int ring1 = (i + 1) * ringVertCount;
 
-            // Top face
-            tris[ti++] = a; tris[ti++] = c; tris[ti++] = b;
-            tris[ti++] = b; tris[ti++] = c; tris[ti++] = d;
-
-            if (doubleSided)
+            for (int j = 0; j < rSeg; j++)
             {
-                // Bottom face (reverse winding)
-                tris[ti++] = a; tris[ti++] = b; tris[ti++] = c;
-                tris[ti++] = b; tris[ti++] = d; tris[ti++] = c;
+                int a = ring0 + j;
+                int b = ring0 + j + 1;
+                int c = ring1 + j;
+                int d = ring1 + j + 1;
+
+                if (inwardFacing)
+                {
+                    // Faces inward (visible from inside)
+                    tris[ti++] = a; tris[ti++] = c; tris[ti++] = b;
+                    tris[ti++] = b; tris[ti++] = c; tris[ti++] = d;
+                }
+                else
+                {
+                    // Faces outward
+                    tris[ti++] = a; tris[ti++] = b; tris[ti++] = c;
+                    tris[ti++] = b; tris[ti++] = d; tris[ti++] = c;
+                }
+
+                if (doubleSided)
+                {
+                    // Add the opposite winding as well
+                    if (inwardFacing)
+                    {
+                        tris[ti++] = a; tris[ti++] = b; tris[ti++] = c;
+                        tris[ti++] = b; tris[ti++] = d; tris[ti++] = c;
+                    }
+                    else
+                    {
+                        tris[ti++] = a; tris[ti++] = c; tris[ti++] = b;
+                        tris[ti++] = b; tris[ti++] = c; tris[ti++] = d;
+                    }
+                }
             }
         }
 
         EnsureMesh();
         _mesh.Clear(false);
+
+        if (verts.Length > 65000)
+            _mesh.indexFormat = IndexFormat.UInt32;
+
         _mesh.vertices = verts;
         _mesh.normals = normals;
         _mesh.uv = uvs;
@@ -177,7 +222,6 @@ public class SplineAerialRoadMesh : MonoBehaviour
         _mesh.RecalculateBounds();
 
 #if UNITY_EDITOR
-        // Refresh scene view in edit mode
         if (!Application.isPlaying)
             SceneView.RepaintAll();
 #endif
@@ -199,11 +243,8 @@ public class SplineAerialRoadMesh : MonoBehaviour
             name = "SplineAerialRoadMesh (Generated)"
         };
         _mesh.MarkDynamic();
-
-        // Don’t save this mesh as an asset; regenerate from spline.
         _mesh.hideFlags = HideFlags.DontSaveInEditor | HideFlags.DontSaveInBuild;
 
-        // Use sharedMesh in edit mode, mesh in play mode to avoid instancing surprises.
         if (Application.isPlaying)
             _mf.mesh = _mesh;
         else
