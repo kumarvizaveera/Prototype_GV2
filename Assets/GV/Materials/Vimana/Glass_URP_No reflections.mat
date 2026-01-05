@@ -20,7 +20,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Glass_URP 2
+  m_Name: Glass_URP_No reflections
   m_Shader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
   m_Parent: {fileID: 2100000, guid: 38a0183be9a562248b194b1ebf339128, type: 2}
   m_ModifiedSerializedProperties: 18
@@ -44,19 +44,19 @@ Material:
     m_TexEnvs:
     - _BaseMap:
         m_Texture: {fileID: 0}
-        m_Scale: {x: 100, y: 0.3}
+        m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BumpMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
-        m_Texture: {fileID: 2800000, guid: e1aa748f75359154e8a65d293e78bb38, type: 3}
+        m_Texture: {fileID: 2800000, guid: 2f535d84bc1572c419085184efeddaee, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 0}
-        m_Scale: {x: 100, y: 0.3}
+        m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:
         m_Texture: {fileID: 0}
@@ -72,16 +72,14 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AlphaClip: 0
-    - _Blend: 0
     - _DstBlend: 10
     - _DstBlendAlpha: 10
-    - _Metallic: 1
-    - _Smoothness: 0.597
+    - _Metallic: 0
+    - _Smoothness: 0.59000003
     - _Surface: 1
     - _ZWrite: 0
     m_Colors:
-    - _BaseColor: {r: 0.28301886, g: 0.28301886, b: 0.28301886, a: 0.19215687}
-    - _Color: {r: 0.28301883, g: 0.28301883, b: 0.28301883, a: 0.19215687}
+    - _BaseColor: {r: 0, g: 0, b: 0, a: 0.78431374}
+    - _Color: {r: 0, g: 0, b: 0, a: 0.78431374}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
