@@ -62,7 +62,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMask:
-        m_Texture: {fileID: 2800000, guid: 1284bb191f6e15b46910708cc1347ab8, type: 3}
+        m_Texture: {fileID: 2800000, guid: e1aa748f75359154e8a65d293e78bb38, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -140,7 +140,7 @@ Material:
     - _BaseColor: {r: 0, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _MaskTiling: {r: 100, g: 1, b: 0, a: 0}
+    - _MaskTiling: {r: 100, g: 0.18, b: 0, a: 0}
     - _PulseColor: {r: 1, g: 0.93980205, b: 0, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
   m_BuildTextureStacks: []

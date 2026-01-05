@@ -7,11 +7,6 @@ using UnityEngine.Rendering;
 using UnityEditor;
 #endif
 
-/// <summary>
-/// Procedurally builds a CYLINDRICAL "tunnel" mesh along a Unity SplineContainer.
-/// Attach to the SAME GameObject that has SplineContainer.
-/// Requires MeshFilter + MeshRenderer.
-/// </summary>
 [ExecuteAlways]
 [RequireComponent(typeof(SplineContainer))]
 [RequireComponent(typeof(MeshFilter))]
@@ -46,21 +41,16 @@ public class SplineAerialRoadMesh : MonoBehaviour
     [Tooltip("If enabled, rebuilds every frame while playing (useful if the spline moves).")]
     public bool liveUpdateInPlayMode = false;
 
+    [Header("Local Mesh Scale")]
+    [Tooltip("Scales the GENERATED mesh per-axis around EACH ring center (keeps alignment to spline).")]
+    public Vector3 meshScale = Vector3.one;
+
     Mesh _mesh;
     MeshFilter _mf;
     SplineContainer _container;
 
-    void Reset()
-    {
-        Ensure();
-        Rebuild();
-    }
-
-    void OnEnable()
-    {
-        Ensure();
-        Rebuild();
-    }
+    void Reset() { Ensure(); Rebuild(); }
+    void OnEnable() { Ensure(); Rebuild(); }
 
     void OnDisable()
     {
@@ -73,11 +63,7 @@ public class SplineAerialRoadMesh : MonoBehaviour
 #endif
     }
 
-    void OnValidate()
-    {
-        Ensure();
-        Rebuild();
-    }
+    void OnValidate() { Ensure(); Rebuild(); }
 
     void Update()
     {
@@ -97,7 +83,7 @@ public class SplineAerialRoadMesh : MonoBehaviour
 
         int s = Mathf.Max(samples, 2);
         int rSeg = Mathf.Max(radialSegments, 3);
-        int ringVertCount = rSeg + 1; // duplicate seam vertex for clean UV wrap
+        int ringVertCount = rSeg + 1; // seam vertex
         float radius = width * 0.5f;
 
         int vertCount = s * ringVertCount;
@@ -114,6 +100,13 @@ public class SplineAerialRoadMesh : MonoBehaviour
         Vector3 prevPWorld = Vector3.zero;
         Vector3 prevRight = Vector3.right;
 
+        // For normal correction under non-uniform scale
+        Vector3 invS = new Vector3(
+            meshScale.x != 0f ? 1f / meshScale.x : 0f,
+            meshScale.y != 0f ? 1f / meshScale.y : 0f,
+            meshScale.z != 0f ? 1f / meshScale.z : 0f
+        );
+
         for (int i = 0; i < s; i++)
         {
             float t = (s == 1) ? 0f : (i / (float)(s - 1));
@@ -125,7 +118,6 @@ public class SplineAerialRoadMesh : MonoBehaviour
             Vector3 tan = ((Vector3)tangent).normalized;
             Vector3 upv = ((Vector3)up).normalized;
 
-            // Stable-ish frame: right = up x tangent
             Vector3 right = Vector3.Cross(upv, tan);
             if (right.sqrMagnitude < 1e-8f)
                 right = Vector3.Cross(transform.up, tan);
@@ -136,13 +128,19 @@ public class SplineAerialRoadMesh : MonoBehaviour
             upv = Vector3.Cross(tan, right).normalized;
             prevRight = right;
 
-            // Offset centerline along up vector (world)
             p += upv * verticalOffset;
 
             if (i > 0) distance += Vector3.Distance(prevPWorld, p);
             prevPWorld = p;
 
             float v = distance * uvTiling.y;
+
+            // Ring center in LOCAL space (this is what must stay aligned to spline)
+            Vector3 centerLocal = transform.InverseTransformPoint(p);
+
+            // Ring frame axes in LOCAL space
+            Vector3 rightLocal = transform.InverseTransformDirection(right).normalized;
+            Vector3 upLocal = transform.InverseTransformDirection(upv).normalized;
 
             int baseVi = i * ringVertCount;
 
@@ -151,16 +149,20 @@ public class SplineAerialRoadMesh : MonoBehaviour
                 float u01 = j / (float)rSeg;
                 float ang = u01 * Mathf.PI * 2f;
 
-                // Outward direction from tunnel center at this ring
-                Vector3 dir = (Mathf.Cos(ang) * right) + (Mathf.Sin(ang) * upv);
+                // Offset from center, expressed in LOCAL space ring frame
+                Vector3 dirLocal = (Mathf.Cos(ang) * rightLocal) + (Mathf.Sin(ang) * upLocal);
+                Vector3 offsetLocal = dirLocal * radius;
 
-                Vector3 worldV = p + dir * radius;
+                // Scale ONLY the offset (keeps center pinned to spline)
+                offsetLocal = Vector3.Scale(offsetLocal, meshScale);
 
                 int vi = baseVi + j;
-                verts[vi] = transform.InverseTransformPoint(worldV);
+                verts[vi] = centerLocal + offsetLocal;
 
-                Vector3 nWorld = inwardFacing ? -dir : dir;
-                normals[vi] = transform.InverseTransformDirection(nWorld).normalized;
+                // Normal (start from unscaled direction, then correct for non-uniform scale)
+                Vector3 nLocal = inwardFacing ? -dirLocal : dirLocal;
+                nLocal = Vector3.Scale(nLocal, invS).normalized;
+                normals[vi] = nLocal;
 
                 uvs[vi] = new Vector2(u01 * uvTiling.x, v);
             }
@@ -181,20 +183,17 @@ public class SplineAerialRoadMesh : MonoBehaviour
 
                 if (inwardFacing)
                 {
-                    // Faces inward (visible from inside)
                     tris[ti++] = a; tris[ti++] = c; tris[ti++] = b;
                     tris[ti++] = b; tris[ti++] = c; tris[ti++] = d;
                 }
                 else
                 {
-                    // Faces outward
                     tris[ti++] = a; tris[ti++] = b; tris[ti++] = c;
                     tris[ti++] = b; tris[ti++] = d; tris[ti++] = c;
                 }
 
                 if (doubleSided)
                 {
-                    // Add the opposite winding as well
                     if (inwardFacing)
                     {
                         tris[ti++] = a; tris[ti++] = b; tris[ti++] = c;
@@ -238,16 +237,11 @@ public class SplineAerialRoadMesh : MonoBehaviour
     {
         if (_mesh != null) return;
 
-        _mesh = new Mesh
-        {
-            name = "SplineAerialRoadMesh (Generated)"
-        };
+        _mesh = new Mesh { name = "SplineAerialRoadMesh (Generated)" };
         _mesh.MarkDynamic();
         _mesh.hideFlags = HideFlags.DontSaveInEditor | HideFlags.DontSaveInBuild;
 
-        if (Application.isPlaying)
-            _mf.mesh = _mesh;
-        else
-            _mf.sharedMesh = _mesh;
+        if (Application.isPlaying) _mf.mesh = _mesh;
+        else _mf.sharedMesh = _mesh;
     }
 }
