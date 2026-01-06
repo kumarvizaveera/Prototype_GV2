@@ -48,14 +48,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AircraftMeshSwap
   meshRootA: {fileID: 5627542862358486675}
   meshRootB: {fileID: 550171856845928817}
-  swapKey: 257
   startWithA: 1
-  enableWhenAActive:
-  - {fileID: 0}
-  - {fileID: 0}
-  enableWhenBActive: []
-  forceDisableCollidersOnVisualRoots: 1
-  isAActive: 0
+  useAlpha1Alpha2: 1
+  keyForA: 49
+  keyForB: 50
+  allowToggleKey: 0
+  toggleKey: 9
+  isA: 0
 --- !u!1001 &820767504698360864
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -251,7 +250,7 @@ PrefabInstance:
     - target: {fileID: -8679921383154817045, guid: b6cabca5a33620a419d59e3400c2c327,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: -1.31311
+      value: -2.65
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: b6cabca5a33620a419d59e3400c2c327,
         type: 3}
