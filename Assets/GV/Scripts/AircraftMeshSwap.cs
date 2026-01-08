@@ -3,19 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Mesh-only aircraft swap with optional swap VFX + SFX + flash + fade animation.
-/// Does NOT touch movement/physics scripts (keep those on the aircraft root).
-///
-/// Setup:
-/// - Put this on the same GameObject that moves (your aircraft root with Rigidbody + movement scripts).
-/// - Create two children that contain ONLY visuals:
-///     MeshRootA (vimana mesh, vfx, etc)
-///     MeshRootB (spaceship mesh, vfx, etc)
-/// - Assign them to meshRootA / meshRootB.
-///
-/// Notes about fading:
-/// - Fading requires your materials to support transparency (URP Lit: Surface Type = Transparent).
-/// - If your materials are opaque, keep enableFade = false and use VFX/flash instead.
+/// Mesh-only swap with optional VFX + SFX + flash + fade.
+/// Fixes:
+/// 1) Swap sound will NOT play on Play (forces AudioSource playOnAwake=false and stops it).
+/// 2) Swap sound plays for BOTH swaps (uses a dedicated AudioSource on the ALWAYS-ACTIVE aircraft root,
+///    so it won't get disabled when you turn mesh roots on/off).
 /// </summary>
 [DisallowMultipleComponent]
 public class AircraftMeshSwapWithFX : MonoBehaviour
@@ -37,62 +29,51 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
     public KeyCode toggleKey = KeyCode.Tab;
 
     [Header("Swap Timing")]
-    [Tooltip("Delay before enabling the new mesh (lets VFX hit).")]
     [Min(0f)] public float swapDelay = 0.05f;
-
-    [Tooltip("Ignore new input while swapping.")]
     public bool lockInputWhileSwapping = true;
 
     [Header("Swap VFX (Optional)")]
-    [Tooltip("Particle prefab to spawn at swap time (ParticleSystem or any prefab).")]
     public GameObject swapVfxPrefab;
-
-    [Tooltip("Where to spawn the VFX. If null, uses this transform.")]
     public Transform vfxSpawnPoint;
-
     public Vector3 vfxLocalOffset = Vector3.zero;
-
-    [Tooltip("If true, VFX will follow the aircraft (parented).")]
     public bool parentVfxToAircraft = true;
-
     [Min(0f)] public float vfxAutoDestroySeconds = 3f;
 
     [Header("Swap SFX (Optional)")]
+    [Tooltip("Leave empty to auto-create/use an AudioSource on THIS aircraft root (recommended).")]
     public AudioSource audioSource;
+
     public AudioClip swapClip;
     [Range(0f, 1f)] public float swapVolume = 1f;
 
+    [Tooltip("If true, disables Play On Awake and stops ALL AudioSources under meshRootA/B on start (prevents auto-play).")]
+    public bool silenceMeshRootAudioOnStart = true;
+
     [Header("Flash (Optional)")]
-    [Tooltip("Assign a Light to do a quick flash on swap (optional).")]
     public Light flashLight;
     [Min(0f)] public float flashPeakIntensity = 8f;
     [Min(0f)] public float flashDuration = 0.08f;
 
     [Header("Fade Animation (Optional)")]
     public bool enableFade = false;
-
     [Min(0.01f)] public float fadeOutTime = 0.12f;
     [Min(0.01f)] public float fadeInTime = 0.12f;
 
     [Tooltip("Common color property names: URP Lit = _BaseColor, Standard = _Color")]
     public string[] colorPropertyCandidates = new string[] { "_BaseColor", "_Color" };
 
-    [Tooltip("If you also want emission to fade with alpha (only if shader uses _EmissionColor).")]
     public bool fadeEmissionToo = false;
     public string emissionColorProperty = "_EmissionColor";
 
     [Header("Visual Safety")]
-    [Tooltip("Recommended: keep colliders on visual roots disabled so visuals don't affect physics.")]
     public bool forceDisableCollidersOnVisualRoots = true;
 
     [SerializeField] private bool isA;
     private bool isSwapping;
 
-    // Cached renderers per root for fading
     private Renderer[] aRenderers;
     private Renderer[] bRenderers;
 
-    // Cache original colors per renderer (per property name)
     private struct RendererColorCache
     {
         public Renderer r;
@@ -117,11 +98,22 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
             return;
         }
 
+        // Prevent any audio on mesh roots from auto-playing on start (common cause of "sound plays immediately")
+        if (silenceMeshRootAudioOnStart)
+        {
+            SilenceAudioSourcesUnder(meshRootA);
+            SilenceAudioSourcesUnder(meshRootB);
+        }
+
+        // Ensure swap SFX uses an ALWAYS-ACTIVE AudioSource (this GameObject),
+        // so swapping visuals won't cut the sound.
+        EnsureDedicatedSwapAudioSource();
+
         aRenderers = meshRootA.GetComponentsInChildren<Renderer>(true);
         bRenderers = meshRootB.GetComponentsInChildren<Renderer>(true);
 
-        CacheRendererColors(meshRootA, aRenderers, aCache);
-        CacheRendererColors(meshRootB, bRenderers, bCache);
+        CacheRendererColors(aRenderers, aCache);
+        CacheRendererColors(bRenderers, bCache);
 
         if (forceDisableCollidersOnVisualRoots)
         {
@@ -131,15 +123,13 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
 
         isA = startWithA;
 
-        // Ensure correct initial active state
         meshRootA.SetActive(isA);
         meshRootB.SetActive(!isA);
 
-        // Ensure initial alpha = 1 for active, 0 for inactive (if fade enabled)
         if (enableFade)
         {
-            SetRootAlpha(meshRootA, aCache, isA ? 1f : 0f);
-            SetRootAlpha(meshRootB, bCache, !isA ? 1f : 0f);
+            SetRootAlpha(aCache, isA ? 1f : 0f);
+            SetRootAlpha(bCache, !isA ? 1f : 0f);
         }
 
         if (flashLight != null) flashLight.intensity = 0f;
@@ -174,9 +164,9 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
     {
         isSwapping = true;
 
-        // Spawn effects immediately
+        // Play effects ONLY on swap input (never on Play)
         SpawnVFX();
-        PlaySFX();
+        PlaySwapSFX();
         if (flashLight != null) StartCoroutine(FlashRoutine());
 
         GameObject fromRoot = isA ? meshRootA : meshRootB;
@@ -185,29 +175,75 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
         List<RendererColorCache> toCache = toA ? aCache : bCache;
 
         if (enableFade)
-        {
-            // Fade out current
-            yield return FadeAlpha(fromRoot, fromCache, 1f, 0f, fadeOutTime);
-        }
+            yield return FadeAlpha(fromCache, 1f, 0f, fadeOutTime);
 
-        // Hide current mesh root
         fromRoot.SetActive(false);
 
-        // Small delay so VFX reads well
         if (swapDelay > 0f) yield return new WaitForSeconds(swapDelay);
 
-        // Show new mesh root
         toRoot.SetActive(true);
 
         if (enableFade)
         {
-            // Ensure starts hidden then fade in
-            SetRootAlpha(toRoot, toCache, 0f);
-            yield return FadeAlpha(toRoot, toCache, 0f, 1f, fadeInTime);
+            SetRootAlpha(toCache, 0f);
+            yield return FadeAlpha(toCache, 0f, 1f, fadeInTime);
         }
 
         isA = toA;
         isSwapping = false;
+    }
+
+    private void EnsureDedicatedSwapAudioSource()
+    {
+        // If user assigned an AudioSource that lives under a mesh root, it will be disabled during swap.
+        // In that case, ignore it and create/use one on THIS root.
+        if (audioSource != null)
+        {
+            bool underA = audioSource.transform.IsChildOf(meshRootA.transform);
+            bool underB = audioSource.transform.IsChildOf(meshRootB.transform);
+            if (underA || underB)
+            {
+                Debug.LogWarning($"{nameof(AircraftMeshSwapWithFX)}: Assigned AudioSource is under a mesh root and may get disabled. " +
+                                 "Using a dedicated AudioSource on the aircraft root instead.");
+                audioSource = null;
+            }
+        }
+
+        if (audioSource == null)
+        {
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        // Critical: stop auto-play at runtime even if Inspector had Play On Awake enabled.
+        audioSource.playOnAwake = false;
+        audioSource.loop = false;
+
+        // Also prevent "clip auto plays" setups. We only use PlayOneShot.
+        audioSource.clip = null;
+        audioSource.Stop();
+    }
+
+    private void SilenceAudioSourcesUnder(GameObject root)
+    {
+        if (root == null) return;
+        var sources = root.GetComponentsInChildren<AudioSource>(true);
+        for (int i = 0; i < sources.Length; i++)
+        {
+            if (sources[i] == null) continue;
+            sources[i].playOnAwake = false;
+            sources[i].loop = false;
+            sources[i].Stop();
+        }
+    }
+
+    private void PlaySwapSFX()
+    {
+        if (swapClip == null) return;
+        if (audioSource == null) return;
+
+        // Use PlayOneShot so it doesn't depend on AudioSource.clip or state
+        audioSource.PlayOneShot(swapClip, swapVolume);
     }
 
     private void SpawnVFX()
@@ -227,12 +263,6 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
             Destroy(vfx, vfxAutoDestroySeconds);
     }
 
-    private void PlaySFX()
-    {
-        if (audioSource == null || swapClip == null) return;
-        audioSource.PlayOneShot(swapClip, swapVolume);
-    }
-
     private IEnumerator FlashRoutine()
     {
         float original = flashLight.intensity;
@@ -243,7 +273,6 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
         {
             t += Time.deltaTime;
             float k = (flashDuration <= 0f) ? 1f : (t / flashDuration);
-            // quick up then down triangle
             float tri = (k <= 0.5f) ? (k * 2f) : (2f - k * 2f);
             flashLight.intensity = Mathf.Lerp(0f, flashPeakIntensity, tri);
             yield return null;
@@ -252,28 +281,7 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
         flashLight.intensity = original;
     }
 
-    private IEnumerator FadeAlpha(GameObject root, List<RendererColorCache> cache, float from, float to, float duration)
-    {
-        if (duration <= 0f)
-        {
-            SetRootAlpha(root, cache, to);
-            yield break;
-        }
-
-        float t = 0f;
-        while (t < duration)
-        {
-            t += Time.deltaTime;
-            float k = Mathf.Clamp01(t / duration);
-            float a = Mathf.Lerp(from, to, k);
-            SetRootAlpha(root, cache, a);
-            yield return null;
-        }
-
-        SetRootAlpha(root, cache, to);
-    }
-
-    private void CacheRendererColors(GameObject root, Renderer[] renderers, List<RendererColorCache> outCache)
+    private void CacheRendererColors(Renderer[] renderers, List<RendererColorCache> outCache)
     {
         outCache.Clear();
 
@@ -282,14 +290,14 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
             Renderer r = renderers[i];
             if (r == null) continue;
 
-            // Pick a usable color property from the first material that has it
-            string colorProp = null;
-            Color baseCol = Color.white;
-
             var mats = r.sharedMaterials;
             if (mats == null || mats.Length == 0) continue;
 
-            for (int m = 0; m < mats.Length; m++)
+            string colorProp = null;
+            Color baseCol = Color.white;
+
+            // Find a valid color property on any material
+            for (int m = 0; m < mats.Length && colorProp == null; m++)
             {
                 Material mat = mats[m];
                 if (mat == null) continue;
@@ -304,11 +312,9 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
                         break;
                     }
                 }
-                if (colorProp != null) break;
             }
 
-            if (colorProp == null)
-                continue; // can't fade this renderer (shader doesn't expose a known color prop)
+            if (colorProp == null) continue;
 
             bool hasEm = false;
             Color emCol = Color.black;
@@ -339,7 +345,28 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
         }
     }
 
-    private void SetRootAlpha(GameObject root, List<RendererColorCache> cache, float alpha01)
+    private IEnumerator FadeAlpha(List<RendererColorCache> cache, float from, float to, float duration)
+    {
+        if (duration <= 0f)
+        {
+            SetRootAlpha(cache, to);
+            yield break;
+        }
+
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            float k = Mathf.Clamp01(t / duration);
+            float a = Mathf.Lerp(from, to, k);
+            SetRootAlpha(cache, a);
+            yield return null;
+        }
+
+        SetRootAlpha(cache, to);
+    }
+
+    private void SetRootAlpha(List<RendererColorCache> cache, float alpha01)
     {
         alpha01 = Mathf.Clamp01(alpha01);
 
@@ -356,8 +383,7 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
 
             if (fadeEmissionToo && c.hasEmission)
             {
-                Color em = c.emissionColor;
-                em *= alpha01;
+                Color em = c.emissionColor * alpha01;
                 mpb.SetColor(emissionColorProperty, em);
             }
 

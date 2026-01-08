@@ -295,6 +295,12 @@ PrefabInstance:
       propertyPath: parentToSpawnTransform
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4504876759202798356, guid: a5239f83bddb2c64687b04a1b8233e54,
+        type: 3}
+      propertyPath: 'objectsToSpawn.Array.data[0]'
+      value: 
+      objectReference: {fileID: 9169696766150175059, guid: e1cab2e70b880c747a7615071feee3ad,
+        type: 3}
     - target: {fileID: 6097698698304206934, guid: a5239f83bddb2c64687b04a1b8233e54,
         type: 3}
       propertyPath: m_RootOrder
@@ -437,6 +443,12 @@ PrefabInstance:
       propertyPath: parentToSpawnTransform
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4504876759202798356, guid: a5239f83bddb2c64687b04a1b8233e54,
+        type: 3}
+      propertyPath: 'objectsToSpawn.Array.data[0]'
+      value: 
+      objectReference: {fileID: 9169696766150175059, guid: e1cab2e70b880c747a7615071feee3ad,
+        type: 3}
     - target: {fileID: 6097698698304206934, guid: a5239f83bddb2c64687b04a1b8233e54,
         type: 3}
       propertyPath: m_RootOrder
