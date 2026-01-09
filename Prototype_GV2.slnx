@@ -24,8 +24,8 @@
   <Project Path="VSX.Controls.csproj" />
   <Project Path="VSX.Vehicles.InteriorRendering.csproj" />
   <Project Path="VSX.Controls.UnityInputManager.csproj" />
-  <Project Path="VSX.Engines3D.csproj" />
   <Project Path="VSX.Objectives.csproj" />
+  <Project Path="VSX.Engines3D.csproj" />
   <Project Path="VSX.Controls.UnityInputManager.Editor.csproj" />
   <Project Path="VSX.UI.Editor.csproj" />
   <Project Path="VSX.FloatingOriginSystem.csproj" />
