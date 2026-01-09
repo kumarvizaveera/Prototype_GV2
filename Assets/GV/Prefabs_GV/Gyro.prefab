@@ -389,7 +389,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: +11
+  m_text: -4
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -399,8 +399,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4278255360
-  m_fontColor: {r: 0, g: 1, b: 0, a: 1}
+    rgba: 4278190335
+  m_fontColor: {r: 1, g: 0, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -492,6 +492,16 @@ MonoBehaviour:
   backwardRed: {r: 1, g: 0, b: 0, a: 1}
   emissionIntensity: 2.5
   emissionColorProperty: _EmissionColor
+  proximityBoost: 0
+  proximityTarget: {fileID: 0}
+  autoFindTargetByTag: 1
+  findTargetInEditMode: 0
+  proximityTargetTag: Player
+  nearDistance: 2
+  farDistance: 30
+  maxMultiplier: 4
+  responseSpeed: 10
+  proximityBoostRenderers: []
   autoRoll: 1
   rollInterval: 3
   rollOnStart: 1
@@ -673,7 +683,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: +11
+  m_text: -4
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -683,8 +693,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4278255360
-  m_fontColor: {r: 0, g: 1, b: 0, a: 1}
+    rgba: 4278190335
+  m_fontColor: {r: 1, g: 0, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -776,6 +786,16 @@ MonoBehaviour:
   backwardRed: {r: 1, g: 0, b: 0, a: 1}
   emissionIntensity: 2.5
   emissionColorProperty: _EmissionColor
+  proximityBoost: 0
+  proximityTarget: {fileID: 0}
+  autoFindTargetByTag: 1
+  findTargetInEditMode: 0
+  proximityTargetTag: Player
+  nearDistance: 2
+  farDistance: 30
+  maxMultiplier: 4
+  responseSpeed: 10
+  proximityBoostRenderers: []
   autoRoll: 1
   rollInterval: 3
   rollOnStart: 1
@@ -891,7 +911,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: +11
+  m_text: -4
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -901,8 +921,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4278255360
-  m_fontColor: {r: 0, g: 1, b: 0, a: 1}
+    rgba: 4278190335
+  m_fontColor: {r: 1, g: 0, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -994,6 +1014,16 @@ MonoBehaviour:
   backwardRed: {r: 1, g: 0, b: 0, a: 1}
   emissionIntensity: 2.5
   emissionColorProperty: _EmissionColor
+  proximityBoost: 0
+  proximityTarget: {fileID: 0}
+  autoFindTargetByTag: 1
+  findTargetInEditMode: 0
+  proximityTargetTag: Player
+  nearDistance: 2
+  farDistance: 30
+  maxMultiplier: 4
+  responseSpeed: 10
+  proximityBoostRenderers: []
   autoRoll: 1
   rollInterval: 3
   rollOnStart: 1
@@ -1279,7 +1309,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: +11
+  m_text: -4
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -1289,8 +1319,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4278255360
-  m_fontColor: {r: 0, g: 1, b: 0, a: 1}
+    rgba: 4278190335
+  m_fontColor: {r: 1, g: 0, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1382,6 +1412,16 @@ MonoBehaviour:
   backwardRed: {r: 1, g: 0, b: 0, a: 1}
   emissionIntensity: 2.5
   emissionColorProperty: _EmissionColor
+  proximityBoost: 0
+  proximityTarget: {fileID: 0}
+  autoFindTargetByTag: 1
+  findTargetInEditMode: 0
+  proximityTargetTag: Player
+  nearDistance: 2
+  farDistance: 30
+  maxMultiplier: 4
+  responseSpeed: 10
+  proximityBoostRenderers: []
   autoRoll: 1
   rollInterval: 3
   rollOnStart: 1
@@ -1671,11 +1711,22 @@ MonoBehaviour:
   backwardRed: {r: 1, g: 0.2924527, b: 0.2924527, a: 1}
   emissionIntensity: 2.5
   emissionColorProperty: _EmissionColor
+  proximityBoost: 1
+  proximityTarget: {fileID: 0}
+  autoFindTargetByTag: 1
+  findTargetInEditMode: 0
+  proximityTargetTag: Player
+  nearDistance: 30
+  farDistance: 300
+  maxMultiplier: 10
+  responseSpeed: 50
+  proximityBoostRenderers:
+  - {fileID: 1147240399064353625}
   autoRoll: 1
   rollInterval: 5
   rollOnStart: 1
   faceCamera: 1
   faceYawOnly: 1
   invertFacing: 1
-  isForward: 1
-  diceValue: 11
+  isForward: 0
+  diceValue: 4

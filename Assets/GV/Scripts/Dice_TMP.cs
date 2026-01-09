@@ -31,6 +31,37 @@ public class DiceRingIndicator : MonoBehaviour
     [Min(0f)] public float emissionIntensity = 2.5f;
     public string emissionColorProperty = "_EmissionColor";
 
+    [Header("Proximity Emission Boost (Crystal)")]
+    [Tooltip("If enabled, emission intensity increases as the target gets closer.")]
+    public bool proximityBoost = false;
+
+    [Tooltip("Target to measure distance from (aircraft). Leave empty to auto-find by tag.")]
+    public Transform proximityTarget;
+
+    [Tooltip("Auto-find target by tag when 'proximityTarget' is empty.")]
+    public bool autoFindTargetByTag = true;
+
+    [Tooltip("Only auto-find in Edit Mode if you explicitly allow it.")]
+    public bool findTargetInEditMode = false;
+
+    [Tooltip("Tag used to find the target at runtime (e.g., Player).")]
+    public string proximityTargetTag = "Player";
+
+    [Tooltip("Distance where boost is strongest.")]
+    [Min(0.01f)] public float nearDistance = 2f;
+
+    [Tooltip("Distance where boost is 1x (no boost).")]
+    [Min(0.01f)] public float farDistance = 30f;
+
+    [Tooltip("Maximum multiplier applied to 'emissionIntensity' at/inside nearDistance.")]
+    [Min(1f)] public float maxMultiplier = 4f;
+
+    [Tooltip("How quickly intensity responds to distance changes.")]
+    [Min(0f)] public float responseSpeed = 10f;
+
+    [Tooltip("Optional: If assigned, only these renderers get proximity boost. If empty, uses glowRenderers.")]
+    public Renderer[] proximityBoostRenderers;
+
     [Header("Rolling")]
     public bool autoRoll = true;
     [Min(0.05f)] public float rollInterval = 0.5f;
@@ -50,6 +81,10 @@ public class DiceRingIndicator : MonoBehaviour
     MaterialPropertyBlock _mpb;
     float _t;
 
+    float _proximityMul = 1f;
+    float _lastAppliedIntensity = -9999f;
+    Color _lastAppliedBaseCol = new Color(999, 999, 999, 999);
+
     public bool IsForward => isForward;
     public int DiceValue => diceValue;
 
@@ -58,30 +93,40 @@ public class DiceRingIndicator : MonoBehaviour
         if (_mpb == null) _mpb = new MaterialPropertyBlock();
         EnableEmissionKeyword();
 
+        TryAutoFindTarget();
+
         if (Application.isPlaying && rollOnStart) Roll();
-        ApplyVisuals();
+        ApplyVisuals(force: true);
         FaceAllTMP();
     }
 
     void Update()
     {
+        // Keep these running in both modes so the visuals stay correct.
+        TryAutoFindTarget();
+        UpdateProximityMultiplier();
+
         if (!Application.isPlaying)
         {
-            ApplyVisuals();
+            ApplyEmissionOnlyIfChanged();
+            ApplyTMP();
             return;
         }
 
-        if (!autoRoll) return;
-
-        _t += Time.deltaTime;
-        if (_t >= rollInterval)
+        if (autoRoll)
         {
-            _t = 0f;
-            Roll();
+            _t += Time.deltaTime;
+            if (_t >= rollInterval)
+            {
+                _t = 0f;
+                Roll(); // Roll applies visuals
+                return;
+            }
         }
+
+        ApplyEmissionOnlyIfChanged();
     }
 
-    // Run AFTER other scripts so it doesn't get overwritten.
     void LateUpdate()
     {
         FaceAllTMP();
@@ -99,7 +144,8 @@ public class DiceRingIndicator : MonoBehaviour
             max = Mathf.Min(max, maxBackwardValue);
 
         diceValue = Random.Range(min, max + 1);
-        ApplyVisuals();
+
+        ApplyVisuals(force: true);
     }
 
     public void SetState(bool forward, int value)
@@ -113,14 +159,25 @@ public class DiceRingIndicator : MonoBehaviour
             max = Mathf.Min(max, maxBackwardValue);
 
         diceValue = Mathf.Clamp(value, min, max);
-        ApplyVisuals();
+
+        ApplyVisuals(force: true);
     }
 
-    void ApplyVisuals()
+    // Runtime-safe assignment (useful if you spawn aircraft / additive scenes)
+    public void SetProximityTarget(Transform target)
+    {
+        proximityTarget = target;
+    }
+
+    void ApplyVisuals(bool force)
+    {
+        ApplyTMP();
+        ApplyEmission(force: force);
+    }
+
+    void ApplyTMP()
     {
         string s = showSign ? ((isForward ? "+" : "-") + diceValue) : diceValue.ToString();
-
-        Color ringBaseCol = isForward ? forwardGreen : backwardRed;
         Color tmpCol = isForward ? tmpForwardGreen : tmpBackwardRed;
 
         if (tmpTexts != null)
@@ -138,23 +195,102 @@ public class DiceRingIndicator : MonoBehaviour
 #endif
             }
         }
+    }
 
-        Color emissionCol = ringBaseCol * emissionIntensity;
+    void ApplyEmissionOnlyIfChanged()
+    {
+        Color baseCol = isForward ? forwardGreen : backwardRed;
+        float intensityNow = GetCurrentIntensity();
+
+        if (Mathf.Abs(intensityNow - _lastAppliedIntensity) < 0.0001f &&
+            baseCol == _lastAppliedBaseCol)
+            return;
+
+        ApplyEmission(force: true);
+    }
+
+    void ApplyEmission(bool force)
+    {
+        Color ringBaseCol = isForward ? forwardGreen : backwardRed;
+        float intensity = GetCurrentIntensity();
+
+        _lastAppliedIntensity = intensity;
+        _lastAppliedBaseCol = ringBaseCol;
+
+        Color emissionCol = ringBaseCol * intensity;
 
         if (_mpb == null) _mpb = new MaterialPropertyBlock();
 
-        if (glowRenderers != null)
-        {
-            for (int i = 0; i < glowRenderers.Length; i++)
-            {
-                var r = glowRenderers[i];
-                if (!r) continue;
+        var rs = GetEmissionRenderers();
+        if (rs == null) return;
 
-                r.GetPropertyBlock(_mpb);
-                _mpb.SetColor(emissionColorProperty, emissionCol);
-                r.SetPropertyBlock(_mpb);
-            }
+        for (int i = 0; i < rs.Length; i++)
+        {
+            var r = rs[i];
+            if (!r) continue;
+
+            r.GetPropertyBlock(_mpb);
+            _mpb.SetColor(emissionColorProperty, emissionCol);
+            r.SetPropertyBlock(_mpb);
         }
+    }
+
+    Renderer[] GetEmissionRenderers()
+    {
+        if (proximityBoostRenderers != null && proximityBoostRenderers.Length > 0)
+            return proximityBoostRenderers;
+
+        return glowRenderers;
+    }
+
+    float GetCurrentIntensity()
+    {
+        if (!proximityBoost) return emissionIntensity;
+        return emissionIntensity * Mathf.Max(1f, _proximityMul);
+    }
+
+    void UpdateProximityMultiplier()
+    {
+        if (!proximityBoost)
+        {
+            _proximityMul = 1f;
+            return;
+        }
+
+        if (!proximityTarget)
+        {
+            _proximityMul = 1f;
+            return;
+        }
+
+        float nd = Mathf.Max(0.01f, nearDistance);
+        float fd = Mathf.Max(nd, farDistance);
+
+        float dist = Vector3.Distance(transform.position, proximityTarget.position);
+
+        // t = 1 when near/inside, 0 when far/outside
+        float t = Mathf.InverseLerp(fd, nd, dist);
+        float targetMul = Mathf.Lerp(1f, Mathf.Max(1f, maxMultiplier), t);
+
+        float dt = Application.isPlaying ? Time.deltaTime : 0.016f;
+        float k = 1f - Mathf.Exp(-responseSpeed * dt);
+        _proximityMul = Mathf.Lerp(_proximityMul, targetMul, k);
+    }
+
+    void TryAutoFindTarget()
+    {
+        if (proximityTarget != null) return;
+        if (!autoFindTargetByTag) return;
+        if (string.IsNullOrEmpty(proximityTargetTag)) return;
+
+        // Avoid cross-scene / prefab-stage serialization problems in edit mode by default.
+        if (!Application.isPlaying && !findTargetInEditMode) return;
+
+        GameObject go = null;
+        try { go = GameObject.FindGameObjectWithTag(proximityTargetTag); }
+        catch { /* tag might not exist */ }
+
+        if (go) proximityTarget = go.transform;
     }
 
     void FaceAllTMP()
@@ -173,7 +309,7 @@ public class DiceRingIndicator : MonoBehaviour
 
             Transform tr = t.transform;
 
-            Vector3 dir = camPos - tr.position;   // text -> camera
+            Vector3 dir = camPos - tr.position; // text -> camera
             if (faceYawOnly) dir.y = 0f;
 
             if (dir.sqrMagnitude < 0.000001f) continue;
@@ -187,14 +323,12 @@ public class DiceRingIndicator : MonoBehaviour
 
     Camera GetBestCamera()
     {
-        // 1) Play Mode: Main Camera if tagged
         if (Application.isPlaying)
         {
             var main = Camera.main;
             if (main && main.isActiveAndEnabled) return main;
         }
 
-        // 2) Any enabled camera (highest depth wins)
         Camera best = null;
         float bestDepth = float.NegativeInfinity;
 
@@ -216,7 +350,6 @@ public class DiceRingIndicator : MonoBehaviour
             if (best) return best;
         }
 
-        // 3) Edit Mode fallback: SceneView camera
 #if UNITY_EDITOR
         if (!Application.isPlaying)
         {
@@ -225,18 +358,18 @@ public class DiceRingIndicator : MonoBehaviour
         }
 #endif
 
-        // 4) Last resort
         if (Camera.current) return Camera.current;
         return null;
     }
 
     void EnableEmissionKeyword()
     {
-        if (glowRenderers == null) return;
+        var rs = GetEmissionRenderers();
+        if (rs == null) return;
 
-        for (int i = 0; i < glowRenderers.Length; i++)
+        for (int i = 0; i < rs.Length; i++)
         {
-            var r = glowRenderers[i];
+            var r = rs[i];
             if (!r || r.sharedMaterial == null) continue;
             r.sharedMaterial.EnableKeyword("_EMISSION");
         }
@@ -254,9 +387,16 @@ public class DiceRingIndicator : MonoBehaviour
 
         diceValue = Mathf.Clamp(diceValue, minValue, max);
 
+        if (nearDistance < 0.01f) nearDistance = 0.01f;
+        if (farDistance < nearDistance) farDistance = nearDistance;
+
         if (_mpb == null) _mpb = new MaterialPropertyBlock();
         EnableEmissionKeyword();
-        ApplyVisuals();
+
+        TryAutoFindTarget();
+        UpdateProximityMultiplier();
+
+        ApplyVisuals(force: true);
         FaceAllTMP();
     }
 }
