@@ -25,13 +25,6 @@ public class ShortcutCrystalJump : MonoBehaviour
     public float upOffset = 0.0f;
     public float rightOffset = 0.0f;
 
-    public enum TeleportSfxTiming
-    {
-        BeforeTeleport,   // plays at the entry/origin position
-        DuringTeleport,   // plays at the destination immediately when teleport happens
-        AfterTeleport     // plays at the destination after teleport finishes (end of frame)
-    }
-
     [Header("Teleport SFX")]
     public bool playTeleportSfx = true;
     public AudioClip teleportSfx;
@@ -40,11 +33,8 @@ public class ShortcutCrystalJump : MonoBehaviour
     public AudioSource teleportSfxSource;
 
     [Range(0f, 1f)] public float teleportSfxVolume = 1f;
-
-    [Tooltip("Extra delay applied based on timing (seconds).")]
+    [Tooltip("Delay before playing SFX after teleport (seconds).")]
     public float teleportSfxDelay = 0f;
-
-    public TeleportSfxTiming teleportSfxTiming = TeleportSfxTiming.AfterTeleport;
 
     [Tooltip("Prevents the teleport AudioSource from playing on scene start (disables Play On Awake and stops it if it is playing the teleport clip).")]
     public bool enforceTeleportSourceNoPlayOnAwake = true;
@@ -93,12 +83,14 @@ public class ShortcutCrystalJump : MonoBehaviour
         if (!dice)
             dice = GetComponentInParent<DiceRingIndicator>(true);
 
+        // Make sure teleport source doesn't fire on Play due to inspector settings.
         if (enforceTeleportSourceNoPlayOnAwake)
             SanitizeTeleportAudioSource();
     }
 
     void SanitizeTeleportAudioSource()
     {
+        // Only touch the explicitly assigned teleport source (safe), or this object's source if it is clearly the teleport clip.
         if (teleportSfxSource)
         {
             teleportSfxSource.playOnAwake = false;
@@ -151,9 +143,6 @@ public class ShortcutCrystalJump : MonoBehaviour
 
         if (!dice) return;
 
-        // Origin position (where we entered the trigger)
-        Vector3 originPos = rb.position;
-
         int anchorIndex = network.GetNearestIndex(transform.position);
 
         int delta = dice.IsForward ? dice.DiceValue : -dice.DiceValue;
@@ -168,11 +157,6 @@ public class ShortcutCrystalJump : MonoBehaviour
         Vector3 savedVel = rb.linearVelocity;
         Vector3 savedAngVel = rb.angularVelocity;
 
-        // SFX BEFORE teleport (at origin)
-        if (teleportSfxTiming == TeleportSfxTiming.BeforeTeleport)
-            ScheduleTeleportSfx(rb, originPos, waitEndOfFrame: false);
-
-        // TELEPORT
         rb.position = destPos;
         if (tangent.sqrMagnitude > 0.000001f)
             rb.rotation = Quaternion.LookRotation(tangent, Vector3.up);
@@ -190,13 +174,8 @@ public class ShortcutCrystalJump : MonoBehaviour
 
         _nextAllowed[id] = now + cooldownSeconds;
 
-        // SFX DURING teleport (at destination immediately)
-        if (teleportSfxTiming == TeleportSfxTiming.DuringTeleport)
-            ScheduleTeleportSfx(rb, destPos, waitEndOfFrame: false);
-
-        // SFX AFTER teleport (at destination after teleport finishes)
-        if (teleportSfxTiming == TeleportSfxTiming.AfterTeleport)
-            ScheduleTeleportSfx(rb, destPos, waitEndOfFrame: true);
+        // Play SFX AFTER teleport
+        TryPlayTeleportSfx(rb, destPos);
 
         if (autoPilotAfterTeleport)
         {
@@ -214,21 +193,23 @@ public class ShortcutCrystalJump : MonoBehaviour
         }
     }
 
-    void ScheduleTeleportSfx(Rigidbody playerRb, Vector3 atPos, bool waitEndOfFrame)
+    void TryPlayTeleportSfx(Rigidbody playerRb, Vector3 atPos)
     {
         if (!playTeleportSfx) return;
         if (!teleportSfx) return;
 
-        if (waitEndOfFrame || teleportSfxDelay > 0f)
-            StartCoroutine(PlayTeleportSfxCoroutine(playerRb, atPos, waitEndOfFrame, teleportSfxDelay));
-        else
-            PlayTeleportSfxNow(playerRb, atPos);
+        if (teleportSfxDelay > 0f)
+        {
+            StartCoroutine(PlayTeleportSfxDelayed(playerRb, atPos));
+            return;
+        }
+
+        PlayTeleportSfxNow(playerRb, atPos);
     }
 
-    IEnumerator PlayTeleportSfxCoroutine(Rigidbody playerRb, Vector3 atPos, bool waitEndOfFrame, float delay)
+    IEnumerator PlayTeleportSfxDelayed(Rigidbody playerRb, Vector3 atPos)
     {
-        if (waitEndOfFrame) yield return new WaitForEndOfFrame();
-        if (delay > 0f) yield return new WaitForSeconds(delay);
+        yield return new WaitForSeconds(teleportSfxDelay);
         PlayTeleportSfxNow(playerRb, atPos);
     }
 
@@ -241,6 +222,7 @@ public class ShortcutCrystalJump : MonoBehaviour
 
         if (src)
         {
+            // Ensure we don't accidentally Play() a clip assigned on the source; use OneShot only.
             src.playOnAwake = false;
             src.PlayOneShot(teleportSfx, teleportSfxVolume);
         }
