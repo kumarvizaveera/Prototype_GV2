@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VSX.Engines3D.CharacterData
   characterName: S
   icon: {fileID: 0}
-  speedMultiplier: 1.1
-  steeringMultiplier: 1.1
-  boostMultiplier: 1.1
+  speedMultiplier: 1.5
+  steeringMultiplier: 1.5
+  boostMultiplier: 1.5

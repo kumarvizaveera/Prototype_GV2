@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using UnityEngine;
+using TMPro;
 
 namespace VSX.Engines3D
 {
@@ -18,6 +19,12 @@ namespace VSX.Engines3D
         public GameObject spriteObjectA;
         [Tooltip("Existing sprite GameObject for Aircraft B")]
         public GameObject spriteObjectB;
+
+        [Header("Bonus UI (Optional)")]
+        [Tooltip("TMP Text component for Aircraft A to show stats")]
+        public TMP_Text statsTextA;
+        [Tooltip("TMP Text component for Aircraft B to show stats")]
+        public TMP_Text statsTextB;
 
         private VehicleEngines3DProfileSwapper swapper;
         private VehicleEngines3D engines;
@@ -71,16 +78,48 @@ namespace VSX.Engines3D
             CharacterData activeChar = (index == 0) ? characterA : characterB;
             GameObject activeSprite = (index == 0) ? spriteObjectA : spriteObjectB;
             GameObject otherSprite = (index == 0) ? spriteObjectB : spriteObjectA;
+            TMP_Text activeText = (index == 0) ? statsTextA : statsTextB;
+            TMP_Text otherText = (index == 0) ? statsTextB : statsTextA;
 
             // 1. Update Visuals
             if (activeSprite != null) activeSprite.SetActive(true);
             if (otherSprite != null) otherSprite.SetActive(false);
 
-            // 2. Apply Bonuses
-            if (activeChar != null && engines != null)
+            if (activeText != null)
             {
-                ApplyBonuses(activeChar);
+                activeText.gameObject.SetActive(true);
+                // Also billboard the text if it's separate (optional, but robust)
+                if (activeText.GetComponent<BillboardToCamera>() == null)
+                    activeText.gameObject.AddComponent<BillboardToCamera>();
             }
+            if (otherText != null) otherText.gameObject.SetActive(false);
+
+
+            // 2. Apply Bonuses & Update Text
+            if (activeChar != null)
+            {
+                if (engines != null) ApplyBonuses(activeChar);
+                if (activeText != null) UpdateBonusText(activeChar, activeText);
+            }
+        }
+
+        private void UpdateBonusText(CharacterData data, TMP_Text textComp)
+        {
+            // Format: "+10% Spd | +5% Str | +5% Bst"
+            // Or simpler if all are same: "+10% All" (but we show full details)
+            
+            int spdBonus = Mathf.RoundToInt((data.speedMultiplier - 1f) * 100f);
+            int strBonus = Mathf.RoundToInt((data.steeringMultiplier - 1f) * 100f);
+            int bstBonus = Mathf.RoundToInt((data.boostMultiplier - 1f) * 100f);
+
+            string text = "";
+            if (spdBonus != 0) text += $"+{spdBonus}% Speed\n";
+            if (strBonus != 0) text += $"+{strBonus}% Handling\n";
+            if (bstBonus != 0) text += $"+{bstBonus}% Boost";
+
+            if (string.IsNullOrEmpty(text)) text = "Base Stats";
+
+            textComp.text = text;
         }
 
         private void ApplyBonuses(CharacterData data)
@@ -90,19 +129,11 @@ namespace VSX.Engines3D
             Vector3 currentSteer = (Vector3)fMaxSteering.GetValue(engines);
             Vector3 currentBoost = (Vector3)fMaxBoost.GetValue(engines);
 
-            // Apply multiplier
-            // Using MAX of 1 to ensure we don't accidentally reduce if multiplier is 0 (unless intended, but assuming multiplier is 1.x)
-            // User said "10% improvement", so multiplier should be 1.1. 
-            // If they put 0, it would zero it out. I'll assume they know what they are doing.
-            
             fMaxMovement.SetValue(engines, currentMove * data.speedMultiplier);
             fMaxSteering.SetValue(engines, currentSteer * data.steeringMultiplier);
             fMaxBoost.SetValue(engines, currentBoost * data.boostMultiplier);
 
-            Debug.Log($"[CharacterManager] Applied {data.characterName} bonuses. " +
-                      $"Move: {currentMove}->{fMaxMovement.GetValue(engines)} | " +
-                      $"Steer: {currentSteer}->{fMaxSteering.GetValue(engines)} | " +
-                      $"Boost: {currentBoost}->{fMaxBoost.GetValue(engines)}");
+            Debug.Log($"[CharacterManager] Applied {data.characterName} bonuses.");
         }
 
         private void CacheFields()
