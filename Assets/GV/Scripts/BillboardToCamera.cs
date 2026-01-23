@@ -1,27 +1,27 @@
 using UnityEngine;
 
-[ExecuteAlways]
-public class BillboardToCamera : MonoBehaviour
+namespace VSX.Engines3D
 {
-    public Camera targetCamera;
-    public bool keepUpright = true;
-
-    void LateUpdate()
+    public class BillboardToCamera : MonoBehaviour
     {
-        Camera cam = targetCamera != null ? targetCamera : Camera.main;
-        if (cam == null) return;
+        public Camera targetCamera;
+        private Camera mainCamera;
 
-        if (keepUpright)
+        void Start()
         {
-            Vector3 forward = cam.transform.forward;
-            forward.y = 0f;
-            if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
-            transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
+            if (targetCamera == null) targetCamera = Camera.main;
         }
-        else
+
+        void LateUpdate()
         {
-            transform.LookAt(transform.position + cam.transform.rotation * Vector3.forward,
-                             cam.transform.rotation * Vector3.up);
+            Camera cam = targetCamera != null ? targetCamera : Camera.main;
+            
+            if (cam != null)
+            {
+                // Look at the camera, but reverse direction so the front of the UI faces the camera
+                transform.LookAt(transform.position + cam.transform.rotation * Vector3.forward,
+                                 cam.transform.rotation * Vector3.up);
+            }
         }
     }
 }

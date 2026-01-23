@@ -152,6 +152,7 @@ namespace VSX.Engines3D
             SetField(fSteeringCurve, p.steeringBySpeedCurve);
             SetField(fBoostSteerCoeff, p.boostSteeringCoefficient);
 
+
             // Optional Rigidbody tweaks
             if (p.overrideRigidbody && engines != null && engines.Rigidbody != null)
             {
@@ -163,7 +164,12 @@ namespace VSX.Engines3D
                 rb.linearDamping = p.linearDamping;
                 rb.angularDamping = p.angularDamping;
             }
+
+            onProfileApplied?.Invoke(idx);
         }
+
+        public event Action<int> onProfileApplied;
+        public int ActiveIndex => activeIndex;
 
         private void CacheFields()
         {

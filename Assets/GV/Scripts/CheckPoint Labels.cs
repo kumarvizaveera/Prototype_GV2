@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using VSX.Engines3D;
 
 [ExecuteAlways]
 public class CheckpointLabeler : MonoBehaviour
