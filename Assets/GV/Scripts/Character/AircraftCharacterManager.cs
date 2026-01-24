@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using TMPro;
@@ -8,23 +10,26 @@ namespace VSX.Engines3D
     [RequireComponent(typeof(VehicleEngines3DProfileSwapper))]
     public class AircraftCharacterManager : MonoBehaviour
     {
-        [Header("Character Configuration")]
-        [Tooltip("Character for Aircraft A (Spaceship)")]
-        public CharacterData characterA;
-        [Tooltip("Character for Aircraft B (Vimana)")]
-        public CharacterData characterB;
+        [Serializable]
+        public class CharacterEntry
+        {
+            public string name; // Friendly label for Inspector
+            public CharacterData data;
+            [Tooltip("Root GameObject containing the sprite and text for this character.")]
+            public GameObject visualRoot;
+            [Tooltip("Text component for stats (optional, usually inside visualRoot).")]
+            public TMP_Text statsText;
+        }
 
-        [Header("Visuals (Existing Roots)")]
-        [Tooltip("Root GameObject for Aircraft A (Atom Rider)")]
-        public GameObject spriteObjectA;
-        [Tooltip("Root GameObject for Aircraft B (Sarathi)")]
-        public GameObject spriteObjectB;
+        [Header("Character Rosters")]
+        [Tooltip("List of characters available for Aircraft A (Spaceship)")]
+        public List<CharacterEntry> rosterA = new List<CharacterEntry>();
+        
+        [Tooltip("List of characters available for Aircraft B (Vimana)")]
+        public List<CharacterEntry> rosterB = new List<CharacterEntry>();
 
-        [Header("Bonus UI (Optional)")]
-        [Tooltip("TMP Text component for Aircraft A to show stats")]
-        public TMP_Text statsTextA;
-        [Tooltip("TMP Text component for Aircraft B to show stats")]
-        public TMP_Text statsTextB;
+        [Header("Controls")]
+        public KeyCode switchCharacterKey = KeyCode.Alpha4;
 
         [Header("Fade Settings")]
         [Tooltip("How long the character stays visible before fading.")]
@@ -36,6 +41,18 @@ namespace VSX.Engines3D
         private VehicleEngines3D engines;
         private Coroutine activeFadeRoutine;
 
+        // Track current sub-choice for each aircraft
+        private int subIndexA = 0;
+        private int subIndexB = 0;
+        
+        // Track which aircraft is currently active globally (0 or 1)
+        private int currentAircraftIndex = -1;
+
+        // Store base values to prevent compounding bonuses
+        private Vector3 baseMaxMovement;
+        private Vector3 baseMaxSteering;
+        private Vector3 baseMaxBoost;
+
         // Reflection fields to modify engines
         private FieldInfo fMaxMovement;
         private FieldInfo fMaxSteering;
@@ -46,9 +63,9 @@ namespace VSX.Engines3D
             swapper = GetComponent<VehicleEngines3DProfileSwapper>();
             engines = GetComponent<VehicleEngines3D>();
 
-            // Ensure billboard script is on roots if they exist
-            AddBillboardIfNeeded(spriteObjectA);
-            AddBillboardIfNeeded(spriteObjectB);
+            // Ensure billboard script is on all roots
+            foreach(var c in rosterA) AddBillboardIfNeeded(c.visualRoot);
+            foreach(var c in rosterB) AddBillboardIfNeeded(c.visualRoot);
 
             CacheFields();
         }
@@ -80,53 +97,116 @@ namespace VSX.Engines3D
             }
         }
 
-        private void OnProfileApplied(int index)
+        private void Update()
         {
-            if (activeFadeRoutine != null) StopCoroutine(activeFadeRoutine);
-
-            CharacterData activeChar = (index == 0) ? characterA : characterB;
-            GameObject activeRoot = (index == 0) ? spriteObjectA : spriteObjectB;
-            GameObject otherRoot = (index == 0) ? spriteObjectB : spriteObjectA;
-            TMP_Text activeText = (index == 0) ? statsTextA : statsTextB;
-
-            // 1. Disable the OTHER root immediately
-            if (otherRoot != null) otherRoot.SetActive(false);
-
-            // 2. Setup ACTIVE root
-            if (activeRoot != null)
+            if (Input.GetKeyDown(switchCharacterKey))
             {
-                activeRoot.SetActive(true);
-                
-                // Reset Alpha to 1 first (in case it was mid-fade)
-                SetRootAlpha(activeRoot, 1f);
-
-                // Billboard text if needed
-                if (activeText != null)
-                {
-                    if (activeText.GetComponent<BillboardToCamera>() == null)
-                        activeText.gameObject.AddComponent<BillboardToCamera>();
-                    
-                    // Update the text content
-                    if (activeChar != null) UpdateBonusText(activeChar, activeText);
-                }
-
-                // Start the wait & fade routine
-                activeFadeRoutine = StartCoroutine(FadeRoutine(activeRoot));
-            }
-
-            // 3. Apply Bonuses
-            if (activeChar != null && engines != null)
-            {
-                ApplyBonuses(activeChar);
+                CycleCharacter();
             }
         }
 
-        private System.Collections.IEnumerator FadeRoutine(GameObject root)
+        private void CycleCharacter()
         {
-            // Wait
+            if (currentAircraftIndex == 0)
+            {
+                if (rosterA.Count == 0) return;
+                subIndexA = (subIndexA + 1) % rosterA.Count;
+                RefreshActiveCharacter();
+            }
+            else if (currentAircraftIndex == 1)
+            {
+                if (rosterB.Count == 0) return;
+                subIndexB = (subIndexB + 1) % rosterB.Count;
+                RefreshActiveCharacter();
+            }
+        }
+
+        // Called automatically when aircraft swaps
+        private void OnProfileApplied(int index)
+        {
+            currentAircraftIndex = index;
+
+            // Capture base engine values BEFORE applying any character bonuses
+            // This happens right after the Profile Swapper has applied the raw profile data
+            if (engines != null)
+            {
+                baseMaxMovement = (Vector3)fMaxMovement.GetValue(engines);
+                baseMaxSteering = (Vector3)fMaxSteering.GetValue(engines);
+                baseMaxBoost = (Vector3)fMaxBoost.GetValue(engines);
+            }
+
+            RefreshActiveCharacter();
+        }
+
+        private void RefreshActiveCharacter()
+        {
+            if (activeFadeRoutine != null) StopCoroutine(activeFadeRoutine);
+
+            // 1. Disable ALL roots first to be safe
+            DisableRosterRoots(rosterA);
+            DisableRosterRoots(rosterB);
+
+            // 2. Identify Active Character Entry
+            CharacterEntry activeEntry = null;
+
+            if (currentAircraftIndex == 0 && rosterA.Count > 0)
+            {
+                // Safety clamp
+                if (subIndexA >= rosterA.Count) subIndexA = 0;
+                activeEntry = rosterA[subIndexA];
+            }
+            else if (currentAircraftIndex == 1 && rosterB.Count > 0)
+            {
+                // Safety clamp
+                if (subIndexB >= rosterB.Count) subIndexB = 0;
+                activeEntry = rosterB[subIndexB];
+            }
+
+            // 3. Enable & Setup Active Entry
+            if (activeEntry != null)
+            {
+                if (activeEntry.visualRoot != null)
+                {
+                    activeEntry.visualRoot.SetActive(true);
+                    
+                    // Reset Alpha
+                    SetRootAlpha(activeEntry.visualRoot, 1f);
+
+                    // Ensure billboard on text if separated
+                    if (activeEntry.statsText != null)
+                    {
+                        activeEntry.statsText.gameObject.SetActive(true);
+                        if (activeEntry.statsText.GetComponent<BillboardToCamera>() == null)
+                            activeEntry.statsText.gameObject.AddComponent<BillboardToCamera>();
+                        
+                        UpdateBonusText(activeEntry.data, activeEntry.statsText);
+                    }
+
+                    // Start Fade
+                    activeFadeRoutine = StartCoroutine(FadeRoutine(activeEntry.visualRoot));
+                }
+
+                // Apply Bonuses
+                if (activeEntry.data != null && engines != null)
+                {
+                    ApplyBonuses(activeEntry.data);
+                }
+            }
+        }
+
+        private void DisableRosterRoots(List<CharacterEntry> roster)
+        {
+            foreach (var entry in roster)
+            {
+                if (entry.visualRoot != null) entry.visualRoot.SetActive(false);
+                if (entry.statsText != null) entry.statsText.gameObject.SetActive(false);
+            }
+        }
+
+        private IEnumerator FadeRoutine(GameObject root)
+        {
             yield return new WaitForSeconds(visibleDuration);
 
-            // Fade Out
             float timer = 0f;
             while (timer < fadeDuration)
             {
@@ -136,7 +216,6 @@ namespace VSX.Engines3D
                 yield return null;
             }
 
-            // Ensure fully invisible and disable
             SetRootAlpha(root, 0f);
             root.SetActive(false);
         }
@@ -145,8 +224,8 @@ namespace VSX.Engines3D
         {
             if (root == null) return;
 
-            // 1. Handle SpriteRenderers (most likely for 3D world sprites)
-            SpriteRenderer[] sprites = root.GetComponentsInChildren<SpriteRenderer>(true);
+            // 1. SpriteRenderers
+            var sprites = root.GetComponentsInChildren<SpriteRenderer>(true);
             foreach (var s in sprites)
             {
                 Color c = s.color;
@@ -154,8 +233,8 @@ namespace VSX.Engines3D
                 s.color = c;
             }
 
-            // 2. Handle UI Graphics (Image, RawImage) - for World Space Canvas
-            UnityEngine.UI.Graphic[] graphics = root.GetComponentsInChildren<UnityEngine.UI.Graphic>(true);
+            // 2. UI Graphics
+            var graphics = root.GetComponentsInChildren<UnityEngine.UI.Graphic>(true);
             foreach (var g in graphics)
             {
                 Color c = g.color;
@@ -163,13 +242,11 @@ namespace VSX.Engines3D
                 g.color = c;
             }
 
-            // 3. Handle Standard Renderers (MeshRenderer) - fallback
-            // Note: This only works if the shader supports transparency and exposes "_Color" or "_BaseColor"
-            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            // 3. Standard Renderers
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
             foreach (var r in renderers)
             {
-                if (r is SpriteRenderer) continue; // Already handled above
-
+                if (r is SpriteRenderer) continue;
                 Material mat = r.material;
                 if (mat.HasProperty("_Color"))
                 {
@@ -177,7 +254,7 @@ namespace VSX.Engines3D
                     c.a = alpha;
                     mat.color = c;
                 }
-                else if (mat.HasProperty("_BaseColor")) // URP/HDRP often use BaseColor
+                else if (mat.HasProperty("_BaseColor"))
                 {
                     Color c = mat.GetColor("_BaseColor");
                     c.a = alpha;
@@ -185,16 +262,15 @@ namespace VSX.Engines3D
                 }
             }
 
-            // 4. Handle TMP Text (handled separately as it often has its own property)
-            TMP_Text[] tmps = root.GetComponentsInChildren<TMP_Text>(true);
-            foreach (var t in tmps)
-            {
-                t.alpha = alpha;
-            }
+            // 4. TMP Text (if inside root)
+            var tmps = root.GetComponentsInChildren<TMP_Text>(true);
+            foreach (var t in tmps) t.alpha = alpha;
         }
 
         private void UpdateBonusText(CharacterData data, TMP_Text textComp)
         {
+            if (data == null) return;
+            
             // Format: "+10% Speed | +5% Handling | +5% Boost"
             int spdBonus = Mathf.RoundToInt((data.speedMultiplier - 1f) * 100f);
             int strBonus = Mathf.RoundToInt((data.steeringMultiplier - 1f) * 100f);
@@ -206,22 +282,19 @@ namespace VSX.Engines3D
             if (bstBonus != 0) text += $"+{bstBonus}% Boost";
 
             if (string.IsNullOrEmpty(text)) text = "Base Stats";
-
             textComp.text = text;
         }
 
         private void ApplyBonuses(CharacterData data)
         {
-            // Read current values (which were just set by swapper)
-            Vector3 currentMove = (Vector3)fMaxMovement.GetValue(engines);
-            Vector3 currentSteer = (Vector3)fMaxSteering.GetValue(engines);
-            Vector3 currentBoost = (Vector3)fMaxBoost.GetValue(engines);
+            // Always apply multiplier to the BASE values, not the current values
+            // This prevents compounding when switching characters multiple times
+            
+            fMaxMovement.SetValue(engines, baseMaxMovement * data.speedMultiplier);
+            fMaxSteering.SetValue(engines, baseMaxSteering * data.steeringMultiplier);
+            fMaxBoost.SetValue(engines, baseMaxBoost * data.boostMultiplier);
 
-            fMaxMovement.SetValue(engines, currentMove * data.speedMultiplier);
-            fMaxSteering.SetValue(engines, currentSteer * data.steeringMultiplier);
-            fMaxBoost.SetValue(engines, currentBoost * data.boostMultiplier);
-
-            Debug.Log($"[CharacterManager] Applied {data.characterName} bonuses.");
+            Debug.Log($"[CharacterManager] Switched to {data.characterName}. Bonuses Applied to BASE values.");
         }
 
         private void CacheFields()
