@@ -193,4 +193,126 @@ public class CheckpointNetwork : MonoBehaviour
     }
 
     static int Mod(int x, int m) => (x % m + m) % m;
+
+    // --- Swap Restriction Logic ---
+
+    [Header("Swap Restrictions")]
+    public List<int> aircraftSwapIndices = new List<int> { 18, 36, 54, 72, 90 };
+    public List<int> characterSwapIndices = new List<int> { 36, 72 };
+    
+    [Tooltip("Radius around the checkpoint center where swapping is allowed.")]
+    public float swapZoneRadius = 30f;
+    
+    [Tooltip("How long (in seconds) the swap remains active after reaching/leaving the checkpoint.")]
+    public float swapDuration = 10f;
+    
+    [Tooltip("Auto-assigned to tag 'Player' if empty.")]
+    public Transform playerTransform;
+
+    [Tooltip("Current Checkpoint Index giving permission. -1 if none.")]
+    [SerializeField] private int currentZoneIndex = -1;
+    public int CurrentZoneIndex => currentZoneIndex;
+    
+    [SerializeField] private float swapTimer = 0f;
+
+    public bool CanSwapAircraft => currentZoneIndex != -1 && aircraftSwapIndices.Contains(currentZoneIndex);
+    public bool CanSwapCharacter => currentZoneIndex != -1 && characterSwapIndices.Contains(currentZoneIndex);
+
+    private bool IsInAnyZone(List<int> indices)
+    {
+        return currentZoneIndex != -1 && indices.Contains(currentZoneIndex);
+    }
+    
+    // --- UI Feedback ---
+    [Header("UI Feedback")]
+    public TMPro.TMP_Text swapStatusText;
+    [TextArea] public string swapMessage = "CHECKPOINT APPROACHING\nSWAP MECHANISMS ACTIVE\nPRESS '1'/'2' TO SWAP";
+
+    void Update()
+    {
+        if (playerTransform == null)
+        {
+            GameObject p = GameObject.FindGameObjectWithTag("Player");
+            if (p != null) playerTransform = p.transform;
+        }
+
+        if (playerTransform == null) return;
+
+        int foundIndex = -1;
+        float sqrRadius = swapZoneRadius * swapZoneRadius;
+        Vector3 playerPos = playerTransform.position;
+
+        // 1. Check if we are physically inside any valid zone
+        foreach (int idx in aircraftSwapIndices)
+        {
+            if (CheckDistance(idx, playerPos, sqrRadius))
+            {
+                foundIndex = idx;
+                break;
+            }
+        }
+        
+        if (foundIndex == -1) // If not found in aircraft list, check character list
+        {
+            foreach (int idx in characterSwapIndices)
+            {
+                if (CheckDistance(idx, playerPos, sqrRadius))
+                {
+                    foundIndex = idx;
+                    break;
+                }
+            }
+        }
+
+        // 2. Timer Logic
+        if (foundIndex != -1)
+        {
+            // Player is inside a valid zone: Refresh timer
+            currentZoneIndex = foundIndex;
+            swapTimer = swapDuration;
+        }
+        else
+        {
+            // Player is outside: Count down
+            if (swapTimer > 0f)
+            {
+                swapTimer -= Time.deltaTime;
+                if (swapTimer <= 0f)
+                {
+                    swapTimer = 0f;
+                    currentZoneIndex = -1; // Time expired
+                }
+            }
+            else
+            {
+                currentZoneIndex = -1;
+            }
+        }
+
+        // 3. Update UI
+        if (swapStatusText != null)
+        {
+            bool show = (currentZoneIndex != -1);
+            if (show)
+            {
+                swapStatusText.text = swapMessage;
+                if (!swapStatusText.gameObject.activeSelf) swapStatusText.gameObject.SetActive(true);
+            }
+            else
+            {
+                 if (swapStatusText.gameObject.activeSelf) swapStatusText.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    private bool CheckDistance(int index, Vector3 playerPos, float sqrRadius)
+    {
+        Transform cp = GetCheckpoint(index);
+        if (cp == null) return false;
+
+        if ((cp.position - playerPos).sqrMagnitude <= sqrRadius)
+            return true;
+            
+        return false;
+    }
 }

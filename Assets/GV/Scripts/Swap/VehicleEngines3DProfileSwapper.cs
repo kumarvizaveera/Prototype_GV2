@@ -94,8 +94,16 @@ namespace VSX.Engines3D
         {
             if (allowKeySwitch)
             {
-                if (Input.GetKeyDown(keySelectA)) SetActiveCraftIndex(0, toggleMeshesWhenSwitching);
-                if (Input.GetKeyDown(keySelectB)) SetActiveCraftIndex(1, toggleMeshesWhenSwitching);
+                // Checkpoint Restriction
+                // Both MeshSwap and ProfileSwapper might listen to keys. 
+                // We should block this one too if not allowed.
+                bool canSwap = (CheckpointNetwork.Instance != null) ? CheckpointNetwork.Instance.CanSwapAircraft : true;
+
+                if (canSwap)
+                {
+                    if (Input.GetKeyDown(keySelectA)) SetActiveCraftIndex(0, toggleMeshesWhenSwitching);
+                    if (Input.GetKeyDown(keySelectB)) SetActiveCraftIndex(1, toggleMeshesWhenSwitching);
+                }
             }
 
             if (autoDetectFromActiveMesh)

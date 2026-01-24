@@ -139,6 +139,9 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
     {
         if (lockInputWhileSwapping && isSwapping) return;
 
+        // Checkpoint Restriction
+        if (CheckpointNetwork.Instance != null && !CheckpointNetwork.Instance.CanSwapAircraft) return;
+
         if (useAlpha1Alpha2)
         {
             if (Input.GetKeyDown(keyForA)) RequestSetA(true);

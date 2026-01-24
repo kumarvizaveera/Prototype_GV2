@@ -101,6 +101,10 @@ namespace VSX.Engines3D
         {
             if (Input.GetKeyDown(switchCharacterKey))
             {
+                // Checkpoint Restriction
+                if (CheckpointNetwork.Instance != null && !CheckpointNetwork.Instance.CanSwapCharacter) 
+                    return;
+
                 CycleCharacter();
             }
         }
