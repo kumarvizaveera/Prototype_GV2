@@ -194,39 +194,39 @@ public class CheckpointNetwork : MonoBehaviour
 
     static int Mod(int x, int m) => (x % m + m) % m;
 
-    // --- Swap Restriction Logic ---
-
-    [Header("Swap Restrictions")]
-    public List<int> aircraftSwapIndices = new List<int> { 18, 36, 54, 72, 90 };
-    public List<int> characterSwapIndices = new List<int> { 36, 72 };
-    
-    [Tooltip("Radius around the checkpoint center where swapping is allowed.")]
-    public float swapZoneRadius = 30f;
-    
+    [Header("Common Settings")]
     [Tooltip("How long (in seconds) the swap remains active after reaching/leaving the checkpoint.")]
     public float swapDuration = 10f;
-    
     [Tooltip("Auto-assigned to tag 'Player' if empty.")]
     public Transform playerTransform;
 
-    [Tooltip("Current Checkpoint Index giving permission. -1 if none.")]
-    [SerializeField] private int currentZoneIndex = -1;
-    public int CurrentZoneIndex => currentZoneIndex;
+    [Header("Aircraft Settings")]
+    public List<int> aircraftSwapIndices = new List<int> { 18, 54, 90 };
+    public float aircraftSwapRadius = 30f;
+    public float aircraftUiRadius = 60f;
     
-    [SerializeField] private float swapTimer = 0f;
+    [Header("Aircraft UI")]
+    public TMPro.TMP_Text aircraftStatusText;
+    [TextArea] public string aircraftMessage = "AIRCRAFT SWAP ACTIVE\nPRESS '1' OR '2'";
 
-    public bool CanSwapAircraft => currentZoneIndex != -1 && aircraftSwapIndices.Contains(currentZoneIndex);
-    public bool CanSwapCharacter => currentZoneIndex != -1 && characterSwapIndices.Contains(currentZoneIndex);
+    [Header("Character Settings")]
+    public List<int> characterSwapIndices = new List<int> { 36, 72 };
+    public float characterSwapRadius = 30f;
+    public float characterUiRadius = 60f;
 
-    private bool IsInAnyZone(List<int> indices)
-    {
-        return currentZoneIndex != -1 && indices.Contains(currentZoneIndex);
-    }
+    [Header("Character UI")]
+    public TMPro.TMP_Text characterStatusText;
+    [TextArea] public string characterMessage = "CHARACTER SWAP ACTIVE\nPRESS '4'";
     
-    // --- UI Feedback ---
-    [Header("UI Feedback")]
-    public TMPro.TMP_Text swapStatusText;
-    [TextArea] public string swapMessage = "CHECKPOINT APPROACHING\nSWAP MECHANISMS ACTIVE\nPRESS '1'/'2' TO SWAP";
+    // Internal State
+    [SerializeField] private int aircraftZoneIndex = -1;
+    [SerializeField] private int characterZoneIndex = -1;
+    
+    private float aircraftTimer = 0f;
+    private float characterTimer = 0f;
+
+    public bool CanSwapAircraft => aircraftZoneIndex != -1;
+    public bool CanSwapCharacter => characterZoneIndex != -1;
 
     void Update()
     {
@@ -238,81 +238,123 @@ public class CheckpointNetwork : MonoBehaviour
 
         if (playerTransform == null) return;
 
-        int foundIndex = -1;
-        float sqrRadius = swapZoneRadius * swapZoneRadius;
         Vector3 playerPos = playerTransform.position;
 
-        // 1. Check if we are physically inside any valid zone
+        // --- AIRCRAFT LOGIC ---
+        int foundAircraftIdx = -1;
+        bool aircraftUiVisible = false;
+        
+        float sqrAirSwap = aircraftSwapRadius * aircraftSwapRadius;
+        float sqrAirUi = aircraftUiRadius * aircraftUiRadius;
+        
         foreach (int idx in aircraftSwapIndices)
         {
-            if (CheckDistance(idx, playerPos, sqrRadius))
-            {
-                foundIndex = idx;
-                break;
-            }
+            float distSq = GetDistanceSq(idx, playerPos);
+            if (distSq < 0f) continue;
+
+            if (distSq <= sqrAirSwap) foundAircraftIdx = idx;
+            if (distSq <= sqrAirUi) aircraftUiVisible = true;
+            
+             if (foundAircraftIdx != -1) break; 
         }
         
-        if (foundIndex == -1) // If not found in aircraft list, check character list
+        if (foundAircraftIdx != -1)
         {
-            foreach (int idx in characterSwapIndices)
-            {
-                if (CheckDistance(idx, playerPos, sqrRadius))
-                {
-                    foundIndex = idx;
-                    break;
-                }
-            }
-        }
-
-        // 2. Timer Logic
-        if (foundIndex != -1)
-        {
-            // Player is inside a valid zone: Refresh timer
-            currentZoneIndex = foundIndex;
-            swapTimer = swapDuration;
+            aircraftZoneIndex = foundAircraftIdx;
+            aircraftTimer = swapDuration;
         }
         else
         {
-            // Player is outside: Count down
-            if (swapTimer > 0f)
+            if (aircraftTimer > 0f)
             {
-                swapTimer -= Time.deltaTime;
-                if (swapTimer <= 0f)
+                aircraftTimer -= Time.deltaTime;
+                if (aircraftTimer <= 0f)
                 {
-                    swapTimer = 0f;
-                    currentZoneIndex = -1; // Time expired
+                    aircraftTimer = 0f;
+                    aircraftZoneIndex = -1;
                 }
             }
             else
             {
-                currentZoneIndex = -1;
+                aircraftZoneIndex = -1;
             }
         }
-
-        // 3. Update UI
-        if (swapStatusText != null)
+        
+        // --- CHARACTER LOGIC ---
+        int foundCharIdx = -1;
+        bool charUiVisible = false;
+        
+        float sqrCharSwap = characterSwapRadius * characterSwapRadius;
+        float sqrCharUi = characterUiRadius * characterUiRadius;
+        
+        foreach (int idx in characterSwapIndices)
         {
-            bool show = (currentZoneIndex != -1);
-            if (show)
+            float distSq = GetDistanceSq(idx, playerPos);
+            if (distSq < 0f) continue;
+
+            if (distSq <= sqrCharSwap) foundCharIdx = idx;
+            if (distSq <= sqrCharUi) charUiVisible = true;
+            
+             if (foundCharIdx != -1) break;
+        }
+        
+        if (foundCharIdx != -1)
+        {
+            characterZoneIndex = foundCharIdx;
+            characterTimer = swapDuration;
+        }
+        else
+        {
+            if (characterTimer > 0f)
             {
-                swapStatusText.text = swapMessage;
-                if (!swapStatusText.gameObject.activeSelf) swapStatusText.gameObject.SetActive(true);
+                characterTimer -= Time.deltaTime;
+                if (characterTimer <= 0f)
+                {
+                    characterTimer = 0f;
+                    characterZoneIndex = -1;
+                }
             }
             else
             {
-                 if (swapStatusText.gameObject.activeSelf) swapStatusText.gameObject.SetActive(false);
+                characterZoneIndex = -1;
+            }
+        }
+        
+        // --- UI UPDATE ---
+        
+        if (aircraftStatusText != null)
+        {
+            bool show = aircraftUiVisible || CanSwapAircraft;
+            if (show)
+            {
+                aircraftStatusText.text = aircraftMessage;
+                if (!aircraftStatusText.gameObject.activeSelf) aircraftStatusText.gameObject.SetActive(true);
+            }
+            else
+            {
+                if (aircraftStatusText.gameObject.activeSelf) aircraftStatusText.gameObject.SetActive(false);
+            }
+        }
+
+        if (characterStatusText != null)
+        {
+            bool show = charUiVisible || CanSwapCharacter;
+            if (show)
+            {
+                characterStatusText.text = characterMessage;
+                if (!characterStatusText.gameObject.activeSelf) characterStatusText.gameObject.SetActive(true);
+            }
+            else
+            {
+                if (characterStatusText.gameObject.activeSelf) characterStatusText.gameObject.SetActive(false);
             }
         }
     }
 
-    private bool CheckDistance(int index, Vector3 playerPos, float sqrRadius)
+    private float GetDistanceSq(int index, Vector3 playerPos)
     {
         Transform cp = GetCheckpoint(index);
-        if (cp == null) return false;
-
-        if ((cp.position - playerPos).sqrMagnitude <= sqrRadius)
-            return true;
-            
-        return false;
+        if (cp == null) return -1f;
+        return (cp.position - playerPos).sqrMagnitude;
     }
 }
