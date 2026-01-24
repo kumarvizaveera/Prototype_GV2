@@ -289,16 +289,36 @@ namespace VSX.Engines3D
             textComp.text = text;
         }
 
+        public void RefreshStats()
+        {
+            RefreshActiveCharacter();
+        }
+
         private void ApplyBonuses(CharacterData data)
         {
-            // Always apply multiplier to the BASE values, not the current values
-            // This prevents compounding when switching characters multiple times
-            
-            fMaxMovement.SetValue(engines, baseMaxMovement * data.speedMultiplier);
-            fMaxSteering.SetValue(engines, baseMaxSteering * data.steeringMultiplier);
-            fMaxBoost.SetValue(engines, baseMaxBoost * data.boostMultiplier);
+            // Check for Artifact Manager
+            var artifactManager = GetComponent<AircraftArtifactManager>();
+            float artSpeed = 1f;
+            float artSteer = 1f;
+            float artBoost = 1f;
 
-            Debug.Log($"[CharacterManager] Switched to {data.characterName}. Bonuses Applied to BASE values.");
+            if (artifactManager != null)
+            {
+                var multipliers = artifactManager.GetTotalMultipliers();
+                artSpeed = multipliers.speed;
+                artSteer = multipliers.steering;
+                artBoost = multipliers.boost;
+            }
+
+            // Formula: Base * Character * Artifacts
+            fMaxMovement.SetValue(engines, baseMaxMovement * data.speedMultiplier * artSpeed);
+            fMaxSteering.SetValue(engines, baseMaxSteering * data.steeringMultiplier * artSteer);
+            fMaxBoost.SetValue(engines, baseMaxBoost * data.boostMultiplier * artBoost);
+
+            Debug.Log($"[CharacterManager] Applied {data.characterName} + Artifacts. " +
+                      $"Multipliers: Spd x{data.speedMultiplier * artSpeed:F2}, " +
+                      $"Str x{data.steeringMultiplier * artSteer:F2}, " +
+                      $"Bst x{data.boostMultiplier * artBoost:F2}");
         }
 
         private void CacheFields()
