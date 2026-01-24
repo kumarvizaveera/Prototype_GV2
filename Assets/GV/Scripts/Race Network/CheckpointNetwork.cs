@@ -208,6 +208,7 @@ public class CheckpointNetwork : MonoBehaviour
     [Header("Aircraft UI")]
     public TMPro.TMP_Text aircraftStatusText;
     [TextArea] public string aircraftMessage = "AIRCRAFT SWAP ACTIVE\nPRESS '1' OR '2'";
+    [TextArea] public string aircraftActiveMessage = "SWAP WINDOW OPEN ({0:0.0}s)\nPRESS '1' OR '2'";
 
     [Header("Character Settings")]
     public List<int> characterSwapIndices = new List<int> { 36, 72 };
@@ -217,6 +218,7 @@ public class CheckpointNetwork : MonoBehaviour
     [Header("Character UI")]
     public TMPro.TMP_Text characterStatusText;
     [TextArea] public string characterMessage = "CHARACTER SWAP ACTIVE\nPRESS '4'";
+    [TextArea] public string characterActiveMessage = "SWAP WINDOW OPEN ({0:0.0}s)\nPRESS '4'";
     
     // Internal State
     [SerializeField] private int aircraftZoneIndex = -1;
@@ -327,7 +329,24 @@ public class CheckpointNetwork : MonoBehaviour
             bool show = aircraftUiVisible || CanSwapAircraft;
             if (show)
             {
-                aircraftStatusText.text = aircraftMessage;
+                // Priority 1: Counting Down (Just passed checkpoint, window open)
+                // We check if inactive in physics zone (timer decreasing)
+                // epsilon check for float safe comparison
+                if (CanSwapAircraft && aircraftTimer < (swapDuration - 0.01f))
+                {
+                     aircraftStatusText.text = string.Format(aircraftActiveMessage, aircraftTimer);
+                }
+                // Priority 2: In Proximity (Approaching OR Inside safe zone)
+                else if (aircraftUiVisible)
+                {
+                     aircraftStatusText.text = aircraftMessage;
+                }
+                // Fallback (Should be covered by P1, but safe to keep)
+                else if (CanSwapAircraft)
+                {
+                    aircraftStatusText.text = string.Format(aircraftActiveMessage, aircraftTimer);
+                }
+                
                 if (!aircraftStatusText.gameObject.activeSelf) aircraftStatusText.gameObject.SetActive(true);
             }
             else
@@ -341,7 +360,22 @@ public class CheckpointNetwork : MonoBehaviour
             bool show = charUiVisible || CanSwapCharacter;
             if (show)
             {
-                characterStatusText.text = characterMessage;
+                // Priority 1: Counting Down
+                if (CanSwapCharacter && characterTimer < (swapDuration - 0.01f))
+                {
+                    characterStatusText.text = string.Format(characterActiveMessage, characterTimer);
+                }
+                // Priority 2: Proximity
+                else if (charUiVisible)
+                {
+                    characterStatusText.text = characterMessage;
+                }
+                // Fallback
+                else if (CanSwapCharacter)
+                {
+                    characterStatusText.text = string.Format(characterActiveMessage, characterTimer);
+                }
+                
                 if (!characterStatusText.gameObject.activeSelf) characterStatusText.gameObject.SetActive(true);
             }
             else
