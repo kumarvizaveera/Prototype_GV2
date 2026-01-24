@@ -289,6 +289,12 @@ namespace VSX.Engines3D
             textComp.text = text;
         }
 
+        [Header("External Managers")]
+        [Tooltip("Assign the empty game object with the Artifact Manager here.")]
+        public AircraftArtifactManager artifactManager;
+
+        /* ... existing code ... */
+
         public void RefreshStats()
         {
             RefreshActiveCharacter();
@@ -296,8 +302,9 @@ namespace VSX.Engines3D
 
         private void ApplyBonuses(CharacterData data)
         {
-            // Check for Artifact Manager
-            var artifactManager = GetComponent<AircraftArtifactManager>();
+            // Logic updated to check the public field FIRST, then fallback to GetComponent
+            if (artifactManager == null) artifactManager = GetComponent<AircraftArtifactManager>();
+            
             float artSpeed = 1f;
             float artSteer = 1f;
             float artBoost = 1f;

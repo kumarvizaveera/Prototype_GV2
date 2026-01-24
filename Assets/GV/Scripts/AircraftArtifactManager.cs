@@ -10,12 +10,15 @@ namespace VSX.Engines3D
         [Header("Equipped Artifacts")]
         public List<ArtifactData> artifacts = new List<ArtifactData>();
 
-        private AircraftCharacterManager characterManager;
+        [Header("References")]
+        [Tooltip("Assign the ship's Character Manager here.")]
+        public AircraftCharacterManager targetManager;
 
         private void Awake()
         {
-            // We only need the character manager to notify it of changes
-            characterManager = GetComponent<AircraftCharacterManager>();
+            // If not assigned, try to find one on this object, or globally as fallback
+            if (targetManager == null) targetManager = GetComponent<AircraftCharacterManager>();
+            if (targetManager == null) targetManager = FindObjectOfType<AircraftCharacterManager>();
         }
 
         private void OnEnable()
@@ -48,16 +51,16 @@ namespace VSX.Engines3D
             // to ensure meaningful stacking (Base * Character * Artifact)
             // instead of compounding on top of current values.
             
-            if (characterManager != null)
+            if (targetManager != null)
             {
-                characterManager.RefreshStats();
+                targetManager.RefreshStats();
             }
             else
             {
                 // If there's no character manager, we can't safely apply bonuses 
                 // without risking the infinite-stacking bug.
                 // For now, we just warn. 
-                Debug.LogWarning("[AircraftArtifactManager] No AircraftCharacterManager found. Artifacts will not apply.");
+                Debug.LogWarning("[AircraftArtifactManager] No Target CharacterManager found. Artifacts will not apply.");
             }
         }
         

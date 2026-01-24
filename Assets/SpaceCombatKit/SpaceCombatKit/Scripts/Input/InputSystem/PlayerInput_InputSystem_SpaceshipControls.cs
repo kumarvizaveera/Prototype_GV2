@@ -115,5 +115,34 @@ namespace VSX.SpaceCombatKit
         {
             return new Vector3(Mouse.current.position.ReadValue().x / Screen.width, Mouse.current.position.ReadValue().y / Screen.height, 0);
         }
+
+
+        protected override void OnInputUpdate()
+        {
+            // --- Custom Overrides ---
+
+            // Auto-Forward Logic with Brake Override
+            if (Keyboard.current != null && Keyboard.current.sKey.isPressed)
+            {
+                 // S is pressed: Brake / Reverse
+                 movementInputs.z = -1f;
+            }
+            else
+            {
+                 // S not pressed: Auto-Forward
+                 movementInputs.z = 1f;
+            }
+            
+            setThrottle = true; 
+
+            // 2. W = Boost: Manually check the W key on the current keyboard
+            if (Keyboard.current != null)
+            {
+                boostInputs.z = Keyboard.current.wKey.isPressed ? 1f : 0f;
+            }
+
+            // 3. Call base to handle steering/mouse/applying values to engines
+            base.OnInputUpdate();
+        }
     }
 }

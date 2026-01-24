@@ -10,6 +10,7 @@
   <Project Path="VSX.UI.csproj" />
   <Project Path="VSX.Cameras.csproj" />
   <Project Path="VSX.Weapons.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="VSX.Characters.csproj" />
   <Project Path="VSX.Vehicles.ControlAnimations.csproj" />
   <Project Path="VSX.EssentialUtilities.csproj" />
