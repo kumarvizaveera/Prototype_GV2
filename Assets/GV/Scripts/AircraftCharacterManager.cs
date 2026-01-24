@@ -14,10 +14,10 @@ namespace VSX.Engines3D
         [Tooltip("Character for Aircraft B (Vimana)")]
         public CharacterData characterB;
 
-        [Header("Visuals (Existing Sprites)")]
-        [Tooltip("Existing sprite GameObject for Aircraft A")]
+        [Header("Visuals (Existing Roots)")]
+        [Tooltip("Root GameObject for Aircraft A (Atom Rider)")]
         public GameObject spriteObjectA;
-        [Tooltip("Existing sprite GameObject for Aircraft B")]
+        [Tooltip("Root GameObject for Aircraft B (Sarathi)")]
         public GameObject spriteObjectB;
 
         [Header("Bonus UI (Optional)")]
@@ -26,8 +26,15 @@ namespace VSX.Engines3D
         [Tooltip("TMP Text component for Aircraft B to show stats")]
         public TMP_Text statsTextB;
 
+        [Header("Fade Settings")]
+        [Tooltip("How long the character stays visible before fading.")]
+        public float visibleDuration = 3.0f;
+        [Tooltip("How long the fade out takes.")]
+        public float fadeDuration = 1.0f;
+
         private VehicleEngines3DProfileSwapper swapper;
         private VehicleEngines3D engines;
+        private Coroutine activeFadeRoutine;
 
         // Reflection fields to modify engines
         private FieldInfo fMaxMovement;
@@ -39,7 +46,7 @@ namespace VSX.Engines3D
             swapper = GetComponent<VehicleEngines3DProfileSwapper>();
             engines = GetComponent<VehicleEngines3D>();
 
-            // Ensure billboard script is on sprites if they exist
+            // Ensure billboard script is on roots if they exist
             AddBillboardIfNeeded(spriteObjectA);
             AddBillboardIfNeeded(spriteObjectB);
 
@@ -75,39 +82,120 @@ namespace VSX.Engines3D
 
         private void OnProfileApplied(int index)
         {
+            if (activeFadeRoutine != null) StopCoroutine(activeFadeRoutine);
+
             CharacterData activeChar = (index == 0) ? characterA : characterB;
-            GameObject activeSprite = (index == 0) ? spriteObjectA : spriteObjectB;
-            GameObject otherSprite = (index == 0) ? spriteObjectB : spriteObjectA;
+            GameObject activeRoot = (index == 0) ? spriteObjectA : spriteObjectB;
+            GameObject otherRoot = (index == 0) ? spriteObjectB : spriteObjectA;
             TMP_Text activeText = (index == 0) ? statsTextA : statsTextB;
-            TMP_Text otherText = (index == 0) ? statsTextB : statsTextA;
 
-            // 1. Update Visuals
-            if (activeSprite != null) activeSprite.SetActive(true);
-            if (otherSprite != null) otherSprite.SetActive(false);
+            // 1. Disable the OTHER root immediately
+            if (otherRoot != null) otherRoot.SetActive(false);
 
-            if (activeText != null)
+            // 2. Setup ACTIVE root
+            if (activeRoot != null)
             {
-                activeText.gameObject.SetActive(true);
-                // Also billboard the text if it's separate (optional, but robust)
-                if (activeText.GetComponent<BillboardToCamera>() == null)
-                    activeText.gameObject.AddComponent<BillboardToCamera>();
+                activeRoot.SetActive(true);
+                
+                // Reset Alpha to 1 first (in case it was mid-fade)
+                SetRootAlpha(activeRoot, 1f);
+
+                // Billboard text if needed
+                if (activeText != null)
+                {
+                    if (activeText.GetComponent<BillboardToCamera>() == null)
+                        activeText.gameObject.AddComponent<BillboardToCamera>();
+                    
+                    // Update the text content
+                    if (activeChar != null) UpdateBonusText(activeChar, activeText);
+                }
+
+                // Start the wait & fade routine
+                activeFadeRoutine = StartCoroutine(FadeRoutine(activeRoot));
             }
-            if (otherText != null) otherText.gameObject.SetActive(false);
 
-
-            // 2. Apply Bonuses & Update Text
-            if (activeChar != null)
+            // 3. Apply Bonuses
+            if (activeChar != null && engines != null)
             {
-                if (engines != null) ApplyBonuses(activeChar);
-                if (activeText != null) UpdateBonusText(activeChar, activeText);
+                ApplyBonuses(activeChar);
+            }
+        }
+
+        private System.Collections.IEnumerator FadeRoutine(GameObject root)
+        {
+            // Wait
+            yield return new WaitForSeconds(visibleDuration);
+
+            // Fade Out
+            float timer = 0f;
+            while (timer < fadeDuration)
+            {
+                timer += Time.deltaTime;
+                float alpha = Mathf.Lerp(1f, 0f, timer / fadeDuration);
+                SetRootAlpha(root, alpha);
+                yield return null;
+            }
+
+            // Ensure fully invisible and disable
+            SetRootAlpha(root, 0f);
+            root.SetActive(false);
+        }
+
+        private void SetRootAlpha(GameObject root, float alpha)
+        {
+            if (root == null) return;
+
+            // 1. Handle SpriteRenderers (most likely for 3D world sprites)
+            SpriteRenderer[] sprites = root.GetComponentsInChildren<SpriteRenderer>(true);
+            foreach (var s in sprites)
+            {
+                Color c = s.color;
+                c.a = alpha;
+                s.color = c;
+            }
+
+            // 2. Handle UI Graphics (Image, RawImage) - for World Space Canvas
+            UnityEngine.UI.Graphic[] graphics = root.GetComponentsInChildren<UnityEngine.UI.Graphic>(true);
+            foreach (var g in graphics)
+            {
+                Color c = g.color;
+                c.a = alpha;
+                g.color = c;
+            }
+
+            // 3. Handle Standard Renderers (MeshRenderer) - fallback
+            // Note: This only works if the shader supports transparency and exposes "_Color" or "_BaseColor"
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            foreach (var r in renderers)
+            {
+                if (r is SpriteRenderer) continue; // Already handled above
+
+                Material mat = r.material;
+                if (mat.HasProperty("_Color"))
+                {
+                    Color c = mat.color;
+                    c.a = alpha;
+                    mat.color = c;
+                }
+                else if (mat.HasProperty("_BaseColor")) // URP/HDRP often use BaseColor
+                {
+                    Color c = mat.GetColor("_BaseColor");
+                    c.a = alpha;
+                    mat.SetColor("_BaseColor", c);
+                }
+            }
+
+            // 4. Handle TMP Text (handled separately as it often has its own property)
+            TMP_Text[] tmps = root.GetComponentsInChildren<TMP_Text>(true);
+            foreach (var t in tmps)
+            {
+                t.alpha = alpha;
             }
         }
 
         private void UpdateBonusText(CharacterData data, TMP_Text textComp)
         {
-            // Format: "+10% Spd | +5% Str | +5% Bst"
-            // Or simpler if all are same: "+10% All" (but we show full details)
-            
+            // Format: "+10% Speed | +5% Handling | +5% Boost"
             int spdBonus = Mathf.RoundToInt((data.speedMultiplier - 1f) * 100f);
             int strBonus = Mathf.RoundToInt((data.steeringMultiplier - 1f) * 100f);
             int bstBonus = Mathf.RoundToInt((data.boostMultiplier - 1f) * 100f);
