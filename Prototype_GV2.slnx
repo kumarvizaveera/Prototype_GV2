@@ -1,6 +1,7 @@
 ﻿<Solution>
   <Project Path="VSX.Characters.Editor.csproj" />
   <Project Path="VSX.Utilities.Useful.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="VSX.SpaceCombatKit.csproj" />
   <Project Path="VSX.VehicleCombatKits.csproj" />
   <Project Path="VSX.Radar.csproj" />
@@ -11,7 +12,6 @@
   <Project Path="VSX.Weapons.csproj" />
   <Project Path="VSX.Characters.csproj" />
   <Project Path="VSX.Vehicles.ControlAnimations.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="VSX.EssentialUtilities.csproj" />
   <Project Path="VSX.ResourceSystem.csproj" />
   <Project Path="VSX.Controls.UnityInputSystem.csproj" />
