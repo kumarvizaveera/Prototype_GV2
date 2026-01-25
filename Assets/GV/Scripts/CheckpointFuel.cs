@@ -6,9 +6,20 @@ namespace GV.Scripts
 {
     public class CheckpointFuel : MonoBehaviour
     {
-        [Header("Settings")]
-        [Tooltip("Amount of boost fuel to add when collected.")]
-        public float fuelAmount = 10f;
+        [Header("Fuel Settings")]
+        [Tooltip("Standard amount of fuel given.")]
+        public float baseFuel = 10f;
+
+        [Tooltip("Random variance added as a percentage of Base Fuel (e.g. 0.1 = +0-10%).")]
+        [Range(0f, 1f)]
+        public float fluxPercentage = 0.05f;
+
+        [Header("Jackpot")]
+        [Tooltip("Is this a rare lucky checkpoint?")]
+        public bool isJackpot = false;
+
+        [Tooltip("Amount of fuel given if this is a Jackpot.")]
+        public float jackpotFuel = 100f;
 
         [Tooltip("Destroy/Disable object after collection?")]
         public bool oneTimeUse = true;
@@ -52,13 +63,27 @@ namespace GV.Scripts
         {
             bool fuelGiven = false;
 
+            float amountToAdd = baseFuel;
+
+            if (isJackpot)
+            {
+                amountToAdd = jackpotFuel;
+            }
+            else
+            {
+                // Add a small random flux (always positive or zero based on user request "Bonus fuel")
+                // flux is % of base. e.g. 10 * 0.05 = 0.5. Result 10 to 10.5
+                float flux = baseFuel * UnityEngine.Random.Range(0f, fluxPercentage);
+                amountToAdd += flux;
+            }
+
             if (engines.BoostResourceHandlers != null)
             {
                 foreach (var handler in engines.BoostResourceHandlers)
                 {
                     if (handler != null && handler.resourceContainer != null)
                     {
-                        handler.resourceContainer.AddRemove(fuelAmount);
+                        handler.resourceContainer.AddRemove(amountToAdd);
                         fuelGiven = true;
                     }
                 }
@@ -74,15 +99,23 @@ namespace GV.Scripts
         {
             collected = true;
 
-            // Visual/Audio Feedback
+            // Visual Feedback
             if (collectionEffect != null)
             {
                 Instantiate(collectionEffect, transform.position, transform.rotation);
             }
 
+            float destroyDelay = 0f;
+
+            // Audio Feedback
             if (collectionAudio != null && collectionAudio.clip != null)
             {
                 collectionAudio.Play();
+                // If the audio source is on this object or a child, wait for it to finish before destroying
+                if (collectionAudio.gameObject == gameObject || collectionAudio.transform.IsChildOf(transform))
+                {
+                    destroyDelay = collectionAudio.clip.length;
+                }
             }
 
             // Disable logic
@@ -90,13 +123,16 @@ namespace GV.Scripts
             {
                 if (m_Collider != null) m_Collider.enabled = false;
                 
-                // Hide visuals if necessary, but keep object alive if audio is playing on it
-                // For now, assuming audio might be 2D or on a child. 
-                // If we destroy, we lose audio.
-                
-                // If we have a mesh renderer, disable it
-                var renderer = GetComponent<Renderer>();
-                if (renderer != null) renderer.enabled = false;
+                // Hide ALL visuals recursively (Mesh, UI, TextMeshPro, etc.)
+                foreach (var r in GetComponentsInChildren<Renderer>()) r.enabled = false;
+                foreach (var c in GetComponentsInChildren<Canvas>()) c.enabled = false;
+                // Use reflection or non-generic GetComponent to safely handle TMP if present/not-present without hard dependency issues, 
+                // but since we know TMP is in project, we can try generic or just finding by type name if avoiding using TMPro namespace.
+                // Assuming TMPro usage is fine as per project context.
+                foreach (var t in GetComponentsInChildren<TMPro.TMP_Text>()) t.enabled = false;
+
+                // Cleanup
+                Destroy(gameObject, destroyDelay);
             }
         }
         
