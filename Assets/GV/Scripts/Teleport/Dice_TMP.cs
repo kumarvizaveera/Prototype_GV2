@@ -16,13 +16,23 @@ public class DiceRingIndicator : MonoBehaviour
     public Color tmpForwardGreen = Color.green;
     public Color tmpBackwardRed = Color.red;
 
-    [Header("Dice Range")]
-    [Min(1)] public int minValue = 1;
-    [Min(1)] public int maxValue = 6;
+    [System.Serializable]
+    public struct WeightedOutcome
+    {
+        public int value;
+        public bool isForward;
+        [Range(0f, 100f)] public float probability;
+    }
 
-    [Header("Backward (Minus) Restriction")]
-    public bool restrictBackwardMax = true;
-    [Min(1)] public int maxBackwardValue = 6;
+    [Header("Weighted Dice Outcomes")]
+    public WeightedOutcome[] outcomes = new WeightedOutcome[]
+    {
+        new WeightedOutcome { value = 4, isForward = true, probability = 35f },
+        new WeightedOutcome { value = 8, isForward = true, probability = 25f },
+        new WeightedOutcome { value = 12, isForward = true, probability = 10f },
+        new WeightedOutcome { value = 4, isForward = false, probability = 20f },
+        new WeightedOutcome { value = 8, isForward = false, probability = 10f },
+    };
 
     [Header("Visual (Emission)")]
     public Renderer[] glowRenderers;
@@ -135,15 +145,24 @@ public class DiceRingIndicator : MonoBehaviour
     [ContextMenu("Roll Now")]
     public void Roll()
     {
-        isForward = (Random.value >= 0.5f);
+        if (outcomes == null || outcomes.Length == 0) return;
 
-        int min = minValue;
-        int max = maxValue;
+        float totalWeight = 0f;
+        for (int i = 0; i < outcomes.Length; i++) totalWeight += outcomes[i].probability;
 
-        if (!isForward && restrictBackwardMax)
-            max = Mathf.Min(max, maxBackwardValue);
+        float rnd = Random.Range(0f, totalWeight);
+        float current = 0f;
 
-        diceValue = Random.Range(min, max + 1);
+        for (int i = 0; i < outcomes.Length; i++)
+        {
+            current += outcomes[i].probability;
+            if (rnd <= current)
+            {
+                isForward = outcomes[i].isForward;
+                diceValue = outcomes[i].value;
+                break;
+            }
+        }
 
         ApplyVisuals(force: true);
     }
@@ -151,15 +170,7 @@ public class DiceRingIndicator : MonoBehaviour
     public void SetState(bool forward, int value)
     {
         isForward = forward;
-
-        int min = minValue;
-        int max = maxValue;
-
-        if (!isForward && restrictBackwardMax)
-            max = Mathf.Min(max, maxBackwardValue);
-
-        diceValue = Mathf.Clamp(value, min, max);
-
+        diceValue = value; // Direct assignment; validation is up to caller or we rely on it being correct visuals
         ApplyVisuals(force: true);
     }
 
@@ -377,15 +388,14 @@ public class DiceRingIndicator : MonoBehaviour
 
     void OnValidate()
     {
-        if (minValue < 1) minValue = 1;
-        if (maxValue < minValue) maxValue = minValue;
-        if (maxBackwardValue < 1) maxBackwardValue = 1;
-
-        int max = maxValue;
-        if (!isForward && restrictBackwardMax)
-            max = Mathf.Min(max, maxBackwardValue);
-
-        diceValue = Mathf.Clamp(diceValue, minValue, max);
+        if (outcomes == null || outcomes.Length == 0)
+        {
+            // Fallback default
+            outcomes = new WeightedOutcome[]
+            {
+                new WeightedOutcome { value = 4, isForward = true, probability = 100f }
+            };
+        }
 
         if (nearDistance < 0.01f) nearDistance = 0.01f;
         if (farDistance < nearDistance) farDistance = nearDistance;

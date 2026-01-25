@@ -125,6 +125,9 @@ public class CheckpointNetwork : MonoBehaviour
 
         for (int i = 0; i < _checkpoints.Count; i++)
         {
+            // Handle destroyed/missing checkpoints gracefully
+            if (_checkpoints[i] == null) continue;
+
             float d = (worldPos - _checkpoints[i].position).sqrMagnitude;
             if (d < bestDist)
             {

@@ -6,12 +6,14 @@ public class BoostGlow : MonoBehaviour
     [Header("Boost Settings (Tab)")]
     public float boostIntensity = 6.0f;
     public Color boostColor = Color.magenta;
-    public KeyCode boostKey = KeyCode.Tab;
+    public KeyCode boostKey = KeyCode.W; // Updated default to W to match new controls
 
-    [Header("Forward Settings (W)")]
+    [Header("Forward Settings (Auto / W)")]
+    public bool autoForwardGlow = true; // New: Default to ON
     public float forwardIntensity = 2.0f;
     public Color forwardColor = Color.cyan;
-    public KeyCode forwardKey = KeyCode.W;
+    public KeyCode forwardKey = KeyCode.W; // Kept for reference, though W is now boost
+    public KeyCode brakeKey = KeyCode.S;   // New: Brake key to turn off glow
 
     [Header("Side Settings (Q & E)")]
     public float sideIntensity = 3.0f;     // Intensity for Q and E
@@ -58,35 +60,40 @@ public class BoostGlow : MonoBehaviour
         Color targetBaseColor = _currentColor; 
 
         // INPUT LOGIC (Priority Order)
-        // 1. Boost (Highest Priority)
+        // 1. Boost (Highest Priority) - NOW W KEY
         if (Input.GetKey(boostKey))
         {
             targetIntensity = boostIntensity;
             targetBaseColor = boostColor;
         }
-        // 2. Forward
-        else if (Input.GetKey(forwardKey))
+        // 2. Brake (S Key) - Turn OFF glow
+        else if (Input.GetKey(brakeKey))
+        {
+            targetIntensity = 0f;
+            // Fade out using last color
+        }
+        // 3. Auto-Forward OR Manual Forward
+        else if (autoForwardGlow || Input.GetKey(forwardKey))
         {
             targetIntensity = forwardIntensity;
             targetBaseColor = forwardColor;
         }
-        // 3. Left (Q)
+        // 4. Left (Q)
         else if (Input.GetKey(leftKey))
         {
             targetIntensity = sideIntensity;
             targetBaseColor = leftColor;
         }
-        // 4. Right (E)
+        // 5. Right (E)
         else if (Input.GetKey(rightKey))
         {
             targetIntensity = sideIntensity;
             targetBaseColor = rightColor;
         }
-        // 5. Idle (No keys pressed)
+        // 6. Idle (Only if auto-forward is OFF)
         else
         {
             targetIntensity = 0f;
-            // Keep the last known color so it fades out naturally
         }
 
         // SMOOTHING
