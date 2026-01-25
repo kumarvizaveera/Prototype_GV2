@@ -38,7 +38,7 @@ namespace VSX.Engines3D
             {
                 if (speedBar != null)
                 {
-                    speedBar.SetFill(engines.Rigidbody.linearVelocity.magnitude / engines.GetCurrentMaxSpeedByAxis(false).z);
+                    speedBar.SetFill(engines.Rigidbody.linearVelocity.magnitude / engines.GetCurrentMaxSpeedByAxis(true).z);
                 }
 
                 if (speedText != null)
