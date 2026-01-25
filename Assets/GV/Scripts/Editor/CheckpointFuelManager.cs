@@ -5,13 +5,17 @@ using System.Collections.Generic;
 
 public class CheckpointFuelManager : ScriptableWizard
 {
-    [Header("Fuel Settings")]
-    [Tooltip("The base amount of fuel to set on all checkpoints.")]
+    [Header("Base Settings (Majority)")]
+    [Tooltip("The base amount of fuel for standard boxes.")]
     public float baseFuel = 10f;
 
-    [Tooltip("The flux percentage (0-1) to set.")]
+    [Header("Bonus / Flux Settings")]
+    [Tooltip("How many checkpoints should be Bonus/Flux boxes?")]
+    public int bonusCount = 15;
+
+    [Tooltip("The flux percentage (0-1) for Bonus boxes.")]
     [Range(0f, 1f)]
-    public float fluxPercentage = 0.05f;
+    public float fluxPercentage = 0.25f;
 
     [Header("Jackpot Settings")]
     [Tooltip("How many checkpoints should be Jackpots?")]
@@ -19,6 +23,11 @@ public class CheckpointFuelManager : ScriptableWizard
 
     [Tooltip("The amount of fuel for a Jackpot.")]
     public float jackpotFuel = 100f;
+
+    [Header("Visuals")]
+    public Material normalMaterial;
+    public Material bonusMaterial;
+    public Material jackpotMaterial;
     
     [Space]
     [Tooltip("The parent object containing all checkpoints (defaults to searching for 'Spline_2').")]
@@ -27,7 +36,7 @@ public class CheckpointFuelManager : ScriptableWizard
     [MenuItem("GV/Manage Checkpoint Fuel")]
     static void CreateWizard()
     {
-        var wizard = ScriptableWizard.DisplayWizard<CheckpointFuelManager>("Manage Checkpoint Fuel", "Apply Settings & Roll Jackpots");
+        var wizard = ScriptableWizard.DisplayWizard<CheckpointFuelManager>("Manage Checkpoint Fuel", "Apply 3-Tier System");
         // Try to auto-find the root
         if (wizard.rootObject == null)
         {
@@ -56,45 +65,70 @@ public class CheckpointFuelManager : ScriptableWizard
             return;
         }
 
-        Undo.RecordObjects(allCheckpoints, "Update Fuel & Jackpots");
+        Undo.RecordObjects(allCheckpoints, "Update Fuel System");
 
-        // 1. Reset everyone to base settings
+        // Track available indices for randomization
+        List<int> availableIndices = new List<int>();
+        for (int i = 0; i < total; i++) availableIndices.Add(i);
+
+        // 1. Reset everyone to BASE settings (Flux=0, Normal Material)
         foreach (var cp in allCheckpoints)
         {
             cp.baseFuel = baseFuel;
-            cp.fluxPercentage = fluxPercentage;
+            cp.fluxPercentage = 0f; // Base boxes have no flux
             cp.jackpotFuel = jackpotFuel;
-            cp.isJackpot = false; // Reset first
+            cp.isJackpot = false;
+
+            ApplyMaterial(cp, normalMaterial);
         }
 
-        // 2. Pick Random Jackpots
-        if (jackpotCount > 0)
+        // 2. Assign Jackpots
+        int assignedJackpots = 0;
+        while (assignedJackpots < jackpotCount && availableIndices.Count > 0)
         {
-            List<int> availableIndices = new List<int>();
-            for (int i = 0; i < total; i++) availableIndices.Add(i);
-
-            int assigned = 0;
-            while (assigned < jackpotCount && availableIndices.Count > 0)
-            {
-                int randomIndex = Random.Range(0, availableIndices.Count);
-                int cpIndex = availableIndices[randomIndex];
-                
-                // Set as Jackpot
-                allCheckpoints[cpIndex].isJackpot = true;
-                
-                // Remove from list so we don't pick it again
-                availableIndices.RemoveAt(randomIndex);
-                assigned++;
-            }
-            Debug.Log($"Rolled {assigned} Jackpots out of {total} checkpoints.");
+            int randomIndex = Random.Range(0, availableIndices.Count);
+            int cpIndex = availableIndices[randomIndex];
+            
+            var cp = allCheckpoints[cpIndex];
+            cp.isJackpot = true;
+            ApplyMaterial(cp, jackpotMaterial);
+            
+            availableIndices.RemoveAt(randomIndex);
+            assignedJackpots++;
         }
 
-        // Mark all as dirty to save changes
+        // 3. Assign Bonus/Flux Boxes
+        int assignedBonus = 0;
+        while (assignedBonus < bonusCount && availableIndices.Count > 0)
+        {
+            int randomIndex = Random.Range(0, availableIndices.Count);
+            int cpIndex = availableIndices[randomIndex];
+            
+            var cp = allCheckpoints[cpIndex];
+            cp.fluxPercentage = fluxPercentage; // Assign the bonus flux
+            ApplyMaterial(cp, bonusMaterial);
+            
+            availableIndices.RemoveAt(randomIndex);
+            assignedBonus++;
+        }
+
+        // Mark all as dirty
         foreach (var cp in allCheckpoints)
         {
             EditorUtility.SetDirty(cp);
         }
 
-        Debug.Log($"Updated settings for {total} checkpoints.");
+        Debug.Log($"System Updated: {assignedJackpots} Jackpots, {assignedBonus} Bonus Boxes, {availableIndices.Count} Base Boxes.");
+    }
+
+    void ApplyMaterial(CheckpointFuel cp, Material mat)
+    {
+        if (mat == null) return;
+        var r = cp.GetComponent<Renderer>();
+        if (r != null)
+        {
+            Undo.RecordObject(r, "Update Material");
+            r.sharedMaterial = mat;
+        }
     }
 }
