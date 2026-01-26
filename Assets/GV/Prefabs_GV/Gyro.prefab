@@ -482,10 +482,22 @@ MonoBehaviour:
   colorizeTMP: 1
   tmpForwardGreen: {r: 0, g: 1, b: 0, a: 1}
   tmpBackwardRed: {r: 1, g: 0, b: 0, a: 1}
-  minValue: 1
-  maxValue: 6
-  restrictBackwardMax: 1
-  maxBackwardValue: 6
+  outcomes:
+  - value: 4
+    isForward: 1
+    probability: 35
+  - value: 8
+    isForward: 1
+    probability: 25
+  - value: 12
+    isForward: 1
+    probability: 10
+  - value: 4
+    isForward: 0
+    probability: 20
+  - value: 8
+    isForward: 0
+    probability: 10
   glowRenderers:
   - {fileID: 1147240399064353625}
   forwardGreen: {r: 0, g: 1, b: 0, a: 1}
@@ -776,10 +788,22 @@ MonoBehaviour:
   colorizeTMP: 1
   tmpForwardGreen: {r: 0, g: 1, b: 0, a: 1}
   tmpBackwardRed: {r: 1, g: 0, b: 0, a: 1}
-  minValue: 1
-  maxValue: 6
-  restrictBackwardMax: 1
-  maxBackwardValue: 6
+  outcomes:
+  - value: 4
+    isForward: 1
+    probability: 35
+  - value: 8
+    isForward: 1
+    probability: 25
+  - value: 12
+    isForward: 1
+    probability: 10
+  - value: 4
+    isForward: 0
+    probability: 20
+  - value: 8
+    isForward: 0
+    probability: 10
   glowRenderers:
   - {fileID: 1147240399064353625}
   forwardGreen: {r: 0, g: 1, b: 0, a: 1}
@@ -1004,10 +1028,22 @@ MonoBehaviour:
   colorizeTMP: 1
   tmpForwardGreen: {r: 0, g: 1, b: 0, a: 1}
   tmpBackwardRed: {r: 1, g: 0, b: 0, a: 1}
-  minValue: 1
-  maxValue: 6
-  restrictBackwardMax: 1
-  maxBackwardValue: 6
+  outcomes:
+  - value: 4
+    isForward: 1
+    probability: 35
+  - value: 8
+    isForward: 1
+    probability: 25
+  - value: 12
+    isForward: 1
+    probability: 10
+  - value: 4
+    isForward: 0
+    probability: 20
+  - value: 8
+    isForward: 0
+    probability: 10
   glowRenderers:
   - {fileID: 1147240399064353625}
   forwardGreen: {r: 0, g: 1, b: 0, a: 1}
@@ -1667,10 +1703,22 @@ MonoBehaviour:
   colorizeTMP: 1
   tmpForwardGreen: {r: 0, g: 1, b: 0, a: 1}
   tmpBackwardRed: {r: 1, g: 0, b: 0, a: 1}
-  minValue: 1
-  maxValue: 6
-  restrictBackwardMax: 1
-  maxBackwardValue: 6
+  outcomes:
+  - value: 4
+    isForward: 1
+    probability: 35
+  - value: 8
+    isForward: 1
+    probability: 25
+  - value: 12
+    isForward: 1
+    probability: 10
+  - value: 4
+    isForward: 0
+    probability: 20
+  - value: 8
+    isForward: 0
+    probability: 10
   glowRenderers:
   - {fileID: 1147240399064353625}
   forwardGreen: {r: 0, g: 1, b: 0, a: 1}
@@ -1968,10 +2016,22 @@ MonoBehaviour:
   colorizeTMP: 1
   tmpForwardGreen: {r: 0, g: 1, b: 0, a: 1}
   tmpBackwardRed: {r: 1, g: 0, b: 0, a: 1}
-  minValue: 1
-  maxValue: 12
-  restrictBackwardMax: 1
-  maxBackwardValue: 6
+  outcomes:
+  - value: 4
+    isForward: 1
+    probability: 35
+  - value: 8
+    isForward: 1
+    probability: 25
+  - value: 12
+    isForward: 1
+    probability: 10
+  - value: 4
+    isForward: 0
+    probability: 20
+  - value: 8
+    isForward: 0
+    probability: 10
   glowRenderers:
   - {fileID: 1147240399064353625}
   forwardGreen: {r: 0.33018857, g: 1, b: 0.33018857, a: 1}

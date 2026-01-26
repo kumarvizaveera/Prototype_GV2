@@ -23,6 +23,10 @@ public class CheckpointNetwork : MonoBehaviour
     readonly List<Transform> _checkpoints = new List<Transform>();
     public int Count => _checkpoints.Count;
 
+    [Header("Calibration")]
+    [Tooltip("Add/Subtract to shift all indices. E.g. -1 if triggers are 1 too late.")]
+    public int indexOffset = 0;
+
     void Awake()
     {
         if (Instance == null) Instance = this;
@@ -65,7 +69,7 @@ public class CheckpointNetwork : MonoBehaviour
         _checkpoints.Sort((a, b) => a.GetSiblingIndex().CompareTo(b.GetSiblingIndex()));
     }
 
-    int ToZeroBased(int index) => oneBased ? index - 1 : index;
+    int ToZeroBased(int index) => (oneBased ? index - 1 : index) + indexOffset;
     int ToIndex(int zeroBased) => oneBased ? zeroBased + 1 : zeroBased;
 
     public Transform GetCheckpoint(int index)

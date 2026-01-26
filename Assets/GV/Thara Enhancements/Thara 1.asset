@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VSX.Engines3D.ArtifactData
   artifactName: Thara 1
   description: 
-  speedMultiplier: 1.05
-  steeringMultiplier: 1.05
-  boostMultiplier: 1.05
+  speedMultiplier: 1.7
+  steeringMultiplier: 1.7
+  boostMultiplier: 1.7
