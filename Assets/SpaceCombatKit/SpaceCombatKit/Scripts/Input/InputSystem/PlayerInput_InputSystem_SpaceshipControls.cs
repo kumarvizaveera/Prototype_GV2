@@ -12,6 +12,9 @@ namespace VSX.SpaceCombatKit
     public class PlayerInput_InputSystem_SpaceshipControls : PlayerInput_Base_SpaceshipControls
     {
 
+        [Header("Custom Settings")]
+        public bool enableAutoForward = true;
+
         protected InputDeviceType lastSteeringInputDeviceType = InputDeviceType.None;
 
 
@@ -120,25 +123,27 @@ namespace VSX.SpaceCombatKit
         protected override void OnInputUpdate()
         {
             // --- Custom Overrides ---
+            if (enableAutoForward)
+            {
+                // Auto-Forward Logic with Brake Override
+                if (Keyboard.current != null && Keyboard.current.sKey.isPressed)
+                {
+                    // S is pressed: Brake / Reverse
+                    movementInputs.z = -1f;
+                }
+                else
+                {
+                    // S not pressed: Auto-Forward
+                    movementInputs.z = 1f;
+                }
 
-            // Auto-Forward Logic with Brake Override
-            if (Keyboard.current != null && Keyboard.current.sKey.isPressed)
-            {
-                 // S is pressed: Brake / Reverse
-                 movementInputs.z = -1f;
-            }
-            else
-            {
-                 // S not pressed: Auto-Forward
-                 movementInputs.z = 1f;
-            }
-            
-            setThrottle = true; 
+                setThrottle = true;
 
-            // 2. W = Boost: Manually check the W key on the current keyboard
-            if (Keyboard.current != null)
-            {
-                boostInputs.z = Keyboard.current.wKey.isPressed ? 1f : 0f;
+                // 2. W = Boost: Manually check the W key on the current keyboard
+                if (Keyboard.current != null)
+                {
+                    boostInputs.z = Keyboard.current.wKey.isPressed ? 1f : 0f;
+                }
             }
 
             // 3. Call base to handle steering/mouse/applying values to engines
