@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using VSX.Objectives;
 using VSX.VehicleCombatKits;
+using VSX.Loadouts;
+using VSX.Vehicles;
 
 public class FighterObjectiveController : ObjectiveController
 {
@@ -10,9 +12,13 @@ public class FighterObjectiveController : ObjectiveController
     [SerializeField]
     protected Transform spawnerParent;
 
-    [Tooltip("List of specific spawners to track if not using parent.")]
+    [Tooltip("List of specific PilotedVehicleSpawn components to track.")]
     [SerializeField]
     protected List<PilotedVehicleSpawn> spawners = new List<PilotedVehicleSpawn>();
+
+    [Tooltip("List of specific LoadoutVehicleSpawner components to track.")]
+    [SerializeField]
+    protected List<LoadoutVehicleSpawner> loadoutSpawners = new List<LoadoutVehicleSpawner>();
 
     [Tooltip("Number of fighter kills required to complete the objective.")]
     [SerializeField]
@@ -26,15 +32,33 @@ public class FighterObjectiveController : ObjectiveController
         if (spawnerParent != null)
         {
             spawners.AddRange(spawnerParent.GetComponentsInChildren<PilotedVehicleSpawn>());
+            loadoutSpawners.AddRange(spawnerParent.GetComponentsInChildren<LoadoutVehicleSpawner>());
         }
 
-        // Subscribe to events
+        // Subscribe to events for PilotedVehicleSpawn
         foreach (PilotedVehicleSpawn spawner in spawners)
         {
             if (spawner != null)
             {
                 spawner.onDestroyed.AddListener(OnFighterDestroyed);
             }
+        }
+
+        // Subscribe to events for LoadoutVehicleSpawner
+        foreach (LoadoutVehicleSpawner spawner in loadoutSpawners)
+        {
+            if (spawner != null)
+            {
+                spawner.onVehicleSpawned.AddListener(OnLoadoutVehicleSpawned);
+            }
+        }
+    }
+
+    protected void OnLoadoutVehicleSpawned(Vehicle vehicle)
+    {
+        if (vehicle != null)
+        {
+            vehicle.onDestroyed.AddListener(OnFighterDestroyed);
         }
     }
 

@@ -19,6 +19,10 @@ namespace VSX.Objectives
             set { description = value; }
         }
 
+        [Tooltip("The order of this objective within the mission sequence.")]
+        [SerializeField]
+        public int order = 0;
+
         [Tooltip("Event called when something about the objective changes.")]
         public UnityEvent onChanged;
 

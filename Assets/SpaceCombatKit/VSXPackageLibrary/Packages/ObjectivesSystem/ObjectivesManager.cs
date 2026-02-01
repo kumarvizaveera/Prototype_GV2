@@ -37,6 +37,13 @@ namespace VSX.Objectives
 
 
 
+        [Tooltip("Whether to show objectives one by one in sequence.")]
+        [SerializeField]
+        protected bool sequentialObjectives = false;
+
+        protected List<ObjectiveUIController> objectiveUIControllers = new List<ObjectiveUIController>();
+
+
         // Called in the editor when the component is first added to a gameobject or reset in the inspector
         protected virtual void Reset()
         {
@@ -50,6 +57,14 @@ namespace VSX.Objectives
             if (findObjectivesInScene)
             {
                 ObjectiveController[] objectivesArray = FindObjectsOfType<ObjectiveController>();
+                
+                // Sort by Order first, then by Sibling Index
+                System.Array.Sort(objectivesArray, (a, b) => {
+                    int compare = a.order.CompareTo(b.order);
+                    if (compare == 0) compare = a.transform.GetSiblingIndex().CompareTo(b.transform.GetSiblingIndex());
+                    return compare;
+                });
+                
                 foreach(ObjectiveController objective in objectivesArray)
                 {
                     if (objectiveControllers.IndexOf(objective) == -1)
@@ -61,11 +76,21 @@ namespace VSX.Objectives
 
             if (objectiveUIPrefab != null)
             {
-                foreach (ObjectiveController objectiveController in objectiveControllers)
+                for(int i = 0; i < objectiveControllers.Count; ++i)
                 {
+                    ObjectiveController objectiveController = objectiveControllers[i];
+                    
                     ObjectiveUIController objectiveUIController = Instantiate(objectiveUIPrefab, objectiveUIParent);
                     objectiveUIController.SetObjective(objectiveController);
+                    objectiveUIControllers.Add(objectiveUIController);
+                    
                     objectiveController.onCompleted.AddListener(OnObjectiveCompleted);
+
+                    // If sequential, only show the first one initially
+                    if (sequentialObjectives)
+                    {
+                        objectiveUIController.gameObject.SetActive(i == 0);
+                    }
                 }
             }
         }
@@ -75,6 +100,8 @@ namespace VSX.Objectives
         {
             onObjectiveCompleted.Invoke();
 
+            UpdateSequentialObjectives();
+
             if (!ObjectivesCompleted())
             {
                 onIntermediateObjectiveCompleted.Invoke();
@@ -82,6 +109,27 @@ namespace VSX.Objectives
             else
             {
                 OnObjectivesCompleted();
+            }
+        }
+        
+        protected virtual void UpdateSequentialObjectives()
+        {
+            if (!sequentialObjectives) return;
+
+            bool foundActive = false;
+            for(int i = 0; i < objectiveControllers.Count; ++i)
+            {
+                if (!objectiveControllers[i].Completed)
+                {
+                    // Found the next uncompleted objective
+                    if (i < objectiveUIControllers.Count && objectiveUIControllers[i] != null)
+                    {
+                        objectiveUIControllers[i].gameObject.SetActive(true);
+                    }
+                    foundActive = true;
+                    // Disable subsequent ones just in case (though they should be disabled already)
+                    break;
+                }
             }
         }
 
