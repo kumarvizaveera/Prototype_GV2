@@ -47,6 +47,11 @@ public class SplineEnergyTrackGlow : MonoBehaviour
     [Min(0f)] public float highlightLengthAhead = 5f;
     [Min(0f)] public float edgeSoftnessMeters = 2f;
 
+    [Header("Dynamic Color Sync")]
+    public bool syncWithAircraftGlow = true;
+    public bool glowOnlyWhenMoving = false;
+    public List<BoostGlow> linkedBoostGlows;
+
     [Header("Highlight Window Offsets (meters)")]
     [Tooltip("Adds a distance offset to the START of the window. Positive moves the START forward (ahead), negative moves it backward (behind).")]
     public float startOffsetMeters = 0f;
@@ -268,6 +273,29 @@ public class SplineEnergyTrackGlow : MonoBehaviour
         var mat = _mr != null ? _mr.sharedMaterial : null;
         if (mat == null || aircraft == null || _container == null || _container.Splines.Count == 0)
             return;
+
+        if (syncWithAircraftGlow && linkedBoostGlows != null)
+        {
+            foreach (var bg in linkedBoostGlows)
+            {
+                if (bg != null && bg.isActiveAndEnabled)
+                {
+                    highlightGlowColor = bg.CurrentBaseColor;
+                    
+                    // If glowOnlyWhenMoving is active, and aircraft intensity is low, disable highlight
+                    if (glowOnlyWhenMoving && bg.CurrentIntensity < 0.1f)
+                    {
+                        mat.SetFloat(PulseIntensityID, 0f);
+                    }
+                    else
+                    {
+                        // Ensure it is set to the configured intensity (in case it was 0 previously)
+                        // Note: PushStaticMaterialProps() already set it to highlightIntensity at the start of Update.
+                    }
+                    break; 
+                }
+            }
+        }
 
         splineIndex = Mathf.Clamp(splineIndex, 0, _container.Splines.Count - 1);
         var spline = _container.Splines[splineIndex];

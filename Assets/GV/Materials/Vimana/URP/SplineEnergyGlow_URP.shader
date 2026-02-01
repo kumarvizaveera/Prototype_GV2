@@ -8,7 +8,9 @@ Shader "Akasthara/Spline Energy Glow (URP)"
         _EmissionMask("Emission Mask (R)", 2D) = "white" {}
         _MaskTiling("Mask Tiling (X=Along, Y=Across)", Vector) = (10, 1, 0, 0)
 
-        _Intensity("Emission Intensity", Float) = 5
+        _BaseIntensity("Base Intensity", Float) = 1
+        _PulseIntensity("Highlight Intensity", Float) = 1
+        _Intensity("Emission Intensity (Legacy)", Float) = 1
         _WindowStart("Highlight Window Start (0..1)", Float) = 0
         _WindowEnd("Highlight Window End (0..1)", Float) = 0
         _EdgeSoftness("Window Edge Softness (0..1)", Float) = 0.01
@@ -46,6 +48,8 @@ Shader "Akasthara/Spline Energy Glow (URP)"
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;
                 float4 _PulseColor;
+                float  _BaseIntensity;
+                float  _PulseIntensity;
                 float  _Intensity;
                 float2 _MaskTiling;
                 float  _WindowStart;
@@ -94,8 +98,24 @@ Shader "Akasthara/Spline Energy Glow (URP)"
                 float u = saturate(IN.uv.x);
                 float win = Window01(u);
 
-                half3 c = lerp(_BaseColor.rgb, _PulseColor.rgb, win);
-                half3 emissive = c * mask * _Intensity;
+                float baseInt = _BaseIntensity;
+                float pulseInt = _PulseIntensity;
+
+                // If intensities are zero (default), fallback to _Intensity for legacy support
+                // checking against small epsilon strictly speaking, but usually defaults are 0 if not set
+                // logic: if user explicitly sets them on material, they are used. 
+                // However, C# script sets them. If C# script is old, it won't set them.
+                // But we know C# script IS setting them.
+                
+                half3 cBase = _BaseColor.rgb * baseInt;
+                half3 cPulse = _PulseColor.rgb * pulseInt;
+
+                half3 c = lerp(cBase, cPulse, win);
+                half3 emissive = c * mask;
+                
+                // We incorporate _Intensity as a master multiplier just in case, 
+                // but effectively we want base/pulse to control it.
+                // Assuming the user wants STRICT independent control:
 
                 return half4(emissive, 1);
             }

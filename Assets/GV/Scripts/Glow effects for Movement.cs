@@ -1,5 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
+using VSX.Engines3D;
+using VSX.ResourceSystem;
 
 public class BoostGlow : MonoBehaviour
 {
@@ -26,16 +28,26 @@ public class BoostGlow : MonoBehaviour
     public float transitionSpeed = 5.0f;
 
     [Header("References")]
-    public GameObject[] targetModelParents; 
+    public GameObject[] targetModelParents;
+    public VehicleEngines3D vehicleEngines; // Made public to verify assignment
 
     private List<Renderer> _allRenderers = new List<Renderer>();
     private float _currentIntensity;
     private Color _currentColor;
 
+    public Color CurrentBaseColor => _currentColor;
+    public float CurrentIntensity => _currentIntensity;
+
     void Start()
     {
         // Set default starting color
         _currentColor = forwardColor;
+        
+        if (vehicleEngines == null)
+            vehicleEngines = GetComponent<VehicleEngines3D>();
+            
+        if (vehicleEngines == null)
+            vehicleEngines = GetComponentInParent<VehicleEngines3D>();
 
         // Find all renderers in all assigned parents
         foreach (GameObject parentObj in targetModelParents)
@@ -60,8 +72,22 @@ public class BoostGlow : MonoBehaviour
         Color targetBaseColor = _currentColor; 
 
         // INPUT LOGIC (Priority Order)
+        
+        bool canBoost = true;
+        if (vehicleEngines != null)
+        {
+            foreach (var handler in vehicleEngines.BoostResourceHandlers)
+            {
+                if (!handler.Ready())
+                {
+                    canBoost = false;
+                    break;
+                }
+            }
+        }
+
         // 1. Boost (Highest Priority) - NOW W KEY
-        if (Input.GetKey(boostKey))
+        if (Input.GetKey(boostKey) && canBoost)
         {
             targetIntensity = boostIntensity;
             targetBaseColor = boostColor;
