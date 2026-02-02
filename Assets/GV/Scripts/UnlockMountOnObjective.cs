@@ -15,6 +15,9 @@ public class MountUnlockEvent
 
     [Tooltip("Drag specific ModuleMount objects here to lock/unlock them.")]
     public List<ModuleMount> targetMounts = new List<ModuleMount>();
+
+    [Tooltip("Drag specific Module objects here to lock/unlock them (e.g. missiles on a shared mount).")]
+    public List<Module> targetModules = new List<Module>();
     
     [Tooltip("The index of the module mount to lock/unlock (Fallback if Target Mounts is empty).")]
     public int mountIndex = 1;
@@ -141,6 +144,14 @@ public class UnlockMountOnObjective : MonoBehaviour
                         mount.UnmountActiveModule();
                     }
                 }
+
+                foreach(var module in evt.targetModules)
+                {
+                    if (module != null && module.gameObject.activeSelf)
+                    {
+                        LockModule(module);
+                    }
+                }
             }
         }
     }
@@ -185,6 +196,29 @@ public class UnlockMountOnObjective : MonoBehaviour
             {
                 if (mount != null)
                 {
+                    // GV Integration: Check if this is managed by the MissileCycleController
+                    if (GV.Scripts.MissileCycleController.Instance != null && isActive)
+                    {
+                        // Check if the controller knows about this mount
+                        bool isManaged = false;
+                        foreach(var entry in GV.Scripts.MissileCycleController.Instance.missileMounts)
+                        {
+                            if (entry.mount == mount)
+                            {
+                                isManaged = true;
+                                break;
+                            }
+                        }
+
+                        if (isManaged)
+                        {
+                            GV.Scripts.MissileCycleController.Instance.UnlockMount(mount);
+                            // Do NOT SetActive(true) here, the controller decides when to equip it.
+                            continue;
+                        }
+                    }
+
+                    // Fallback / Standard behavior
                     mount.gameObject.SetActive(isActive);
                     if (!isActive) 
                     {
@@ -192,9 +226,6 @@ public class UnlockMountOnObjective : MonoBehaviour
                     }
                     else
                     {
-                        // IMPORTANT: When enabling, we MUST ensure a module is mounted!
-                        // If we previously unmounted it, it's sitting empty.
-                        // Mount the default available module (index 0) if nothing is mounted.
                         if (mount.MountedModule() == null && mount.Modules.Count > 0)
                         {
                             mount.MountModule(0);
@@ -202,41 +233,104 @@ public class UnlockMountOnObjective : MonoBehaviour
                     }
                 }
             }
-            // If direct mounts are used, we typically don't fail over to index unless specifically needed.
-            // But let's check index logic just in case user mixed them or used index for Vehicle.
         }
 
         // Priority 2: Find via Vehicle (Index-based)
-        // Only if we have a current vehicle reference
-        if (currentVehicle != null)
+        if (currentVehicle != null && evt.targetMounts.Count == 0)
         {
             if (evt.mountIndex >= 0 && evt.mountIndex < currentVehicle.ModuleMounts.Count)
             {
-                // Only touch the index-based mount if we didn't already handle it via direct reference? 
-                // Or maybe the user WANTS to use index on the current vehicle. 
-                // Let's assume if TargetMounts is EMPTY, we use Index.
-                if (evt.targetMounts.Count == 0)
+                ModuleMount mount = currentVehicle.ModuleMounts[evt.mountIndex];
+                if (mount != null)
                 {
-                    ModuleMount mount = currentVehicle.ModuleMounts[evt.mountIndex];
-                    if (mount != null)
+                    // GV Integration for Indexed mounts
+                     if (GV.Scripts.MissileCycleController.Instance != null && isActive)
                     {
-                        mount.gameObject.SetActive(isActive);
-                        if (!isActive) 
+                        // Check management
+                         bool isManaged = false;
+                        foreach(var entry in GV.Scripts.MissileCycleController.Instance.missileMounts)
                         {
-                            mount.UnmountActiveModule();
-                        }
-                        else
-                        {
-                            if (mount.MountedModule() == null && mount.Modules.Count > 0)
+                            if (entry.mount == mount)
                             {
-                                mount.MountModule(0);
+                                isManaged = true;
+                                break;
                             }
                         }
-                        
-                        Debug.Log($"UnlockMountOnObjective: Set mount index {evt.mountIndex} on {currentVehicle.name} to Active: {isActive}");
+                         if (isManaged)
+                        {
+                            GV.Scripts.MissileCycleController.Instance.UnlockMount(mount);
+                            Debug.Log($"UnlockMountOnObjective: Delegated unlock of index {evt.mountIndex} to CycleController.");
+                            return; 
+                        }
+                    }
+
+                    mount.gameObject.SetActive(isActive);
+                    if (!isActive) 
+                    {
+                        mount.UnmountActiveModule();
+                    }
+                    else
+                    {
+                        if (mount.MountedModule() == null && mount.Modules.Count > 0)
+                        {
+                            mount.MountModule(0);
+                        }
                     }
                 }
             }
         }
+
+        // Priority 3: Target Modules (New)
+        if (evt.targetModules.Count > 0)
+        {
+            foreach (Module module in evt.targetModules)
+            {
+                if (module != null)
+                {
+                    if (isActive)
+                    {
+                        UnlockModule(module);
+                    }
+                    else
+                    {
+                        LockModule(module);
+                    }
+                }
+            }
+        }
+    }
+
+    protected void UnlockModule(Module module)
+    {
+        module.gameObject.SetActive(true);
+        
+        // Find parent mount
+        ModuleMount mount = module.GetComponentInParent<ModuleMount>();
+        if (mount != null)
+        {
+            // Add to mount if not already there
+            if (!mount.Modules.Contains(module))
+            {
+                mount.AddModule(module, false); 
+            }
+        }
+        else
+        {
+             // Fallback: maybe it was disabled physically, try finding in parent transform even if inactive?
+             // If gameObject was inactive, GetComponentInParent works if we are child.
+             // If we were unparented, it's harder. Assuming hierarchy structure is maintained.
+        }
+    }
+
+    protected void LockModule(Module module)
+    {
+        // Find parent mount
+        ModuleMount mount = module.GetComponentInParent<ModuleMount>();
+        if (mount != null)
+        {
+            mount.RemoveModule(module);
+        }
+
+        module.gameObject.SetActive(false);
     }
 }
