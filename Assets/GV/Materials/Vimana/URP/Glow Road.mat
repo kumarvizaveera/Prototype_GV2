@@ -133,8 +133,8 @@ Material:
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _WindowEnd: 0.037416913
-    - _WindowStart: 0.036667854
+    - _WindowEnd: 0.04041314
+    - _WindowStart: 0.039664082
     - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1

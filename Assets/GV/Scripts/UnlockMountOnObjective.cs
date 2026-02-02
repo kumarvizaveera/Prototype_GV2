@@ -7,12 +7,28 @@ using VSX.Vehicles;
 using VSX.Loadouts;
 using VSX.UI;
 
+[System.Serializable]
+public class MountUnlockEvent
+{
+    [Tooltip("The objective that must be completed to unlock these mounts.")]
+    public ObjectiveController triggerObjective;
+
+    [Tooltip("Drag specific ModuleMount objects here to lock/unlock them.")]
+    public List<ModuleMount> targetMounts = new List<ModuleMount>();
+    
+    [Tooltip("The index of the module mount to lock/unlock (Fallback if Target Mounts is empty).")]
+    public int mountIndex = 1;
+
+    [Tooltip("The message to display when this specific unlock happens.")]
+    public string unlockMessage = "WEAPON UNLOCKED";
+}
+
 public class UnlockMountOnObjective : MonoBehaviour
 {
     [Header("Settings")]
-    [Tooltip("The objective that must be completed to unlock the mount.")]
+    [Tooltip("List of unlock events to handle.")]
     [SerializeField]
-    protected ObjectiveController triggerObjective;
+    protected List<MountUnlockEvent> unlockEvents = new List<MountUnlockEvent>();
 
     [Tooltip("The spawner that creates the player vehicle (Standard).")]
     [SerializeField]
@@ -26,50 +42,48 @@ public class UnlockMountOnObjective : MonoBehaviour
     [SerializeField]
     protected Vehicle directVehicle;
 
-    [Header("Mount Settings")]
-    [Tooltip("Drag specific ModuleMount objects here to lock/unlock them directly.")]
-    [SerializeField]
-    protected List<ModuleMount> targetMounts = new List<ModuleMount>();
-
-    [Tooltip("The index of the module mount to lock/unlock (0 = Primary, 1 = Secondary). Used if Target Mounts list is empty.")]
-    [SerializeField]
-    protected int mountIndex = 1;
-
-    [Tooltip("Whether to lock the mount immediately when the scene starts.")]
+    [Header("Global Settings")]
+    [Tooltip("Whether to lock the mounts immediately when the scene starts.")]
     [SerializeField]
     protected bool lockOnStart = true;
 
     [Header("Notification")]
-    [Tooltip("Text controller to display the unlock message (optional).")]
+    [Tooltip("Text controller to display the unlock messages.")]
     [SerializeField]
     protected TextController notificationText;
 
-    [Tooltip("The message to display when unlocked.")]
-    [SerializeField]
-    protected string unlockMessage = "SECONDARY UNLOCKED";
-
-    [Tooltip("How long to show the message (seconds). Set to 0 to keep it on.")]
+    [Tooltip("How long to show the message (seconds).")]
     [SerializeField]
     protected float notificationDuration = 3f;
 
     protected Vehicle currentVehicle;
 
+    protected virtual void Awake()
+    {
+        // 1. Hide text immediately in Awake to prevent flash
+        if (notificationText != null) 
+        {
+            notificationText.gameObject.SetActive(false);
+        }
+    }
+
     protected virtual void Start()
     {
-        if (triggerObjective != null)
+
+        // Subscribe to all objectives
+        foreach(var evt in unlockEvents)
         {
-            triggerObjective.onCompleted.AddListener(OnObjectiveCompleted);
+            if (evt.triggerObjective != null)
+            {
+                evt.triggerObjective.onCompleted.AddListener(() => OnObjectiveCompleted(evt));
+                Debug.Log($"UnlockMountOnObjective: Listening for completion of {evt.triggerObjective.name}");
+            }
         }
 
         if (playerSpawner != null)
         {
             playerSpawner.onSpawned.AddListener(OnVehicleSpawned);
-            
-            // Check if already spawned
-            if (playerSpawner.Vehicle != null)
-            {
-                OnVehicleSpawned();
-            }
+            if (playerSpawner.Vehicle != null) OnVehicleSpawned();
         }
 
         if (loadoutSpawner != null)
@@ -80,59 +94,72 @@ public class UnlockMountOnObjective : MonoBehaviour
         if (directVehicle != null)
         {
             currentVehicle = directVehicle;
-            CheckAndLock();
+            CheckAndLockAll();
         }
     }
 
     protected void OnLoadoutVehicleSpawned(Vehicle vehicle)
     {
         currentVehicle = vehicle;
-        CheckAndLock();
+        CheckAndLockAll();
     }
 
     protected void OnVehicleSpawned()
     {
         if (playerSpawner != null) currentVehicle = playerSpawner.Vehicle;
-        CheckAndLock();
+        CheckAndLockAll();
     }
 
-    protected void CheckAndLock()
+    protected void CheckAndLockAll()
     {
-        // If the objective is NOT complete, and we want to lock it
-        if (triggerObjective != null && !triggerObjective.Completed && lockOnStart)
+        if (!lockOnStart) return;
+
+        foreach(var evt in unlockEvents)
         {
-            SetMountActive(false);
+            if (evt.triggerObjective != null && !evt.triggerObjective.Completed)
+            {
+                SetMountsActive(evt, false);
+            }
         }
     }
     
     protected virtual void Update()
     {
-        // Fallback: If we have direct mounts but they aren't disabled yet (e.g. they were enabled by a swap or other script), 
-        // ensure they stay disabled until unlocked. 
-        // NOTE: This might be aggressive, but ensures user request "disable secondary" is respected.
-        // Optimized: Only check if we are supposed to be locked.
-        if (triggerObjective != null && !triggerObjective.Completed && lockOnStart)
+        if (!lockOnStart) return;
+
+        // Persistently lock mounts for incomplete objectives
+        foreach(var evt in unlockEvents)
         {
-             foreach(var mount in targetMounts)
-             {
-                 if (mount != null && mount.gameObject.activeSelf)
-                 {
-                     mount.gameObject.SetActive(false);
-                     mount.UnmountActiveModule();
-                 }
-             }
+            if (evt.triggerObjective != null && !evt.triggerObjective.Completed)
+            {
+                foreach(var mount in evt.targetMounts)
+                {
+                    if (mount != null && mount.gameObject.activeSelf)
+                    {
+                        // Debug.Log($"UnlockMountOnObjective: Locking {mount.name} because {evt.triggerObjective.name} is incomplete.");
+                        mount.gameObject.SetActive(false);
+                        mount.UnmountActiveModule();
+                    }
+                }
+            }
         }
     }
 
-    protected void OnObjectiveCompleted()
+    protected void OnObjectiveCompleted(MountUnlockEvent evt)
     {
-        // Objective done! Unlock the mount.
-        SetMountActive(true);
+        Debug.Log($"UnlockMountOnObjective: Event triggered for {evt.triggerObjective.name}. Unlocking mounts.");
+
+        // Unlock this specific event's mounts
+        SetMountsActive(evt, true);
         
+        // Show notification
         if (notificationText != null)
         {
-            notificationText.text = unlockMessage;
+            notificationText.text = evt.unlockMessage;
             notificationText.gameObject.SetActive(true);
+            
+            // Restart coroutine to handle overlapping messages reasonably well (last one wins)
+            StopAllCoroutines();
             if (notificationDuration > 0)
             {
                 StartCoroutine(HideNotificationAfterTime(notificationDuration));
@@ -149,52 +176,67 @@ public class UnlockMountOnObjective : MonoBehaviour
         }
     }
 
-    protected void SetMountActive(bool isActive)
+    protected void SetMountsActive(MountUnlockEvent evt, bool isActive)
     {
         // Priority 1: Direct Target Mounts
-        if (targetMounts.Count > 0)
+        if (evt.targetMounts.Count > 0)
         {
-            foreach (ModuleMount mount in targetMounts)
+            foreach (ModuleMount mount in evt.targetMounts)
             {
                 if (mount != null)
                 {
                     mount.gameObject.SetActive(isActive);
-                    if (!isActive) mount.UnmountActiveModule();
-                    Debug.Log($"UnlockMountOnObjective: Set direct mount {mount.name} to Active: {isActive}");
+                    if (!isActive) 
+                    {
+                        mount.UnmountActiveModule();
+                    }
+                    else
+                    {
+                        // IMPORTANT: When enabling, we MUST ensure a module is mounted!
+                        // If we previously unmounted it, it's sitting empty.
+                        // Mount the default available module (index 0) if nothing is mounted.
+                        if (mount.MountedModule() == null && mount.Modules.Count > 0)
+                        {
+                            mount.MountModule(0);
+                        }
+                    }
                 }
             }
-            return; // Exit if we used direct mounts
+            // If direct mounts are used, we typically don't fail over to index unless specifically needed.
+            // But let's check index logic just in case user mixed them or used index for Vehicle.
         }
 
-        // Priority 2: Find via Vehicle (Legacy/Dynamic)
-        if (currentVehicle == null)
-        {
-            // Try to find it if we missed the event
-            if (playerSpawner != null) currentVehicle = playerSpawner.Vehicle;
-        }
-
+        // Priority 2: Find via Vehicle (Index-based)
+        // Only if we have a current vehicle reference
         if (currentVehicle != null)
         {
-            if (mountIndex >= 0 && mountIndex < currentVehicle.ModuleMounts.Count)
+            if (evt.mountIndex >= 0 && evt.mountIndex < currentVehicle.ModuleMounts.Count)
             {
-                ModuleMount mount = currentVehicle.ModuleMounts[mountIndex];
-                if (mount != null)
+                // Only touch the index-based mount if we didn't already handle it via direct reference? 
+                // Or maybe the user WANTS to use index on the current vehicle. 
+                // Let's assume if TargetMounts is EMPTY, we use Index.
+                if (evt.targetMounts.Count == 0)
                 {
-                    mount.gameObject.SetActive(isActive);
-                    // Also unmount if disabling to be safe
-                    if (!isActive) mount.UnmountActiveModule();
-                    
-                    Debug.Log($"UnlockMountOnObjective: Set mount {mountIndex} on {currentVehicle.name} to Active: {isActive}");
+                    ModuleMount mount = currentVehicle.ModuleMounts[evt.mountIndex];
+                    if (mount != null)
+                    {
+                        mount.gameObject.SetActive(isActive);
+                        if (!isActive) 
+                        {
+                            mount.UnmountActiveModule();
+                        }
+                        else
+                        {
+                            if (mount.MountedModule() == null && mount.Modules.Count > 0)
+                            {
+                                mount.MountModule(0);
+                            }
+                        }
+                        
+                        Debug.Log($"UnlockMountOnObjective: Set mount index {evt.mountIndex} on {currentVehicle.name} to Active: {isActive}");
+                    }
                 }
             }
-            else
-            {
-                Debug.LogWarning($"UnlockMountOnObjective: Mount index {mountIndex} is out of range for vehicle {currentVehicle.name}");
-            }
-        }
-        else
-        {
-            Debug.LogWarning("UnlockMountOnObjective: No player vehicle found to update mounts.");
         }
     }
 }
