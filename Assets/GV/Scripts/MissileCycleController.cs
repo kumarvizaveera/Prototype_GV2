@@ -29,13 +29,21 @@ namespace GV.Scripts
         [Tooltip("Key to cycle the missiles.")]
         public KeyCode cycleKey = KeyCode.M;
 
-        [Header("UI")]
-        public TMP_Text notificationText;
+        [Header("UI - Active Status")]
+        [Tooltip("The TextMeshPro UGUI component to display the active missile name when cycling.")]
+        public TMP_Text activeNotificationText;
+        public string activeMessagePrefix = "Active Missile: ";
+
+        [Header("UI - Unlock Popup")]
+        [Tooltip("The TextMeshPro UGUI component to display the unlock popup.")]
+        public TMP_Text unlockNotificationText;
+        public string unlockMessagePrefix = "WEAPON UNLOCKED: ";
+
         public float notificationDuration = 2f;
-        public string messagePrefix = "Active Missile: ";
 
         private int currentIndex = -1;
-        private Coroutine hideCoroutine;
+        private Coroutine activeHideCoroutine;
+        private Coroutine unlockHideCoroutine;
 
         private void Awake()
         {
@@ -53,7 +61,10 @@ namespace GV.Scripts
 
         private void Start()
         {
-            if (notificationText != null) notificationText.gameObject.SetActive(false);
+            // Initial state: Show "None"
+            ShowActiveNotification("None");
+            
+            if (unlockNotificationText != null) unlockNotificationText.gameObject.SetActive(false);
         }
 
         private void Update()
@@ -78,8 +89,11 @@ namespace GV.Scripts
                     entry.isUnlocked = true;
                     Debug.Log($"MissileCycleController: Unlocked {entry.label}");
                     
+                    // Show Unlock Popup
+                    ShowUnlockNotification(entry.label);
+
                     // Always equip the newly unlocked missile to provide immediate feedback
-                    Equip(entry);
+                    Equip(entry, true); // Active text is now persistent, so we update it even on unlock.
                     
                     return;
                 }
@@ -103,11 +117,11 @@ namespace GV.Scripts
 
             if (missileMounts[nextIndex].isUnlocked && nextIndex != currentIndex)
             {
-                Equip(missileMounts[nextIndex]);
+                Equip(missileMounts[nextIndex], true);
             }
         }
 
-        private void Equip(MissileMountEntry entry)
+        private void Equip(MissileMountEntry entry, bool showActiveNotification = true)
         {
             // Disable current
             if (currentIndex >= 0 && currentIndex < missileMounts.Count)
@@ -121,7 +135,11 @@ namespace GV.Scripts
             {
                 entry.mount.gameObject.SetActive(true);
                 currentIndex = missileMounts.IndexOf(entry);
-                ShowNotification(entry.label);
+                
+                if (showActiveNotification)
+                {
+                    ShowActiveNotification(entry.label);
+                }
             }
         }
         
@@ -132,24 +150,36 @@ namespace GV.Scripts
             return count;
         }
 
-        private void ShowNotification(string label)
+        private void ShowActiveNotification(string label)
         {
-            if (notificationText == null) return;
+            if (activeNotificationText == null) return;
 
             string finalName = string.IsNullOrEmpty(label) ? "Unknown" : label;
-            notificationText.text = messagePrefix + finalName;
-            notificationText.gameObject.SetActive(true);
+            activeNotificationText.text = activeMessagePrefix + finalName;
+            activeNotificationText.gameObject.SetActive(true);
 
-            if (hideCoroutine != null) StopCoroutine(hideCoroutine);
-            hideCoroutine = StartCoroutine(HideTextRoutine());
+            // Persistent: Do NOT hide this text.
+            if (activeHideCoroutine != null) StopCoroutine(activeHideCoroutine);
         }
 
-        private IEnumerator HideTextRoutine()
+        private void ShowUnlockNotification(string label)
+        {
+            if (unlockNotificationText == null) return;
+
+            string finalName = string.IsNullOrEmpty(label) ? "Unknown" : label;
+            unlockNotificationText.text = unlockMessagePrefix + finalName;
+            unlockNotificationText.gameObject.SetActive(true);
+
+            if (unlockHideCoroutine != null) StopCoroutine(unlockHideCoroutine);
+            unlockHideCoroutine = StartCoroutine(HideTextRoutine(unlockNotificationText));
+        }
+
+        private IEnumerator HideTextRoutine(TMP_Text textComp)
         {
             yield return new WaitForSeconds(notificationDuration);
-            if (notificationText != null)
+            if (textComp != null)
             {
-                notificationText.gameObject.SetActive(false);
+                textComp.gameObject.SetActive(false);
             }
         }
     }

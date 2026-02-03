@@ -1969,7 +1969,6 @@ GameObject:
   m_Component:
   - component: {fileID: 9202454109628269918}
   - component: {fileID: 7035265827387822471}
-  - component: {fileID: 5063101149077118356}
   m_Layer: 0
   m_Name: Text (TMP)_Dice _Parent
   m_TagString: Untagged
@@ -2003,68 +2002,6 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8870225633899821460}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 309e8186504ec734d9abaa07b90aa8a1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DiceRingIndicator
-  tmpTexts:
-  - {fileID: 4440201561801439632}
-  - {fileID: 7129999047932377170}
-  - {fileID: 8759737006773423455}
-  - {fileID: 6237136831523497584}
-  showSign: 1
-  colorizeTMP: 1
-  tmpForwardGreen: {r: 0, g: 1, b: 0, a: 1}
-  tmpBackwardRed: {r: 1, g: 0, b: 0, a: 1}
-  outcomes:
-  - value: 4
-    isForward: 1
-    probability: 35
-  - value: 8
-    isForward: 1
-    probability: 25
-  - value: 12
-    isForward: 1
-    probability: 10
-  - value: 4
-    isForward: 0
-    probability: 20
-  - value: 8
-    isForward: 0
-    probability: 10
-  glowRenderers:
-  - {fileID: 1147240399064353625}
-  forwardGreen: {r: 0.33018857, g: 1, b: 0.33018857, a: 1}
-  backwardRed: {r: 1, g: 0.2924527, b: 0.2924527, a: 1}
-  emissionIntensity: 2.5
-  emissionColorProperty: _EmissionColor
-  proximityBoost: 1
-  proximityTarget: {fileID: 0}
-  autoFindTargetByTag: 1
-  findTargetInEditMode: 0
-  proximityTargetTag: Player
-  nearDistance: 25
-  farDistance: 300
-  maxMultiplier: 6
-  responseSpeed: 50
-  proximityBoostRenderers:
-  - {fileID: 1147240399064353625}
-  autoRoll: 1
-  rollInterval: 5
-  rollOnStart: 1
-  faceCamera: 1
-  faceYawOnly: 1
-  invertFacing: 1
-  isForward: 0
-  diceValue: 2
---- !u!114 &5063101149077118356
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8870225633899821460}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 309e8186504ec734d9abaa07b90aa8a1, type: 3}
@@ -2080,20 +2017,20 @@ MonoBehaviour:
   tmpForwardGreen: {r: 0, g: 1, b: 0, a: 1}
   tmpBackwardRed: {r: 1, g: 0, b: 0, a: 1}
   outcomes:
-  - value: 12
+  - value: 4
     isForward: 1
     probability: 35
-  - value: 12
+  - value: 8
     isForward: 1
     probability: 25
   - value: 12
     isForward: 1
     probability: 10
-  - value: 12
-    isForward: 1
+  - value: 4
+    isForward: 0
     probability: 20
-  - value: 12
-    isForward: 1
+  - value: 8
+    isForward: 0
     probability: 10
   glowRenderers:
   - {fileID: 1147240399064353625}
