@@ -41,6 +41,7 @@ namespace GV.Scripts
         [Header("UI - Visuals")]
         public Material activeTextMaterial;
         public Material inactiveTextMaterial;
+        public Material emptyTextMaterial;
 
 
 
@@ -110,6 +111,7 @@ namespace GV.Scripts
                 if (entry.statsText != null && entry.mount != null)
                 {
                     string statsString = entry.label;
+                    int currentAmmo = -1; // -1 indicates no ammo tracking found
                     
                     if (entry.mount.MountedModule() != null)
                     {
@@ -121,7 +123,8 @@ namespace GV.Scripts
                             {
                                 if (handler.unitResourceChange < 0 && !handler.perSecond)
                                 {
-                                    statsString += " (" + handler.resourceContainer.CurrentAmountInteger + ")";
+                                    currentAmmo = handler.resourceContainer.CurrentAmountInteger;
+                                    statsString += " (" + currentAmmo + ")";
                                     break;
                                 }
                             }
@@ -134,15 +137,19 @@ namespace GV.Scripts
                          // Let's just show label.
                     }
 
-                    // Apply material based on active state
-                    if (missileMounts.IndexOf(entry) == currentIndex)
+                    // Apply material based on state (Empty > Active > Inactive)
+                    Material targetMat = inactiveTextMaterial;
+
+                    if (currentAmmo == 0)
                     {
-                        if (activeTextMaterial != null) entry.statsText.fontSharedMaterial = activeTextMaterial;
+                         if (emptyTextMaterial != null) targetMat = emptyTextMaterial;
                     }
-                    else
+                    else if (missileMounts.IndexOf(entry) == currentIndex)
                     {
-                        if (inactiveTextMaterial != null) entry.statsText.fontSharedMaterial = inactiveTextMaterial;
+                        if (activeTextMaterial != null) targetMat = activeTextMaterial;
                     }
+
+                    if (targetMat != null) entry.statsText.fontSharedMaterial = targetMat;
 
                     entry.statsText.text = statsString;
                 }
