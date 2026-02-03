@@ -3,6 +3,8 @@ using TMPro;
 using VSX.Vehicles;
 using System.Collections;
 using System.Collections.Generic;
+using VSX.Weapons;
+using VSX.ResourceSystem;
 
 namespace GV.Scripts
 {
@@ -10,6 +12,7 @@ namespace GV.Scripts
     public class MissileMountEntry
     {
         public ModuleMount mount;
+        public TMP_Text statsText; 
         public string label; // Custom label for UI
         public bool startUnlocked = false;
         [HideInInspector] public bool isUnlocked = false; 
@@ -35,22 +38,26 @@ namespace GV.Scripts
         public TMP_Text activeNotificationText;
         public string activeMessagePrefix = "Active Missile: ";
 
-        [Header("UI - Unlock Popup")]
-        [Tooltip("The TextMeshPro UGUI component to display the unlock popup.")]
-        public TMP_Text unlockNotificationText;
-        public string unlockMessagePrefix = "WEAPON UNLOCKED: ";
+        [Header("UI - Visuals")]
+        public Material activeTextMaterial;
+        public Material inactiveTextMaterial;
 
-        public float notificationDuration = 2f;
+
 
         private int currentIndex = -1;
         private Coroutine activeHideCoroutine;
-        private Coroutine unlockHideCoroutine;
+
 
         private void Awake()
         {
             Instance = this;
+        }
 
-            // Ensure all controlled mounts start disabled
+        private IEnumerator Start()
+        {
+            yield return null; 
+
+            // Explicitly disable all mounts first to ensure clean state after initialization
             foreach (var entry in missileMounts)
             {
                 if (entry.mount != null)
@@ -58,10 +65,6 @@ namespace GV.Scripts
                     entry.mount.gameObject.SetActive(false);
                 }
             }
-        }
-
-        private void Start()
-        {
             // Initialize unlocks based on startUnlocked setting
             bool anyUnlocked = false;
             foreach (var entry in missileMounts)
@@ -73,7 +76,7 @@ namespace GV.Scripts
                 }
             }
 
-            if (unlockNotificationText != null) unlockNotificationText.gameObject.SetActive(false);
+
 
             // Initial state
             if (anyUnlocked)
@@ -100,6 +103,50 @@ namespace GV.Scripts
             {
                 CycleNext();
             }
+
+            // Update stats texts
+            foreach (var entry in missileMounts)
+            {
+                if (entry.statsText != null && entry.mount != null)
+                {
+                    string statsString = entry.label;
+                    
+                    if (entry.mount.MountedModule() != null)
+                    {
+                        Weapon weapon = entry.mount.MountedModule().GetComponent<Weapon>();
+                        if (weapon != null)
+                        {
+                            // Find the first resource handler that consumes a discrete amount (ammo)
+                            foreach (var handler in weapon.ResourceHandlers)
+                            {
+                                if (handler.unitResourceChange < 0 && !handler.perSecond)
+                                {
+                                    statsString += " (" + handler.resourceContainer.CurrentAmountInteger + ")";
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                         // clear count if nothing mounted or show 0? 
+                         // For now keeping just label if nothing mounted might be confusing if it implies infinite.
+                         // Let's just show label.
+                    }
+
+                    // Apply material based on active state
+                    if (missileMounts.IndexOf(entry) == currentIndex)
+                    {
+                        if (activeTextMaterial != null) entry.statsText.fontSharedMaterial = activeTextMaterial;
+                    }
+                    else
+                    {
+                        if (inactiveTextMaterial != null) entry.statsText.fontSharedMaterial = inactiveTextMaterial;
+                    }
+
+                    entry.statsText.text = statsString;
+                }
+            }
         }
 
         /// <summary>
@@ -116,8 +163,7 @@ namespace GV.Scripts
                     entry.isUnlocked = true;
                     Debug.Log($"MissileCycleController: Unlocked {entry.label}");
                     
-                    // Show Unlock Popup
-                    ShowUnlockNotification(entry.label);
+
 
                     // Always equip the newly unlocked missile to provide immediate feedback
                     Equip(entry, true); // Active text is now persistent, so we update it even on unlock.
@@ -189,25 +235,6 @@ namespace GV.Scripts
             if (activeHideCoroutine != null) StopCoroutine(activeHideCoroutine);
         }
 
-        private void ShowUnlockNotification(string label)
-        {
-            if (unlockNotificationText == null) return;
 
-            string finalName = string.IsNullOrEmpty(label) ? "Unknown" : label;
-            unlockNotificationText.text = unlockMessagePrefix + finalName;
-            unlockNotificationText.gameObject.SetActive(true);
-
-            if (unlockHideCoroutine != null) StopCoroutine(unlockHideCoroutine);
-            unlockHideCoroutine = StartCoroutine(HideTextRoutine(unlockNotificationText));
-        }
-
-        private IEnumerator HideTextRoutine(TMP_Text textComp)
-        {
-            yield return new WaitForSeconds(notificationDuration);
-            if (textComp != null)
-            {
-                textComp.gameObject.SetActive(false);
-            }
-        }
     }
 }
