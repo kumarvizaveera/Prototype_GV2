@@ -203,7 +203,8 @@ public class CheckpointNetwork : MonoBehaviour
 
     [Header("Common Settings")]
     [Tooltip("If true, swapping is restricted to checkpoints. If false, swapping is always allowed.")]
-    public bool enableCheckpointSwap = true;
+    public bool enableAircraftCheckpointSwap = true;
+    public bool enableCharacterCheckpointSwap = true;
 
     [Tooltip("How long (in seconds) the swap remains active after reaching/leaving the checkpoint.")]
     public float swapDuration = 10f;
@@ -237,8 +238,8 @@ public class CheckpointNetwork : MonoBehaviour
     private float aircraftTimer = 0f;
     private float characterTimer = 0f;
 
-    public bool CanSwapAircraft => !enableCheckpointSwap || aircraftZoneIndex != -1;
-    public bool CanSwapCharacter => !enableCheckpointSwap || characterZoneIndex != -1;
+    public bool CanSwapAircraft => !enableAircraftCheckpointSwap || aircraftZoneIndex != -1;
+    public bool CanSwapCharacter => !enableCharacterCheckpointSwap || characterZoneIndex != -1;
 
     void Update()
     {
@@ -342,17 +343,17 @@ public class CheckpointNetwork : MonoBehaviour
                 // Priority 1: Counting Down (Just passed checkpoint, window open)
                 // We check if inactive in physics zone (timer decreasing)
                 // epsilon check for float safe comparison
-                if (CanSwapAircraft && enableCheckpointSwap && aircraftTimer < (swapDuration - 0.01f))
+                if (CanSwapAircraft && enableAircraftCheckpointSwap && aircraftTimer < (swapDuration - 0.01f))
                 {
                      aircraftStatusText.text = string.Format(aircraftActiveMessage, aircraftTimer);
                 }
                 // Priority 2: In Proximity (Approaching OR Inside safe zone)
-                else if (aircraftUiVisible || !enableCheckpointSwap)
+                else if (aircraftUiVisible || !enableAircraftCheckpointSwap)
                 {
                      aircraftStatusText.text = aircraftMessage;
                 }
                 // Fallback (Should be covered by P1, but safe to keep)
-                else if (CanSwapAircraft && enableCheckpointSwap)
+                else if (CanSwapAircraft && enableAircraftCheckpointSwap)
                 {
                     aircraftStatusText.text = string.Format(aircraftActiveMessage, aircraftTimer);
                 }
@@ -371,17 +372,17 @@ public class CheckpointNetwork : MonoBehaviour
             if (show)
             {
                 // Priority 1: Counting Down
-                if (CanSwapCharacter && enableCheckpointSwap && characterTimer < (swapDuration - 0.01f))
+                if (CanSwapCharacter && enableCharacterCheckpointSwap && characterTimer < (swapDuration - 0.01f))
                 {
                     characterStatusText.text = string.Format(characterActiveMessage, characterTimer);
                 }
                 // Priority 2: Proximity
-                else if (charUiVisible || !enableCheckpointSwap)
+                else if (charUiVisible || !enableCharacterCheckpointSwap)
                 {
                     characterStatusText.text = characterMessage;
                 }
                 // Fallback
-                else if (CanSwapCharacter && enableCheckpointSwap)
+                else if (CanSwapCharacter && enableCharacterCheckpointSwap)
                 {
                     characterStatusText.text = string.Format(characterActiveMessage, characterTimer);
                 }

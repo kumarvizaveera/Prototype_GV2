@@ -11,6 +11,7 @@ namespace GV.Scripts
     {
         public ModuleMount mount;
         public string label; // Custom label for UI
+        public bool startUnlocked = false;
         [HideInInspector] public bool isUnlocked = false; 
     }
 
@@ -61,10 +62,36 @@ namespace GV.Scripts
 
         private void Start()
         {
-            // Initial state: Show "None"
-            ShowActiveNotification("None");
-            
+            // Initialize unlocks based on startUnlocked setting
+            bool anyUnlocked = false;
+            foreach (var entry in missileMounts)
+            {
+                if (entry.startUnlocked)
+                {
+                    entry.isUnlocked = true;
+                    anyUnlocked = true;
+                }
+            }
+
             if (unlockNotificationText != null) unlockNotificationText.gameObject.SetActive(false);
+
+            // Initial state
+            if (anyUnlocked)
+            {
+                // Find the first unlocked one and equip it
+                for (int i = 0; i < missileMounts.Count; i++)
+                {
+                    if (missileMounts[i].isUnlocked)
+                    {
+                        Equip(missileMounts[i], true); // Show active notification for initial equip
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                ShowActiveNotification("None");
+            }
         }
 
         private void Update()
