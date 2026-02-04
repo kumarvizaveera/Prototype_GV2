@@ -38,7 +38,7 @@ Material:
     - _EffectInnerGlowStrength: 0.1
     - _EffectShapeAmount: 0.5
     - _GrowthSpeed: 6
-    - _RimEdgeAmount: 1.04
+    - _RimEdgeAmount: 8.09
     - _RimOpacity: 1
     m_Colors:
     - _EffectColor0: {r: 0, g: 0, b: 0, a: 1}

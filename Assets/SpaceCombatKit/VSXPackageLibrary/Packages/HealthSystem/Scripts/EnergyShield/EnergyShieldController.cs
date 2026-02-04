@@ -64,6 +64,12 @@ namespace VSX.Health
         [Range(0, 1)]
         protected float pulseMax = 1f;
 
+        [Tooltip("Whether to disable the shield object on start (e.g., waiting for powerup).")]
+        [SerializeField]
+        protected bool startDisabled = false;
+
+        protected float remainingDuration = 0f;
+
 
         [Header("Damage Effects")]
 
@@ -139,11 +145,21 @@ namespace VSX.Health
         {
             base.Awake();
 
+            if (energyShieldMeshRenderer == null)
+            {
+                energyShieldMeshRenderer = GetComponent<MeshRenderer>();
+            }
+
             // Hook up the damage and healing events to show effects
             if (damageable != null)
             {
                 damageable.onDamaged.AddListener(OnDamaged);
                 damageable.onHealed.AddListener(OnHealed);
+            }
+
+            if (startDisabled)
+            {
+                SetShieldActive(false);
             }
         }
 
@@ -217,6 +233,50 @@ namespace VSX.Health
                 if (currentOpacity < targetVisibility)
                 {
                     energyShieldMeshRenderer.material.SetFloat("_RimOpacity", targetVisibility);
+                }
+            }
+        }
+
+        // Activate the shield for a specific duration
+        public virtual void ActivateShield(float duration)
+        {
+            SetShieldActive(true);
+            remainingDuration = duration;
+        }
+
+        public bool IsShieldActive 
+        { 
+            get 
+            { 
+                return energyShieldMeshRenderer != null && energyShieldMeshRenderer.enabled; 
+            } 
+        }
+
+        public virtual void SetShieldActive(bool active)
+        {
+            if (active) Debug.Log("[EnergyShieldController] Setting Shield Active: TRUE");
+            else Debug.Log("[EnergyShieldController] Setting Shield Active: FALSE");
+
+            if (energyShieldMeshRenderer != null) energyShieldMeshRenderer.enabled = active;
+            else Debug.LogWarning("[EnergyShieldController] MeshRenderer is null!");
+
+            Collider c = GetComponent<Collider>();
+            if (c != null) c.enabled = active;
+            else Debug.LogWarning("[EnergyShieldController] Collider is null!");
+        }
+
+        // Called every frame
+        protected override void Update()
+        {
+            base.Update();
+            
+            if (remainingDuration > 0)
+            {
+                remainingDuration -= Time.deltaTime;
+                if (remainingDuration <= 0)
+                {
+                    remainingDuration = 0;
+                    SetShieldActive(false);
                 }
             }
         }
