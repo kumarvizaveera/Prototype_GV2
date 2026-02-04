@@ -8,7 +8,9 @@ namespace VSX.Engines3D
     public class AircraftSuperBoostHandler : MonoBehaviour
     {
         // Default values (internal fallback)
-        private const float defaultMultiplier = 2.0f;
+        private const float defaultSpeedMultiplier = 2.0f;
+        private const float defaultSteeringMultiplier = 1.0f; 
+        private const float defaultBoostMultiplier = 2.0f;
         private const float defaultDuration = 5.0f;
 
         [Header("Events")]
@@ -25,11 +27,9 @@ namespace VSX.Engines3D
         }
 
         /// <summary>
-        /// Activates the super boost with a specific multiplier and duration.
+        /// Activates the super boost with specific multipliers and duration.
         /// </summary>
-        /// <param name="multiplier">Speed multiplier (e.g. 2.0 for 2x speed).</param>
-        /// <param name="duration">Duration in seconds.</param>
-        public void ActivateSuperBoost(float multiplier, float duration)
+        public void ActivateSuperBoost(float speedMult, float steeringMult, float boostMult, float duration)
         {
             if (characterManager == null) return;
 
@@ -38,7 +38,7 @@ namespace VSX.Engines3D
                 StopCoroutine(boostCoroutine);
             }
 
-            boostCoroutine = StartCoroutine(BoostRoutine(multiplier, duration));
+            boostCoroutine = StartCoroutine(BoostRoutine(speedMult, steeringMult, boostMult, duration));
         }
 
         /// <summary>
@@ -46,10 +46,10 @@ namespace VSX.Engines3D
         /// </summary>
         public void ActivateSuperBoost()
         {
-            ActivateSuperBoost(defaultMultiplier, defaultDuration);
+            ActivateSuperBoost(defaultSpeedMultiplier, defaultSteeringMultiplier, defaultBoostMultiplier, defaultDuration);
         }
 
-        private IEnumerator BoostRoutine(float multiplier, float duration)
+        private IEnumerator BoostRoutine(float speedMult, float steeringMult, float boostMult, float duration)
         {
             if (!isBoosted)
             {
@@ -58,13 +58,13 @@ namespace VSX.Engines3D
             }
 
             // Apply boost
-            characterManager.SetSuperBoost(multiplier);
+            characterManager.SetSuperBoost(speedMult, steeringMult, boostMult);
 
             // Wait for duration
             yield return new WaitForSeconds(duration);
 
             // Reset boost
-            characterManager.SetSuperBoost(1f);
+            characterManager.SetSuperBoost(1f, 1f, 1f);
             
             isBoosted = false;
             OnSuperBoostEnd.Invoke();
@@ -76,7 +76,7 @@ namespace VSX.Engines3D
             // Safety reset if disabled while boosted
             if (isBoosted && characterManager != null)
             {
-                characterManager.SetSuperBoost(1f);
+                characterManager.SetSuperBoost(1f, 1f, 1f);
                 isBoosted = false;
             }
         }

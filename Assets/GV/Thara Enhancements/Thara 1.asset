@@ -17,7 +17,7 @@ MonoBehaviour:
   speedMultiplier: 1.7
   steeringMultiplier: 1.7
   boostMultiplier: 1.7
-  projectileDamageMultiplier: 1.1
+  projectileDamageMultiplier: 5
   projectileRangeMultiplier: 1.1
   projectileSpeedMultiplier: 1.1
   projectileFireRateMultiplier: 1.1

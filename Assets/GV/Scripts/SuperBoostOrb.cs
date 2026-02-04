@@ -7,8 +7,14 @@ namespace GV
     public class SuperBoostOrb : MonoBehaviour
     {
         [Header("Boost Settings")]
-        [Tooltip("The speed multiplier to apply (e.g. 2.0 = 2x speed).")]
-        public float boostMultiplier = 2.0f;
+        [Tooltip("Multiplier for normal movement speed.")]
+        public float speedMultiplier = 1.2f;
+
+        [Tooltip("Multiplier for steering/turning speed.")]
+        public float steeringMultiplier = 1.0f;
+
+        [Tooltip("Multiplier for boost speed.")]
+        public float boostMultiplier = 1.2f;
         
         [Tooltip("How long the boost lasts in seconds.")]
         public float boostDuration = 5.0f;
@@ -56,7 +62,7 @@ namespace GV
         private void ApplyPickup(AircraftSuperBoostHandler handler)
         {
             // Activate Boost
-            handler.ActivateSuperBoost(boostMultiplier, boostDuration);
+            handler.ActivateSuperBoost(speedMultiplier, steeringMultiplier, boostMultiplier, boostDuration);
 
             // FX
             if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
