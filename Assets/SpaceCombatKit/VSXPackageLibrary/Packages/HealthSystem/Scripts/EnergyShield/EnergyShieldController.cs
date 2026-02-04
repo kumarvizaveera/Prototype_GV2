@@ -35,6 +35,36 @@ namespace VSX.Health
         protected bool healthBasedRimColor = true;
 
 
+        [Header("Visibility Settings")]
+
+        [Tooltip("Whether the shield is always visible.")]
+        [SerializeField]
+        protected bool alwaysVisible = false;
+
+        [Tooltip("The minimum visibility (rim opacity) of the shield when always visible.")]
+        [SerializeField]
+        [Range(0, 1)]
+        protected float minVisibility = 0.5f;
+
+        [Tooltip("Whether the shield should pulse.")]
+        [SerializeField]
+        protected bool pulseVisibility = false;
+
+        [Tooltip("The speed of the pulse.")]
+        [SerializeField]
+        protected float pulseSpeed = 1f;
+
+        [Tooltip("The minimum opacity during pulse.")]
+        [SerializeField]
+        [Range(0, 1)]
+        protected float pulseMin = 0f;
+
+        [Tooltip("The maximum opacity during pulse.")]
+        [SerializeField]
+        [Range(0, 1)]
+        protected float pulseMax = 1f;
+
+
         [Header("Damage Effects")]
 
 
@@ -171,6 +201,23 @@ namespace VSX.Health
             if (healthBasedRimColor)
             {
                 energyShieldMeshRenderer.material.SetColor("_RimColor", healthBasedColor.Evaluate(damageable.CurrentHealthFraction));
+            }
+
+            if (alwaysVisible)
+            {
+                float targetVisibility = minVisibility;
+
+                if (pulseVisibility)
+                {
+                    float t = Mathf.PingPong(Time.time * pulseSpeed, 1f);
+                    targetVisibility = Mathf.Lerp(pulseMin, pulseMax, t);
+                }
+
+                float currentOpacity = energyShieldMeshRenderer.material.GetFloat("_RimOpacity");
+                if (currentOpacity < targetVisibility)
+                {
+                    energyShieldMeshRenderer.material.SetFloat("_RimOpacity", targetVisibility);
+                }
             }
         }
     }
