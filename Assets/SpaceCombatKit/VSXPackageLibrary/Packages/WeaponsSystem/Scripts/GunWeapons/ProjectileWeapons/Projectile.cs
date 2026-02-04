@@ -321,6 +321,16 @@ namespace VSX.Weapons
             get { return Mathf.Min(disableAfterLifetime ? lifetime * Speed : Mathf.Infinity, disableAfterDistanceCovered ? maxDistance : Mathf.Infinity); }
         }
 
+        public virtual void SetMaxDistance(float maxDistance)
+        {
+            this.maxDistance = maxDistance;
+        }
+
+        public virtual void SetLifetime(float lifetime)
+        {
+            this.lifetime = lifetime;
+        }
+
         protected virtual void OnCollision(RaycastHit hit)
         {
             transform.position = hit.point;

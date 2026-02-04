@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using TMPro;
+using VSX.Weapons;
 
 namespace VSX.Engines3D
 {
@@ -106,6 +107,17 @@ namespace VSX.Engines3D
                     return;
 
                 CycleCharacter();
+            }
+
+            if (superWeaponTimer > 0)
+            {
+                superWeaponTimer -= Time.deltaTime;
+                if (superWeaponTimer <= 0)
+                {
+                    superWeaponTimer = 0;
+                    currentSuperWeaponBonuses = null;
+                    RefreshStats();
+                }
             }
         }
 
@@ -300,6 +312,32 @@ namespace VSX.Engines3D
             RefreshActiveCharacter();
         }
 
+        [System.Serializable]
+        public class SuperWeaponBonuses
+        {
+            public float projectileDamage = 1f;
+            public float projectileRange = 1f;
+            public float projectileSpeed = 1f;
+            public float projectileFireRate = 1f;
+            public float projectileReload = 1f;
+
+            public float missileDamage = 1f;
+            public float missileRange = 1f;
+            public float missileSpeed = 1f;
+            public float missileFireRate = 1f;
+            public float missileReload = 1f;
+        }
+
+        private SuperWeaponBonuses currentSuperWeaponBonuses;
+        private float superWeaponTimer = 0f;
+
+        public void SetSuperWeapon(SuperWeaponBonuses bonuses, float duration)
+        {
+            currentSuperWeaponBonuses = bonuses;
+            superWeaponTimer = duration;
+            RefreshStats();
+        }
+
         private void ApplyBonuses(CharacterData data)
         {
             // Logic updated to check the public field FIRST, then fallback to GetComponent
@@ -308,13 +346,14 @@ namespace VSX.Engines3D
             float artSpeed = 1f;
             float artSteer = 1f;
             float artBoost = 1f;
+            AircraftArtifactManager.ArtifactBonuses artifactBonuses = null;
 
             if (artifactManager != null)
             {
-                var multipliers = artifactManager.GetTotalMultipliers();
-                artSpeed = multipliers.speed;
-                artSteer = multipliers.steering;
-                artBoost = multipliers.boost;
+                artifactBonuses = artifactManager.GetTotalMultipliers();
+                artSpeed = artifactBonuses.speed;
+                artSteer = artifactBonuses.steering;
+                artBoost = artifactBonuses.boost;
             }
 
             // Formula: Base * Character * Artifacts * Super Boost
@@ -326,6 +365,95 @@ namespace VSX.Engines3D
                       $"Multipliers: Spd x{data.speedMultiplier * artSpeed * superBoostMultiplier:F2}, " +
                       $"Str x{data.steeringMultiplier * artSteer * superBoostMultiplier:F2}, " +
                       $"Bst x{data.boostMultiplier * artBoost * superBoostMultiplier:F2}");
+
+            ApplyWeaponBonuses(data, artifactBonuses);
+        }
+
+        private Dictionary<Triggerable, float> baseActionIntervals = new Dictionary<Triggerable, float>();
+        private Dictionary<Triggerable, float> baseBurstIntervals = new Dictionary<Triggerable, float>();
+
+        private void ApplyWeaponBonuses(CharacterData data, AircraftArtifactManager.ArtifactBonuses artifactBonuses)
+        {
+            // Find all weapons (active or inactive, as they might be swapped in)
+            Weapon[] weapons = GetComponentsInChildren<Weapon>(true);
+
+            foreach (var weapon in weapons)
+            {
+                bool isMissile = false;
+
+                // Determine type based on first unit's projectile
+                if (weapon.WeaponUnits.Count > 0 && weapon.WeaponUnits[0] is ProjectileWeaponUnit unit)
+                {
+                    if (unit.ProjectilePrefab != null && unit.ProjectilePrefab.GetComponent<Missile>() != null)
+                    {
+                        isMissile = true;
+                    }
+                }
+
+                // Gather Bonuses (Character * Artifact)
+                float charDmg = isMissile ? data.missileDamageMultiplier : data.projectileDamageMultiplier;
+                float charRange = isMissile ? data.missileRangeMultiplier : data.projectileRangeMultiplier;
+                float charSpeed = isMissile ? data.missileSpeedMultiplier : data.projectileSpeedMultiplier;
+                float charFireRate = isMissile ? data.missileFireRateMultiplier : data.projectileFireRateMultiplier;
+                float charReload = isMissile ? data.missileReloadMultiplier : data.projectileReloadMultiplier;
+
+                float artDmg = 1f, artRange = 1f, artSpeed = 1f, artFireRate = 1f, artReload = 1f;
+
+                if (artifactBonuses != null)
+                {
+                    artDmg = isMissile ? artifactBonuses.missileDamage : artifactBonuses.projectileDamage;
+                    artRange = isMissile ? artifactBonuses.missileRange : artifactBonuses.projectileRange;
+                    artSpeed = isMissile ? artifactBonuses.missileSpeed : artifactBonuses.projectileSpeed;
+                    artFireRate = isMissile ? artifactBonuses.missileFireRate : artifactBonuses.projectileFireRate;
+                    artReload = isMissile ? artifactBonuses.missileReload : artifactBonuses.projectileReload;
+                }
+
+                float swDmg = 1f, swRange = 1f, swSpeed = 1f, swFireRate = 1f, swReload = 1f;
+                if (currentSuperWeaponBonuses != null)
+                {
+                    swDmg = isMissile ? currentSuperWeaponBonuses.missileDamage : currentSuperWeaponBonuses.projectileDamage;
+                    swRange = isMissile ? currentSuperWeaponBonuses.missileRange : currentSuperWeaponBonuses.projectileRange;
+                    swSpeed = isMissile ? currentSuperWeaponBonuses.missileSpeed : currentSuperWeaponBonuses.projectileSpeed;
+                    swFireRate = isMissile ? currentSuperWeaponBonuses.missileFireRate : currentSuperWeaponBonuses.projectileFireRate;
+                    swReload = isMissile ? currentSuperWeaponBonuses.missileReload : currentSuperWeaponBonuses.projectileReload;
+                }
+
+                float finalDmg = charDmg * artDmg * swDmg;
+                float finalRange = charRange * artRange * swRange;
+                float finalSpeed = charSpeed * artSpeed * swSpeed;
+                float finalFireRate = charFireRate * artFireRate * swFireRate;
+                float finalReload = charReload * artReload * swReload;
+
+                // Apply to WeaponUnits
+                foreach (var wUnit in weapon.WeaponUnits)
+                {
+                    if (wUnit is ProjectileWeaponUnit pUnit)
+                    {
+                        pUnit.SetDamageMultiplier(finalDmg);
+                        pUnit.SetRangeMultiplier(finalRange);
+                        pUnit.SetSpeedMultiplier(finalSpeed);
+                    }
+                }
+
+                // Apply to Triggerable (Fire Rate / Reload)
+                if (weapon.Triggerable != null)
+                {
+                    Triggerable trig = weapon.Triggerable;
+
+                    // Cache base values if not present
+                    if (!baseActionIntervals.ContainsKey(trig)) baseActionIntervals[trig] = trig.ActionInterval;
+                    if (!baseBurstIntervals.ContainsKey(trig)) baseBurstIntervals[trig] = trig.BurstInterval; 
+
+                    // Apply Fire Rate (Inverse of interval)
+                    // New Interval = Base / Multiplier
+                    if (finalFireRate > 0)
+                        trig.ActionInterval = baseActionIntervals[trig] / finalFireRate;
+
+                    // Apply Reload (Burst Interval)
+                    if (finalReload > 0)
+                        trig.BurstInterval = baseBurstIntervals[trig] / finalReload;
+                }
+            }
         }
 
         private float superBoostMultiplier = 1f;

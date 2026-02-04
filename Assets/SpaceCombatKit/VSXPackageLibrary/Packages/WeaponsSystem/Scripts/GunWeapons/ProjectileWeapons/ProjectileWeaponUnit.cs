@@ -181,13 +181,21 @@ namespace VSX.Weapons
         }
 
 
-        /// <summary>
-        /// Set the healing multiplier for this weapon unit.
-        /// </summary>
-        /// <param name="healingMultiplier">The healing multiplier.</param>
         public override void SetHealingMultiplier(float healingMultiplier)
         {
             this.healingMultiplier = healingMultiplier;
+        }
+
+        protected float speedMultiplier = 1;
+        public void SetSpeedMultiplier(float speedMultiplier)
+        {
+            this.speedMultiplier = speedMultiplier;
+        }
+
+        protected float rangeMultiplier = 1;
+        public void SetRangeMultiplier(float rangeMultiplier)
+        {
+            this.rangeMultiplier = rangeMultiplier;
         }
 
 
@@ -215,6 +223,15 @@ namespace VSX.Weapons
 
                 projectileController.SetOwner(owner);
                 projectileController.SetSenderRootTransform(rootTransform);
+
+                // Apply modifiers
+                projectileController.SetDamageMultiplier(damageMultiplier);
+                projectileController.SetHealingMultiplier(healingMultiplier);
+                
+                // Apply character bonuses
+                projectileController.Speed *= speedMultiplier;
+                projectileController.SetMaxDistance(projectileController.Range * rangeMultiplier);
+                projectileController.SetLifetime(100f); // Default high lifetime so MaxDistance controls it, unless defined otherwise
 
                 if (addLauncherVelocityToProjectile && rBody != null)
                 {

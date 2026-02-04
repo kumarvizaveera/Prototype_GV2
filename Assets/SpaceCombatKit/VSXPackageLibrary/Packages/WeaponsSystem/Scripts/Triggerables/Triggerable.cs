@@ -86,7 +86,10 @@ namespace VSX.Weapons
         [Tooltip("The interval between bursts when Repeat Burst is enabled.")]
         [SerializeField]
         protected float burstInterval = 0.5f;
-        public float BurstInterval { get { return burstInterval; } }
+        public float BurstInterval { 
+            get { return burstInterval; }
+            set { burstInterval = value; }
+        }
 
         [Header("Events")]
 

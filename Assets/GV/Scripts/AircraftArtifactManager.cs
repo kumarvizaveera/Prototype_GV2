@@ -64,23 +64,52 @@ namespace VSX.Engines3D
             }
         }
         
-        // Helper for CharacterManager to read total multiplier
-        public (float speed, float steering, float boost) GetTotalMultipliers()
+        public class ArtifactBonuses
         {
-            float mSpeed = 1f;
-            float mSteer = 1f;
-            float mBoost = 1f;
+            public float speed = 1f;
+            public float steering = 1f;
+            public float boost = 1f;
+
+            public float projectileDamage = 1f;
+            public float projectileRange = 1f;
+            public float projectileSpeed = 1f;
+            public float projectileFireRate = 1f;
+            public float projectileReload = 1f;
+
+            public float missileDamage = 1f;
+            public float missileRange = 1f;
+            public float missileSpeed = 1f;
+            public float missileFireRate = 1f;
+            public float missileReload = 1f;
+        }
+
+        // Helper for CharacterManager to read total multiplier
+        public ArtifactBonuses GetTotalMultipliers()
+        {
+            ArtifactBonuses bonuses = new ArtifactBonuses();
 
             foreach (var a in artifacts)
             {
                 if (a != null)
                 {
-                    mSpeed *= a.speedMultiplier;
-                    mSteer *= a.steeringMultiplier;
-                    mBoost *= a.boostMultiplier;
+                    bonuses.speed *= a.speedMultiplier;
+                    bonuses.steering *= a.steeringMultiplier;
+                    bonuses.boost *= a.boostMultiplier;
+
+                    bonuses.projectileDamage *= a.projectileDamageMultiplier;
+                    bonuses.projectileRange *= a.projectileRangeMultiplier;
+                    bonuses.projectileSpeed *= a.projectileSpeedMultiplier;
+                    bonuses.projectileFireRate *= a.projectileFireRateMultiplier;
+                    bonuses.projectileReload *= a.projectileReloadMultiplier;
+
+                    bonuses.missileDamage *= a.missileDamageMultiplier;
+                    bonuses.missileRange *= a.missileRangeMultiplier;
+                    bonuses.missileSpeed *= a.missileSpeedMultiplier;
+                    bonuses.missileFireRate *= a.missileFireRateMultiplier;
+                    bonuses.missileReload *= a.missileReloadMultiplier;
                 }
             }
-            return (mSpeed, mSteer, mBoost);
+            return bonuses;
         }
     }
 }

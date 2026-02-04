@@ -249,7 +249,7 @@ MonoBehaviour:
   healthModifier:
     healthModifierType: {fileID: 11400000, guid: 377cadcf2927dcb49ad15f2c64982d47,
       type: 2}
-    defaultDamageValue: 10000
+    defaultDamageValue: 1000
     damageOverrideValues: []
     damageMultiplier: 1
     defaultHealingValue: 0
