@@ -254,15 +254,9 @@ namespace VSX.Health
 
         public virtual void SetShieldActive(bool active)
         {
-            if (active) Debug.Log("[EnergyShieldController] Setting Shield Active: TRUE");
-            else Debug.Log("[EnergyShieldController] Setting Shield Active: FALSE");
-
             if (energyShieldMeshRenderer != null) energyShieldMeshRenderer.enabled = active;
-            else Debug.LogWarning("[EnergyShieldController] MeshRenderer is null!");
-
             Collider c = GetComponent<Collider>();
             if (c != null) c.enabled = active;
-            else Debug.LogWarning("[EnergyShieldController] Collider is null!");
         }
 
         // Called every frame

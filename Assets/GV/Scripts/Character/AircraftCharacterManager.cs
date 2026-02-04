@@ -317,15 +317,22 @@ namespace VSX.Engines3D
                 artBoost = multipliers.boost;
             }
 
-            // Formula: Base * Character * Artifacts
-            fMaxMovement.SetValue(engines, baseMaxMovement * data.speedMultiplier * artSpeed);
-            fMaxSteering.SetValue(engines, baseMaxSteering * data.steeringMultiplier * artSteer);
-            fMaxBoost.SetValue(engines, baseMaxBoost * data.boostMultiplier * artBoost);
+            // Formula: Base * Character * Artifacts * Super Boost
+            fMaxMovement.SetValue(engines, baseMaxMovement * data.speedMultiplier * artSpeed * superBoostMultiplier);
+            fMaxSteering.SetValue(engines, baseMaxSteering * data.steeringMultiplier * artSteer * superBoostMultiplier);
+            fMaxBoost.SetValue(engines, baseMaxBoost * data.boostMultiplier * artBoost * superBoostMultiplier);
 
-            Debug.Log($"[CharacterManager] Applied {data.characterName} + Artifacts. " +
-                      $"Multipliers: Spd x{data.speedMultiplier * artSpeed:F2}, " +
-                      $"Str x{data.steeringMultiplier * artSteer:F2}, " +
-                      $"Bst x{data.boostMultiplier * artBoost:F2}");
+            Debug.Log($"[CharacterManager] Applied {data.characterName} + Artifacts + SuperBoost. " +
+                      $"Multipliers: Spd x{data.speedMultiplier * artSpeed * superBoostMultiplier:F2}, " +
+                      $"Str x{data.steeringMultiplier * artSteer * superBoostMultiplier:F2}, " +
+                      $"Bst x{data.boostMultiplier * artBoost * superBoostMultiplier:F2}");
+        }
+
+        private float superBoostMultiplier = 1f;
+        public void SetSuperBoost(float multiplier)
+        {
+            superBoostMultiplier = multiplier;
+            RefreshStats();
         }
 
         private void CacheFields()
