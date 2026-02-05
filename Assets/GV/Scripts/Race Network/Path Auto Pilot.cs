@@ -25,6 +25,9 @@ public class PathAutoPilot : MonoBehaviour
     public bool cancelOnAnyInput = true;
     public float axisThreshold = 0.15f;
     public string[] legacyAxesToCheck = new string[] { "Horizontal", "Vertical", "Mouse X", "Mouse Y" };
+    
+    [Tooltip("Time in seconds to ignore input after activation.")]
+    public float inputDelay = 1.0f;
 
     [Header("Easing (smooth handoff)")]
     [Tooltip("Seconds to fade autopilot influence from 1 -> 0 while player regains control.")]
@@ -36,11 +39,15 @@ public class PathAutoPilot : MonoBehaviour
     [Tooltip("If true, keep a small guidance while easing; if false, autopilot stops immediately and only delays control enable.")]
     public bool guideDuringEaseOut = true;
 
+    [Header("UI")]
+    public TMPro.TMP_Text statusText;
+
     // runtime
     bool _active;
     bool _easing;
     float _endTime;
     float _easeStartTime;
+    float _inputUnlockTime;
 
     float _speed;
     int _goalIndex;
@@ -73,27 +80,44 @@ public class PathAutoPilot : MonoBehaviour
         _goalIndex = network.ClampOrWrapIndex(startGoalIndex);
         _speed = Mathf.Max(0.1f, speedMetersPerSec);
         _endTime = Time.time + Mathf.Max(0.05f, durationSeconds);
-
+        
         _active = true;
         _easing = false;
+        _inputUnlockTime = Time.time + inputDelay;
+        
+        // UI
+        if (statusText) statusText.gameObject.SetActive(true);
 
         // Disable controls during full autopilot
         SetControlsEnabled(false);
+        
+        StartCoroutine(PhysicsLoop());
 
         // Save kinematic state (keep whatever you use normally)
         _savedWasKinematic = rb.isKinematic;
         // Autopilot steering works best with dynamic RB:
         rb.isKinematic = false;
+        rb.WakeUp();
     }
 
     void Update()
     {
         if (!_active) return;
-
-        if (!_easing && cancelOnAnyInput && DetectAnyInput())
+        
+        // Update UI
+        if (statusText)
         {
-            StartEaseOut();
-            return;
+            float remaining = Mathf.Max(0f, _endTime - Time.time);
+            statusText.text = $"Auto Pilot ending in ({remaining:F1}) seconds";
+        }
+
+        if (!_easing && cancelOnAnyInput && Time.time >= _inputUnlockTime)
+        {
+             if (DetectAnyInput())
+             {
+                 StartEaseOut();
+                 return;
+             }
         }
 
         if (!_easing && Time.time >= _endTime)
@@ -117,33 +141,59 @@ public class PathAutoPilot : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (!_active || !network || network.Count == 0) return;
+        // Logic moved to Coroutine to override other physics scripts
+    }
 
+    System.Collections.IEnumerator PhysicsLoop()
+    {
+        var wait = new WaitForFixedUpdate();
+        while (_active)
+        {
+            yield return wait;
+            if (!_active) break;
+            ApplyPhysicsOverride();
+        }
+    }
+
+    void ApplyPhysicsOverride()
+    {
+        if (!rb || !network || network.Count == 0) return;
+
+        // Easing logic
         float weight = 1f;
-
         if (_easing)
         {
             float t = (Time.time - _easeStartTime) / Mathf.Max(0.0001f, easeOutSeconds);
             t = Mathf.Clamp01(t);
-            weight = easeOutCurve.Evaluate(t); // 1 -> 0
+            weight = easeOutCurve.Evaluate(t);
             if (!guideDuringEaseOut) weight = 0f;
         }
 
-        // If weight is 0, autopilot does nothing (player fully in control)
         if (weight <= 0.0001f) return;
 
+        // Path logic
         Transform goal = network.GetCheckpoint(_goalIndex);
-        if (!goal) return;
+        if (!goal) 
+        {
+            // Self-healing: If current is null, try next
+            int next = network.GetNextIndex(_goalIndex);
+            if (next != _goalIndex)
+            {
+                _goalIndex = next;
+            }
+            return;
+        }
 
         Vector3 toGoal = goal.position - rb.position;
         float dist = toGoal.magnitude;
+
+        // PhysicsOverride logs removed
 
         if (dist <= arriveRadius)
         {
             _goalIndex = network.GetNextIndex(_goalIndex);
             goal = network.GetCheckpoint(_goalIndex);
             if (!goal) return;
-
             toGoal = goal.position - rb.position;
             dist = toGoal.magnitude;
         }
@@ -153,21 +203,25 @@ public class PathAutoPilot : MonoBehaviour
         Vector3 dir = toGoal / dist;
         _lastDir = dir;
 
-        // Desired velocity along path
         Vector3 desiredVel = dir * _speed;
 
-        // Blend current velocity toward desired velocity with easing weight
+        // Strong Override: Directly set velocity if far from target velocity, or blend fast
         float vLerp = 1f - Mathf.Exp(-velocityLerp * Time.fixedDeltaTime);
+        // Force override other physics by setting velocity 'last'
         rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, desiredVel, vLerp * weight);
 
-        // Optional rotation alignment (also fades out)
         if (alignRotationToPath)
         {
+            // Kill external rotation forces (collisions, engine torque)
+            rb.angularVelocity = Vector3.zero;
+
             Quaternion targetRot = Quaternion.LookRotation(dir, Vector3.up);
+            // Slerp for smoothness, but apply DIRECTLY to rotation to bypass RB inertia
             float rLerp = 1f - Mathf.Exp(-rotationLerp * Time.fixedDeltaTime);
-            rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRot, rLerp * weight));
+            rb.rotation = Quaternion.Slerp(rb.rotation, targetRot, rLerp * weight);
         }
     }
+
 
     void StartEaseOut()
     {
@@ -184,6 +238,8 @@ public class PathAutoPilot : MonoBehaviour
     {
         _active = false;
         _easing = false;
+
+        if (statusText) statusText.gameObject.SetActive(false);
 
         // Ensure controls are enabled
         SetControlsEnabled(true);

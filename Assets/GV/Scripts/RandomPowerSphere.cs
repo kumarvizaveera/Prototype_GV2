@@ -28,6 +28,24 @@ namespace GV
         [Tooltip("If > 0, the sphere reappears after this many seconds.")]
         public float respawnTime = -1f;
 
+        [Header("Cycling Settings")]
+        [Tooltip("If true, powers cycle every few seconds instead of being random.")]
+        public bool cyclePowers = false;
+        [Tooltip("Time in seconds between power switches.")]
+        public float cycleInterval = 5f;
+
+
+
+        [Tooltip("Reference to a 3D TextMeshPro object to display the current power.")]
+        public TMPro.TextMeshPro powerLabel;
+        
+        // Static list to ensure all spheres share the same random order per game.
+        private static List<PowerUpType> s_GlobalCycleOrder;
+
+        private List<PowerUpType> m_AvailableCyclePowers = new List<PowerUpType>();
+        private int m_CurrentCycleIndex = 0;
+        private Coroutine m_CycleRoutine;
+
         [Header("Feedback")]
         public AudioClip mysteryPickupSound;
         [Tooltip("Optional: Instantiate this GameObject when collected (e.g. for audio prefab).")]
@@ -59,6 +77,87 @@ namespace GV
             if (shield) shield.manualTriggerOnly = true;
             if (superBoost) superBoost.manualTriggerOnly = true;
             if (superWeapon) superWeapon.manualTriggerOnly = true;
+        }
+
+        private void Start()
+        {
+            if (cyclePowers)
+            {
+                InitGlobalOrder();
+
+                // Populate available powers based on the shared global order
+                m_AvailableCyclePowers.Clear();
+                
+                foreach (PowerUpType type in s_GlobalCycleOrder)
+                {
+                   switch (type)
+                   {
+                       case PowerUpType.Teleport:
+                           if (teleport) m_AvailableCyclePowers.Add(type);
+                           break;
+                       case PowerUpType.Invisibility:
+                           if (invisibility) m_AvailableCyclePowers.Add(type);
+                           break;
+                       case PowerUpType.Shield:
+                           if (shield) m_AvailableCyclePowers.Add(type);
+                           break;
+                       case PowerUpType.SuperBoost:
+                           if (superBoost) m_AvailableCyclePowers.Add(type);
+                           break;
+                       case PowerUpType.SuperWeapon:
+                           if (superWeapon) m_AvailableCyclePowers.Add(type);
+                           break;
+                   }
+                }
+
+                if (m_AvailableCyclePowers.Count > 0)
+                {
+                    UpdatePowerLabel();
+                    m_CycleRoutine = StartCoroutine(CyclePowerRoutine());
+                }
+            }
+        }
+
+        private void InitGlobalOrder()
+        {
+            if (s_GlobalCycleOrder != null) return;
+
+            s_GlobalCycleOrder = new List<PowerUpType>
+            {
+                PowerUpType.Teleport,
+                PowerUpType.Invisibility,
+                PowerUpType.Shield,
+                PowerUpType.SuperBoost,
+                PowerUpType.SuperWeapon
+            };
+
+            // Fisher-Yates Shuffle
+            for (int i = 0; i < s_GlobalCycleOrder.Count; i++)
+            {
+                PowerUpType temp = s_GlobalCycleOrder[i];
+                int randomIndex = Random.Range(i, s_GlobalCycleOrder.Count);
+                s_GlobalCycleOrder[i] = s_GlobalCycleOrder[randomIndex];
+                s_GlobalCycleOrder[randomIndex] = temp;
+            }
+        }
+
+        private IEnumerator CyclePowerRoutine()
+        {
+            while (true)
+            {
+                yield return new WaitForSeconds(cycleInterval);
+                m_CurrentCycleIndex = (m_CurrentCycleIndex + 1) % m_AvailableCyclePowers.Count;
+                UpdatePowerLabel();
+                // Debug.Log($"[RandomPowerSphere] Cycled to: {m_AvailableCyclePowers[m_CurrentCycleIndex]}");
+            }
+        }
+
+        private void UpdatePowerLabel()
+        {
+            if (powerLabel && m_AvailableCyclePowers.Count > 0)
+            {
+                powerLabel.text = m_AvailableCyclePowers[m_CurrentCycleIndex].ToString();
+            }
         }
 
         private void OnTriggerEnter(Collider other)
@@ -98,7 +197,16 @@ namespace GV
             if (superBoost) candidates.Add(PowerUpType.SuperBoost);
             if (superWeapon) candidates.Add(PowerUpType.SuperWeapon);
 
-            PowerUpType selected = PowerUpManager.Instance.GetRandomUncollectedPower(candidates);
+            PowerUpType selected = PowerUpType.None;
+
+            if (cyclePowers && m_AvailableCyclePowers.Count > 0)
+            {
+                selected = m_AvailableCyclePowers[m_CurrentCycleIndex];
+            }
+            else
+            {
+                selected = PowerUpManager.Instance.GetRandomUncollectedPower(candidates);
+            }
 
             if (selected != PowerUpType.None)
             {

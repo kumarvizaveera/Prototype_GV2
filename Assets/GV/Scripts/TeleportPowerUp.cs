@@ -37,6 +37,9 @@ namespace GV.PowerUps
         public float autoPilotSpeed = 50f;
         public float autoPilotSpeedMultiplier = 1f;
 
+        [Header("UI")]
+        public TMPro.TMP_Text autoPilotTimerText;
+
         [Header("Dependencies (Auto-filled)")]
         public CheckpointNetwork network;
 
@@ -46,6 +49,7 @@ namespace GV.PowerUps
         private void Start()
         {
             if (debugLogs) Debug.Log($"[TeleportPowerUp] Started on {gameObject.name}. Manual: {manualTriggerOnly}");
+            if (autoPilotTimerText) autoPilotTimerText.gameObject.SetActive(false);
             
             if (!network)
             {
@@ -93,8 +97,12 @@ namespace GV.PowerUps
 
             if (!network || network.Count == 0)
             {
-                Debug.LogError("[TeleportPowerUp] Cannot teleport: No CheckpointNetwork found or empty.");
-                return;
+                if (network) network.Build();
+                if (!network || network.Count == 0)
+                {
+                    Debug.LogError("[TeleportPowerUp] Cannot teleport: No CheckpointNetwork found or empty.");
+                    return;
+                }
             }
 
             // Find current position index
@@ -150,6 +158,19 @@ namespace GV.PowerUps
             {
                 var ap = rb.GetComponent<PathAutoPilot>();
                 if (!ap) ap = rb.gameObject.AddComponent<PathAutoPilot>();
+                
+                // Initialize array if null to prevent NullReference
+                if (ap.disableWhileActive == null) ap.disableWhileActive = new MonoBehaviour[0];
+
+                // FORCE overrides for PowerUp behavior:
+                // 1. Do not let player cancel it manually (it's a forced jump)
+                ap.cancelOnAnyInput = false;
+                
+                // 2. Clear any disabling as we now rely on physics override
+                ap.disableWhileActive = new MonoBehaviour[0];
+
+                // 3. UI
+                ap.statusText = autoPilotTimerText;
 
                 float speedToUse = autoPilotSpeed;
                 if (autoPilotUseCurrentSpeed)
@@ -158,7 +179,8 @@ namespace GV.PowerUps
                     speedToUse = Mathf.Max(5f, v * autoPilotSpeedMultiplier);
                 }
 
-                ap.Begin(targetIndex, autoPilotSeconds, speedToUse);
+                int nextIndex = network.GetNextIndex(targetIndex);
+                ap.Begin(nextIndex, autoPilotSeconds, speedToUse);
             }
         }
     }

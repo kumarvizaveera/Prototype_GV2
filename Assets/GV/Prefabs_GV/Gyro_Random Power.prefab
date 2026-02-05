@@ -138,6 +138,8 @@ MonoBehaviour:
   missileSpeedMultiplier: 2
   missileFireRateMultiplier: 2
   missileReloadMultiplier: 2
+  pickupSound: {fileID: 0}
+  pickupSoundObject: {fileID: 0}
   pickupEffect: {fileID: 0}
 --- !u!1 &124739911342812371
 GameObject:
