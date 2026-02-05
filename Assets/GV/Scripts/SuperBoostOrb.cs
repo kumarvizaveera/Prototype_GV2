@@ -33,6 +33,8 @@ namespace GV
         [Header("Feedback")]
         [Tooltip("Optional sound to play on pickup (using AudioSource at position).")]
         public AudioClip pickupSound;
+        [Tooltip("Optional: Instantiate this GameObject when collected (e.g. for audio prefab).")]
+        public GameObject pickupSoundObject;
         [Tooltip("Optional particle effect to spawn on pickup.")]
         public GameObject pickupEffect;
 
@@ -83,6 +85,7 @@ namespace GV
 
             // FX
             if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
+            if (pickupSoundObject != null) Instantiate(pickupSoundObject, transform.position, Quaternion.identity);
             if (pickupEffect != null) Instantiate(pickupEffect, transform.position, Quaternion.identity);
 
             // Consume (only if not manual, as manual means we are a shared component on a mystery sphere)

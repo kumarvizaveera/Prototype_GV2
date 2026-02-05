@@ -22,6 +22,11 @@ namespace GV.PowerUps
         [Tooltip("If true, the effect reverts when the aircraft exits the trigger volume (instead of time-based).")]
         public bool revertOnExit = false;
 
+        [Header("Feedback")]
+        public AudioClip collectSound;
+        [Tooltip("Optional: Instantiate this GameObject when collected (e.g. for audio prefab).")]
+        public GameObject collectEffectObject;
+
         [Header("Debug")]
         public bool debugLogs = true;
 
@@ -62,6 +67,10 @@ namespace GV.PowerUps
             {
                 PowerUpManager.Instance.RegisterCollection(powerUpType);
             }
+
+            // Feedback
+            if (collectSound != null) AudioSource.PlayClipAtPoint(collectSound, transform.position);
+            if (collectEffectObject != null) Instantiate(collectEffectObject, transform.position, Quaternion.identity);
 
             ApplyInvisibility(target);
 

@@ -16,6 +16,9 @@ namespace GV.PowerUps
         [Tooltip("Play this audio clip when collected.")]
         public AudioClip collectSound;
 
+        [Tooltip("Optional: Instantiate this GameObject when collected (e.g. for audio prefab).")]
+        public GameObject collectEffectObject;
+
         [Tooltip("Duration of the shield effect in seconds.")]
         public float duration = 10f;
         
@@ -74,6 +77,11 @@ namespace GV.PowerUps
                 if (collectSound != null)
                 {
                     AudioSource.PlayClipAtPoint(collectSound, transform.position);
+                }
+                
+                if (collectEffectObject != null)
+                {
+                    Instantiate(collectEffectObject, transform.position, Quaternion.identity);
                 }
 
                 // Remove the powerup

@@ -38,6 +38,11 @@ namespace VSX.Engines3D
         public float missileReloadMultiplier = 2f;
 
         [Header("Visuals")]
+        [Tooltip("Optional sound to play on pickup (using AudioSource at position).")]
+        public AudioClip pickupSound;
+        [Tooltip("Optional: Instantiate this GameObject when collected (e.g. for audio prefab).")]
+        public GameObject pickupSoundObject;
+
         [Tooltip("Optional effect to spawn on pickup.")]
         public GameObject pickupEffect;
 
@@ -93,6 +98,10 @@ namespace VSX.Engines3D
                 manager.SetSuperWeapon(bonuses, duration);
 
                 Debug.Log($"[SuperWeaponOrb] Applied Super Weapon bonuses for {duration} seconds.");
+                
+                // Audio
+                if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
+                if (pickupSoundObject != null) Instantiate(pickupSoundObject, transform.position, Quaternion.identity);
 
                 // Visuals
                 if (pickupEffect != null)

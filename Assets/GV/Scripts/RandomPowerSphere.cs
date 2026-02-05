@@ -30,6 +30,8 @@ namespace GV
 
         [Header("Feedback")]
         public AudioClip mysteryPickupSound;
+        [Tooltip("Optional: Instantiate this GameObject when collected (e.g. for audio prefab).")]
+        public GameObject mysteryPickupSoundObject;
         public GameObject mysteryPickupEffect;
 
         private Collider m_Collider;
@@ -105,6 +107,7 @@ namespace GV
 
                 // Feedback
                 if (mysteryPickupSound) AudioSource.PlayClipAtPoint(mysteryPickupSound, transform.position);
+                if (mysteryPickupSoundObject) Instantiate(mysteryPickupSoundObject, transform.position, Quaternion.identity);
                 if (mysteryPickupEffect) Instantiate(mysteryPickupEffect, transform.position, Quaternion.identity);
 
                 // Consume

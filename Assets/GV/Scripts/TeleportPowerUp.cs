@@ -26,6 +26,8 @@ namespace GV.PowerUps
         
         [Header("SFX")]
         public AudioClip teleportSfx;
+        [Tooltip("Optional: Instantiate this GameObject when teleporting (e.g. for audio prefab).")]
+        public GameObject teleportSoundObject;
         [Range(0f, 1f)] public float teleportSfxVolume = 1f;
 
         [Header("Auto Pilot")]
@@ -135,6 +137,10 @@ namespace GV.PowerUps
             if (teleportSfx)
             {
                 AudioSource.PlayClipAtPoint(teleportSfx, destPos, teleportSfxVolume);
+            }
+            if (teleportSoundObject != null)
+            {
+                Instantiate(teleportSoundObject, destPos, Quaternion.identity);
             }
 
             if (debugLogs) Debug.Log($"[TeleportPowerUp] Teleported {rb.name} from index {anchorIndex} to {targetIndex} (+{checkpointsToJump})");
