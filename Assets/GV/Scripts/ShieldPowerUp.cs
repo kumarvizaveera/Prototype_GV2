@@ -2,11 +2,16 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using VSX.Health;
+using GV;
 
 namespace GV.PowerUps
 {
     public class ShieldPowerUp : MonoBehaviour
     {
+        [Header("Power Up Settings")]
+        public bool manualTriggerOnly = false;
+        public PowerUpType powerUpType = PowerUpType.Shield;
+
         [Header("Settings")]
         [Tooltip("Play this audio clip when collected.")]
         public AudioClip collectSound;
@@ -20,11 +25,30 @@ namespace GV.PowerUps
         [Header("Debug")]
         public bool debugLogs = true;
 
+        private void Start()
+        {
+            if (debugLogs) Debug.Log($"[ShieldPowerUp] Script started on {gameObject.name}. Manual: {manualTriggerOnly}");
+        }
+
         private void OnTriggerEnter(Collider other)
         {
+            if (debugLogs) Debug.Log($"[ShieldPowerUp] OnTriggerEnter. Manual: {manualTriggerOnly}. Other: {other.name}");
+            if (manualTriggerOnly) return;
+
             // Find the root object (likely the ship controller)
             Rigidbody rb = other.attachedRigidbody;
             GameObject target = rb ? rb.gameObject : other.gameObject;
+
+            Apply(target);
+        }
+
+        public void Apply(GameObject target)
+        {
+            // Register Collection
+            if (PowerUpManager.Instance != null)
+            {
+                PowerUpManager.Instance.RegisterCollection(powerUpType);
+            }
 
             // Look for EnergyShieldController in children
             EnergyShieldController shieldController = target.GetComponentInChildren<EnergyShieldController>(true);
@@ -53,13 +77,16 @@ namespace GV.PowerUps
                 }
 
                 // Remove the powerup
-                if (destroyOnCollect)
+                if (!manualTriggerOnly)
                 {
-                    Destroy(gameObject);
-                }
-                else
-                {
-                    gameObject.SetActive(false);
+                    if (destroyOnCollect)
+                    {
+                        Destroy(gameObject);
+                    }
+                    else
+                    {
+                        gameObject.SetActive(false);
+                    }
                 }
             }
             else

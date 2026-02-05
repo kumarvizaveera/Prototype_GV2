@@ -6,6 +6,10 @@ namespace GV
 {
     public class SuperBoostOrb : MonoBehaviour
     {
+        [Header("Power Up Settings")]
+        public bool manualTriggerOnly = false;
+        public PowerUpType powerUpType = PowerUpType.SuperBoost;
+
         [Header("Boost Settings")]
         [Tooltip("Multiplier for normal movement speed.")]
         public float speedMultiplier = 1.2f;
@@ -43,10 +47,17 @@ namespace GV
 
         private void OnTriggerEnter(Collider other)
         {
+            if (manualTriggerOnly) return; 
+
             // Find the vehicle root
             Rigidbody rb = other.attachedRigidbody;
             GameObject target = rb ? rb.gameObject : other.gameObject;
 
+            Apply(target);
+        }
+
+        public void Apply(GameObject target)
+        {
             // Look for the handler
             var handler = target.GetComponent<AircraftSuperBoostHandler>();
             
@@ -61,6 +72,12 @@ namespace GV
 
         private void ApplyPickup(AircraftSuperBoostHandler handler)
         {
+            // Register Collection
+            if (PowerUpManager.Instance != null)
+            {
+                PowerUpManager.Instance.RegisterCollection(powerUpType);
+            }
+
             // Activate Boost
             handler.ActivateSuperBoost(speedMultiplier, steeringMultiplier, boostMultiplier, boostDuration);
 
@@ -68,8 +85,8 @@ namespace GV
             if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
             if (pickupEffect != null) Instantiate(pickupEffect, transform.position, Quaternion.identity);
 
-            // Consume
-            if (consumeOnPickup)
+            // Consume (only if not manual, as manual means we are a shared component on a mystery sphere)
+            if (!manualTriggerOnly && consumeOnPickup)
             {
                 if (respawnTime > 0)
                 {

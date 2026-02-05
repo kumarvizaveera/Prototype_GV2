@@ -1,10 +1,15 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using GV;
 
 [RequireComponent(typeof(Collider))]
 public class ShortcutCrystalJump : MonoBehaviour
 {
+    [Header("Power Up Settings")]
+    public bool manualTriggerOnly = false;
+    public PowerUpType powerUpType = PowerUpType.Teleport;
+
     [Header("Network (leave empty)")]
     public CheckpointNetwork network;
 
@@ -116,13 +121,41 @@ public class ShortcutCrystalJump : MonoBehaviour
         return root && root.CompareTag(playerTag);
     }
 
+    void Start()
+    {
+        Debug.Log($"[ShortcutCrystalJump] Script started on {gameObject.name}. Manual: {manualTriggerOnly}");
+    }
+
     void OnTriggerEnter(Collider other)
     {
+        Debug.Log($"[ShortcutCrystalJump] OnTriggerEnter. Manual: {manualTriggerOnly} Other: {other.name}");
+        if (manualTriggerOnly) return;
+
         if (ignoreEnterRightAfterEnable && Time.time < _ignoreEnterUntilTime) return;
 
         Rigidbody rb = other.attachedRigidbody;
         if (!IsPlayer(other, rb)) return;
         if (!rb) return;
+
+        Debug.Log($"[ShortcutCrystalJump] Trigger valid. Applying to {rb.name}");
+        Apply(rb.gameObject);
+    }
+
+    public void Apply(GameObject target)
+    {
+        Rigidbody rb = target.GetComponent<Rigidbody>();
+        if (!rb)
+        {
+            rb = target.GetComponentInParent<Rigidbody>();
+        }
+        
+        if (!rb) return;
+
+        // Register Collection
+        if (PowerUpManager.Instance != null)
+        {
+            PowerUpManager.Instance.RegisterCollection(powerUpType);
+        }
 
         int id = rb.GetInstanceID();
         float now = Time.time;
@@ -133,19 +166,49 @@ public class ShortcutCrystalJump : MonoBehaviour
             network = CheckpointNetwork.Instance;
             if (!network) network = FindObjectOfType<CheckpointNetwork>(true);
         }
-        if (!network) return;
+        if (!network) 
+        {
+            Debug.LogError("[ShortcutCrystalJump] Apply failed: No CheckpointNetwork found.");
+            return;
+        }
 
         if (network.Count == 0)
         {
             network.Build();
-            if (network.Count == 0) return;
+            if (network.Count == 0)
+            {
+                Debug.LogError("[ShortcutCrystalJump] Apply failed: CheckpointNetwork has 0 checkpoints.");
+                 return;
+            }
         }
 
-        if (!dice) return;
+        if (!dice)
+        {
+            // If no dice is hooked up (e.g. manual Mystery Sphere), assume 1 forward? 
+            // Or maybe we can't teleport without dice context?
+            // Existing logic enforced dice return, let's keep it safe but maybe try to find one if missing.
+             dice = GetComponentInParent<DiceRingIndicator>(true);
+             if (!dice)
+             {
+                 Debug.LogWarning("[ShortcutCrystalJump] No DiceRingIndicator found. Using default +1 increment.");
+                 // Fallback logic implemented below
+             } 
+        }
 
         int anchorIndex = network.GetNearestIndex(transform.position);
 
-        int delta = dice.IsForward ? dice.DiceValue : -dice.DiceValue;
+        int delta = 1;
+        if (dice != null)
+        {
+            delta = dice.IsForward ? dice.DiceValue : -dice.DiceValue;
+        }
+        else
+        {
+             // Default behavior for power-ups without dice: Jump 1 checkpoint forward?
+             // Or maybe we want to jump 3? Let's stick to 1 for now or make it a public variable later.
+             delta = 1;
+        }
+
         int targetIndex = network.ClampOrWrapIndex(anchorIndex + delta);
 
         Vector3 tangent;

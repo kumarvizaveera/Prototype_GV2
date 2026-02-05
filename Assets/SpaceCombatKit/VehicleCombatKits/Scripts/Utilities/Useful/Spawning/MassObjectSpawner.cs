@@ -142,7 +142,7 @@ namespace VSX.UniversalVehicleCombat
 						bool isBlocked = false;
 						for (int l = 0; l < spawnBlockers.Count; ++l)
 						{
-							if (spawnBlockers[l].IsBlocked(spawnPos))
+							if (spawnBlockers[l] != null && spawnBlockers[l].IsBlocked(spawnPos))
 							{
 								isBlocked = true;
 								break;

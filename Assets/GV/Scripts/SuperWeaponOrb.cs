@@ -1,9 +1,14 @@
 using UnityEngine;
+using GV;
 
 namespace VSX.Engines3D
 {
     public class SuperWeaponOrb : MonoBehaviour
     {
+        [Header("Power Up Settings")]
+        public bool manualTriggerOnly = false;
+        public PowerUpType powerUpType = PowerUpType.SuperWeapon;
+
         [Header("Duration")]
         [Tooltip("How long the super weapon effect lasts in seconds.")]
         public float duration = 10f;
@@ -38,12 +43,37 @@ namespace VSX.Engines3D
 
         private void OnTriggerEnter(Collider other)
         {
+            if (manualTriggerOnly) return;
+
             // Try to find the AircraftCharacterManager on the object that hit us
             // Use GetComponentInParent to handle hitting a collider child of the ship
             AircraftCharacterManager manager = other.GetComponentInParent<AircraftCharacterManager>();
 
+            if (manager == null && other.attachedRigidbody != null)
+            {
+                manager = other.attachedRigidbody.GetComponent<AircraftCharacterManager>();
+            }
+
             if (manager != null)
             {
+               Apply(manager.gameObject);
+            }
+        }
+
+        public void Apply(GameObject target)
+        {
+             AircraftCharacterManager manager = target.GetComponent<AircraftCharacterManager>();
+             if (manager == null) manager = target.GetComponentInChildren<AircraftCharacterManager>();
+             if (manager == null) manager = target.GetComponentInParent<AircraftCharacterManager>();
+
+             if (manager != null)
+             {
+                // Register Collection
+                if (PowerUpManager.Instance != null)
+                {
+                    PowerUpManager.Instance.RegisterCollection(powerUpType);
+                }
+
                 // Create the bonus object
                 AircraftCharacterManager.SuperWeaponBonuses bonuses = new AircraftCharacterManager.SuperWeaponBonuses();
                 
@@ -70,9 +100,12 @@ namespace VSX.Engines3D
                     Instantiate(pickupEffect, transform.position, Quaternion.identity);
                 }
 
-                // Destroy the orb
-                Destroy(gameObject);
-            }
+                // Destroy the orb (only if not manual)
+                if (!manualTriggerOnly)
+                {
+                    Destroy(gameObject);
+                }
+             }
         }
     }
 }

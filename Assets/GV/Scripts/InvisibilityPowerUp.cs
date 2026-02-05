@@ -1,12 +1,17 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using VSX.RadarSystem; // Add namespace for Trackable
+using VSX.RadarSystem;
+using GV;
 
 namespace GV.PowerUps
 {
     public class InvisibilityPowerUp : MonoBehaviour
     {
+        [Header("Power Up Settings")]
+        public bool manualTriggerOnly = false;
+        public PowerUpType powerUpType = PowerUpType.Invisibility;
+
         [Header("Settings")]
         [Tooltip("The glass material to apply to the aircraft.")]
         public Material glassMaterial;
@@ -30,8 +35,16 @@ namespace GV.PowerUps
 
         private Coroutine revertCoroutine;
 
+        private void Start()
+        {
+            if (debugLogs) Debug.Log($"[InvisibilityPowerUp] Script started on {gameObject.name}. Manual: {manualTriggerOnly}");
+        }
+
         private void OnTriggerEnter(Collider other)
         {
+            if (debugLogs) Debug.Log($"[InvisibilityPowerUp] OnTriggerEnter. Manual: {manualTriggerOnly}. Other: {other.name}");
+            if (manualTriggerOnly) return;
+
             // Try to find the root aircraft object (assuming RigidBody is on the root)
             Rigidbody rb = other.attachedRigidbody;
             GameObject target = rb ? rb.gameObject : other.gameObject;
@@ -39,6 +52,17 @@ namespace GV.PowerUps
             if (debugLogs) Debug.Log($"[InvisibilityPowerUp] Trigger entered by: {target.name}");
 
             // Apply the effect
+            Apply(target);
+        }
+
+        public void Apply(GameObject target)
+        {
+             // Register Collection
+            if (PowerUpManager.Instance != null)
+            {
+                PowerUpManager.Instance.RegisterCollection(powerUpType);
+            }
+
             ApplyInvisibility(target);
 
             // Handle duration logic if not revertOnExit
@@ -51,6 +75,7 @@ namespace GV.PowerUps
 
         private void OnTriggerExit(Collider other)
         {
+            if (manualTriggerOnly) return;
             if (!revertOnExit) return;
 
             Rigidbody rb = other.attachedRigidbody;
@@ -107,7 +132,7 @@ namespace GV.PowerUps
             {
                 // Always use the root trackable to ensure we affect the whole ship
                 trackable = trackable.RootTrackable; 
-
+                
                 // Only cache and modify if we haven't already processed this trackable
                 if (!originalTrackableStates.ContainsKey(trackable))
                 {
