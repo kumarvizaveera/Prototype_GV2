@@ -51,6 +51,11 @@ namespace VSX.Engines3D
         [Tooltip("Optional effect to spawn on pickup.")]
         public GameObject pickupEffect;
 
+        private void Start()
+        {
+            if (timerText != null) timerText.gameObject.SetActive(false);
+        }
+
         private void OnTriggerEnter(Collider other)
         {
             if (manualTriggerOnly) return;

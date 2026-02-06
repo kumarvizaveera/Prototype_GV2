@@ -36,6 +36,7 @@ namespace GV.PowerUps
         private void Start()
         {
             if (debugLogs) Debug.Log($"[ShieldPowerUp] Script started on {gameObject.name}. Manual: {manualTriggerOnly}");
+            if (timerText != null) timerText.gameObject.SetActive(false);
         }
 
         private void OnTriggerEnter(Collider other)

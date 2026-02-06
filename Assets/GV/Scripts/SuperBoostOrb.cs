@@ -52,6 +52,7 @@ namespace GV
         {
             m_Collider = GetComponent<Collider>();
             m_Renderers = GetComponentsInChildren<Renderer>();
+            if (timerText != null) timerText.gameObject.SetActive(false);
         }
 
         private void OnTriggerEnter(Collider other)
