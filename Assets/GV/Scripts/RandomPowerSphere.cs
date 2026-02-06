@@ -36,8 +36,8 @@ namespace GV
 
 
 
-        [Tooltip("Reference to a 3D TextMeshPro object to display the current power.")]
-        public TMPro.TextMeshPro powerLabel;
+        [Tooltip("List of text objects to display the current power.")]
+        public TMPro.TMP_Text[] powerLabels;
         
         // Static list to ensure all spheres share the same random order per game.
         private static List<PowerUpType> s_GlobalCycleOrder;
@@ -157,9 +157,13 @@ namespace GV
 
         private void UpdatePowerLabel()
         {
-            if (powerLabel && m_AvailableCyclePowers.Count > 0)
+            if (powerLabels != null && m_AvailableCyclePowers.Count > 0)
             {
-                powerLabel.text = m_AvailableCyclePowers[m_CurrentCycleIndex].ToString();
+                string text = m_AvailableCyclePowers[m_CurrentCycleIndex].ToString();
+                foreach (var label in powerLabels)
+                {
+                    if (label != null) label.text = text;
+                }
             }
         }
 
