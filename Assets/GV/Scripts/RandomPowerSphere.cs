@@ -112,6 +112,9 @@ namespace GV
 
                 if (m_AvailableCyclePowers.Count > 0)
                 {
+                    // Start at a random index so multiple spheres don't cycle in perfect unison
+                    m_CurrentCycleIndex = Random.Range(0, m_AvailableCyclePowers.Count);
+
                     UpdatePowerLabel();
                     m_CycleRoutine = StartCoroutine(CyclePowerRoutine());
                 }

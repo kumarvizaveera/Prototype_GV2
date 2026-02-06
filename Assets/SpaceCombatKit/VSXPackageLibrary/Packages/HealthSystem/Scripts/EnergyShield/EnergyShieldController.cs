@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 
 namespace VSX.Health
 {
@@ -68,7 +69,18 @@ namespace VSX.Health
         [SerializeField]
         protected bool startDisabled = false;
 
+
         protected float remainingDuration = 0f;
+
+        protected TMP_Text timerText;
+        protected string timerFormat = "{0:0.0}";
+
+        public virtual void SetUI(TMP_Text timerText, string timerFormat)
+        {
+            this.timerText = timerText;
+            this.timerFormat = timerFormat;
+            if (this.timerText != null) this.timerText.gameObject.SetActive(true);
+        }
 
 
         [Header("Damage Effects")]
@@ -257,6 +269,11 @@ namespace VSX.Health
             if (energyShieldMeshRenderer != null) energyShieldMeshRenderer.enabled = active;
             Collider c = GetComponent<Collider>();
             if (c != null) c.enabled = active;
+
+            if (!active && timerText != null)
+            {
+                timerText.gameObject.SetActive(false);
+            }
         }
 
         // Called every frame
@@ -267,6 +284,13 @@ namespace VSX.Health
             if (remainingDuration > 0)
             {
                 remainingDuration -= Time.deltaTime;
+
+                if (timerText != null)
+                {
+                    timerText.text = string.Format(timerFormat, remainingDuration);
+                }
+
+                if (remainingDuration <= 0)
                 if (remainingDuration <= 0)
                 {
                     remainingDuration = 0;

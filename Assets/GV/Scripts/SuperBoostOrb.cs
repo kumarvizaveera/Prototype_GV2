@@ -2,6 +2,9 @@ using UnityEngine;
 using System.Collections;
 using VSX.Engines3D;
 
+
+using TMPro;
+
 namespace GV
 {
     public class SuperBoostOrb : MonoBehaviour
@@ -26,6 +29,10 @@ namespace GV
         [Header("Pickup Settings")]
         [Tooltip("If true, the orb disappears when touched.")]
         public bool consumeOnPickup = true;
+
+        [Header("UI")]
+        public TMP_Text timerText;
+        public string timerFormat = "Boost: {0:0.0}";
         
         [Tooltip("If > 0, the orb reappears after this many seconds.")]
         public float respawnTime = -1f;
@@ -79,6 +86,11 @@ namespace GV
             {
                 PowerUpManager.Instance.RegisterCollection(powerUpType);
             }
+
+
+            
+            // Pass UI settings
+            handler.SetUI(timerText, timerFormat);
 
             // Activate Boost
             handler.ActivateSuperBoost(speedMultiplier, steeringMultiplier, boostMultiplier, boostDuration);

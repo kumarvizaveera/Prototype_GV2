@@ -41,6 +41,8 @@ public class PathAutoPilot : MonoBehaviour
 
     [Header("UI")]
     public TMPro.TMP_Text statusText;
+    [Tooltip("Format for the timer text. Use {0} for the time remaining.")]
+    public string uiFormat = "Auto Pilot ending in ({0:0.0}) seconds";
 
     // runtime
     bool _active;
@@ -108,7 +110,7 @@ public class PathAutoPilot : MonoBehaviour
         if (statusText)
         {
             float remaining = Mathf.Max(0f, _endTime - Time.time);
-            statusText.text = $"Auto Pilot ending in ({remaining:F1}) seconds";
+            statusText.text = string.Format(uiFormat, remaining);
         }
 
         if (!_easing && cancelOnAnyInput && Time.time >= _inputUnlockTime)

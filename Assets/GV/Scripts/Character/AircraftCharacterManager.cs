@@ -112,10 +112,17 @@ namespace VSX.Engines3D
             if (superWeaponTimer > 0)
             {
                 superWeaponTimer -= Time.deltaTime;
+
+                if (superWeaponTimerText != null)
+                {
+                    superWeaponTimerText.text = string.Format(superWeaponTimerFormat, superWeaponTimer);
+                }
+
                 if (superWeaponTimer <= 0)
                 {
                     superWeaponTimer = 0;
                     currentSuperWeaponBonuses = null;
+                    if (superWeaponTimerText != null) superWeaponTimerText.gameObject.SetActive(false);
                     RefreshStats();
                 }
             }
@@ -331,10 +338,21 @@ namespace VSX.Engines3D
         private SuperWeaponBonuses currentSuperWeaponBonuses;
         private float superWeaponTimer = 0f;
 
+        private TMP_Text superWeaponTimerText;
+        private string superWeaponTimerFormat = "{0:0.0}";
+
+        public void SetSuperWeaponUI(TMP_Text text, string format)
+        {
+            this.superWeaponTimerText = text;
+            this.superWeaponTimerFormat = format;
+            if (this.superWeaponTimerText != null) this.superWeaponTimerText.gameObject.SetActive(false);
+        }
+
         public void SetSuperWeapon(SuperWeaponBonuses bonuses, float duration)
         {
             currentSuperWeaponBonuses = bonuses;
             superWeaponTimer = duration;
+            if (superWeaponTimerText != null) superWeaponTimerText.gameObject.SetActive(true);
             RefreshStats();
         }
 

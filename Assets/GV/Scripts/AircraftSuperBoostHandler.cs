@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 using System.Collections;
 using UnityEngine.Events;
 
@@ -20,6 +21,16 @@ namespace VSX.Engines3D
         private AircraftCharacterManager characterManager;
         private Coroutine boostCoroutine;
         private bool isBoosted = false;
+
+        private TMP_Text timerText;
+        private string timerFormat = "{0:0.0}";
+
+        public void SetUI(TMP_Text timerText, string timerFormat)
+        {
+            this.timerText = timerText;
+            this.timerFormat = timerFormat;
+            if (this.timerText != null) this.timerText.gameObject.SetActive(false);
+        }
 
         private void Awake()
         {
@@ -61,7 +72,20 @@ namespace VSX.Engines3D
             characterManager.SetSuperBoost(speedMult, steeringMult, boostMult);
 
             // Wait for duration
-            yield return new WaitForSeconds(duration);
+            float remaining = duration;
+            if (timerText != null) timerText.gameObject.SetActive(true);
+
+            while (remaining > 0)
+            {
+                if (timerText != null)
+                {
+                   timerText.text = string.Format(timerFormat, remaining);
+                }
+                remaining -= Time.deltaTime;
+                yield return null;
+            }
+
+            if (timerText != null) timerText.gameObject.SetActive(false);
 
             // Reset boost
             characterManager.SetSuperBoost(1f, 1f, 1f);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using VSX.Health;
 using GV;
+using TMPro;
 
 namespace GV.PowerUps
 {
@@ -24,6 +25,10 @@ namespace GV.PowerUps
         
         [Tooltip("If true, destroy this object after collection. If false, just disable it.")]
         public bool destroyOnCollect = true;
+
+        [Header("UI")]
+        public TMP_Text timerText;
+        public string timerFormat = "Shield: {0:0.0}";
 
         [Header("Debug")]
         public bool debugLogs = true;
@@ -59,6 +64,10 @@ namespace GV.PowerUps
             if (shieldController != null)
             {
                 if (debugLogs) Debug.Log($"[ShieldPowerUp] Found shield controller on {target.name}");
+
+                shieldController.SetUI(timerText, timerFormat);
+
+                // Enable the game object containing the shield controller
 
                 // Enable the game object containing the shield controller
                 if (!shieldController.IsShieldActive)

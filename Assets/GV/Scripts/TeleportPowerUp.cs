@@ -39,6 +39,8 @@ namespace GV.PowerUps
 
         [Header("UI")]
         public TMPro.TMP_Text autoPilotTimerText;
+        [Tooltip("Format string. {0} is time remaining.")]
+        public string timerFormat = "Auto Pilot ending in ({0:0.0}) seconds";
 
         [Header("Dependencies (Auto-filled)")]
         public CheckpointNetwork network;
@@ -171,6 +173,7 @@ namespace GV.PowerUps
 
                 // 3. UI
                 ap.statusText = autoPilotTimerText;
+                if (!string.IsNullOrEmpty(timerFormat)) ap.uiFormat = timerFormat;
 
                 float speedToUse = autoPilotSpeed;
                 if (autoPilotUseCurrentSpeed)

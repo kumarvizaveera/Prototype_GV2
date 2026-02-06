@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using VSX.RadarSystem;
 using GV;
+using TMPro;
 
 namespace GV.PowerUps
 {
@@ -26,6 +27,10 @@ namespace GV.PowerUps
         public AudioClip collectSound;
         [Tooltip("Optional: Instantiate this GameObject when collected (e.g. for audio prefab).")]
         public GameObject collectEffectObject;
+
+        [Header("UI")]
+        public TMP_Text timerText;
+        public string timerFormat = "Invisibility: {0:0.0}";
 
         [Header("Debug")]
         public bool debugLogs = true;
@@ -212,7 +217,20 @@ namespace GV.PowerUps
 
         private IEnumerator RevertAfterDelay(GameObject target, float delay)
         {
-            yield return new WaitForSeconds(delay);
+            float remaining = delay;
+            if (timerText != null) timerText.gameObject.SetActive(true);
+
+            while (remaining > 0)
+            {
+                if (timerText != null) 
+                    timerText.text = string.Format(timerFormat, remaining);
+                
+                remaining -= Time.deltaTime;
+                yield return null;
+            }
+
+            if (timerText != null) timerText.gameObject.SetActive(false);
+
             RevertInvisibility(target);
             revertCoroutine = null;
         }

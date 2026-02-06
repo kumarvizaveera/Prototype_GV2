@@ -1,5 +1,6 @@
 using UnityEngine;
 using GV;
+using TMPro;
 
 namespace VSX.Engines3D
 {
@@ -42,6 +43,10 @@ namespace VSX.Engines3D
         public AudioClip pickupSound;
         [Tooltip("Optional: Instantiate this GameObject when collected (e.g. for audio prefab).")]
         public GameObject pickupSoundObject;
+        
+        [Header("UI")]
+        public TMP_Text timerText;
+        public string timerFormat = "Weapon: {0:0.0}";
 
         [Tooltip("Optional effect to spawn on pickup.")]
         public GameObject pickupEffect;
@@ -93,6 +98,9 @@ namespace VSX.Engines3D
                 bonuses.missileSpeed = missileSpeedMultiplier;
                 bonuses.missileFireRate = missileFireRateMultiplier;
                 bonuses.missileReload = missileReloadMultiplier;
+
+                // Pass UI settings
+                manager.SetSuperWeaponUI(timerText, timerFormat);
 
                 // Apply
                 manager.SetSuperWeapon(bonuses, duration);
