@@ -81,6 +81,73 @@ namespace GV
 
         private void Start()
         {
+            // OVERRIDE SETTINGS FROM MASTER CONTROLLER
+            if (PowerSphereMasterController.Instance != null)
+            {
+                var master = PowerSphereMasterController.Instance;
+
+                // Sphere Settings
+                this.consumeOnPickup = master.consumeOnPickup;
+                this.respawnTime = master.respawnTime;
+                this.cyclePowers = master.cyclePowers;
+                this.cycleInterval = master.cycleInterval;
+
+                // Teleport Settings
+                if (teleport)
+                {
+                    teleport.checkpointsToJump = master.teleportSettings.checkpointsToJump;
+                    teleport.behindDistanceOnPath = master.teleportSettings.behindDistanceOnPath;
+                    teleport.upOffset = master.teleportSettings.upOffset;
+                    teleport.rightOffset = master.teleportSettings.rightOffset;
+                    teleport.keepVelocity = master.teleportSettings.keepVelocity;
+                    teleport.autoPilotAfterTeleport = master.teleportSettings.autoPilotAfterTeleport;
+                    teleport.autoPilotSeconds = master.teleportSettings.autoPilotSeconds;
+                    teleport.autoPilotUseCurrentSpeed = master.teleportSettings.autoPilotUseCurrentSpeed;
+                    teleport.autoPilotSpeed = master.teleportSettings.autoPilotSpeed;
+                    teleport.autoPilotSpeedMultiplier = master.teleportSettings.autoPilotSpeedMultiplier;
+                }
+
+                // Invisibility Settings
+                if (invisibility)
+                {
+                    invisibility.duration = master.invisibilitySettings.duration;
+                    if (master.invisibilitySettings.glassMaterial != null) 
+                        invisibility.glassMaterial = master.invisibilitySettings.glassMaterial;
+                    invisibility.revertOnExit = master.invisibilitySettings.revertOnExit;
+                }
+
+                // Shield Settings
+                if (shield)
+                {
+                    shield.duration = master.shieldSettings.duration;
+                }
+
+                // Super Boost Settings
+                if (superBoost)
+                {
+                    superBoost.speedMultiplier = master.superBoostSettings.speedMultiplier;
+                    superBoost.steeringMultiplier = master.superBoostSettings.steeringMultiplier;
+                    superBoost.boostMultiplier = master.superBoostSettings.boostMultiplier;
+                    superBoost.boostDuration = master.superBoostSettings.boostDuration;
+                }
+
+                // Super Weapon Settings
+                if (superWeapon)
+                {
+                    superWeapon.duration = master.superWeaponSettings.duration;
+                    superWeapon.projectileDamageMultiplier = master.superWeaponSettings.projectileDamageMultiplier;
+                    superWeapon.projectileRangeMultiplier = master.superWeaponSettings.projectileRangeMultiplier;
+                    superWeapon.projectileSpeedMultiplier = master.superWeaponSettings.projectileSpeedMultiplier;
+                    superWeapon.projectileFireRateMultiplier = master.superWeaponSettings.projectileFireRateMultiplier;
+                    superWeapon.projectileReloadMultiplier = master.superWeaponSettings.projectileReloadMultiplier;
+                    superWeapon.missileDamageMultiplier = master.superWeaponSettings.missileDamageMultiplier;
+                    superWeapon.missileRangeMultiplier = master.superWeaponSettings.missileRangeMultiplier;
+                    superWeapon.missileSpeedMultiplier = master.superWeaponSettings.missileSpeedMultiplier;
+                    superWeapon.missileFireRateMultiplier = master.superWeaponSettings.missileFireRateMultiplier;
+                    superWeapon.missileReloadMultiplier = master.superWeaponSettings.missileReloadMultiplier;
+                }
+            }
+
             if (cyclePowers)
             {
                 InitGlobalOrder();

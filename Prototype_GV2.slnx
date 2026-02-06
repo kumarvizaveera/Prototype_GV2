@@ -1,7 +1,7 @@
 ﻿<Solution>
+  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="VSX.Characters.Editor.csproj" />
   <Project Path="VSX.Utilities.Useful.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="VSX.SpaceCombatKit.csproj" />
   <Project Path="VSX.VehicleCombatKits.csproj" />
   <Project Path="VSX.Radar.csproj" />
