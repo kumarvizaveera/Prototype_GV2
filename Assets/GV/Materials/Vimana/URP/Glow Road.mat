@@ -102,7 +102,7 @@ Material:
     - _AddPrecomputedVelocity: 0
     - _AlphaClip: 0
     - _AlphaToMask: 0
-    - _BaseIntensity: 0.1
+    - _BaseIntensity: 0.01
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
     - _BumpScale: 1
@@ -114,12 +114,12 @@ Material:
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
-    - _EdgeSoftness: 0.00037452855
+    - _EdgeSoftness: 0.0004699353
     - _EnvironmentReflections: 1
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
-    - _Intensity: 0.1
+    - _Intensity: 0.01
     - _IsLoop: 1
     - _Metallic: 0
     - _OcclusionStrength: 1
@@ -133,8 +133,8 @@ Material:
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
-    - _WindowEnd: 0.04041314
-    - _WindowStart: 0.039664082
+    - _WindowEnd: 0.060729098
+    - _WindowStart: 0.059789225
     - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
