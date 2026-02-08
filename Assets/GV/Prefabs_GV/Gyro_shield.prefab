@@ -1247,6 +1247,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a9b3a29d0cff3a4398c92ce952ec3f5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShortcutCrystalJump
+  manualTriggerOnly: 0
+  powerUpType: 0
   network: {fileID: 0}
   dice: {fileID: 2250989341198408240}
   requirePlayerTag: 1

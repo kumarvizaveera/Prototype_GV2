@@ -14,6 +14,9 @@ namespace VSX.SpaceCombatKit
 
         [Header("Custom Settings")]
         public bool enableAutoForward = true;
+        
+        [Tooltip("When enabled, automatically uses boost when boost fuel is available. Falls back to normal speed when boost is depleted.")]
+        public bool enableAutoBoost = false;
 
         protected InputDeviceType lastSteeringInputDeviceType = InputDeviceType.None;
 
@@ -139,10 +142,33 @@ namespace VSX.SpaceCombatKit
 
                 setThrottle = true;
 
-                // 2. W = Boost: Manually check the W key on the current keyboard
-                if (Keyboard.current != null)
+                // Auto-Boost Logic: Automatically boost when fuel is available
+                if (enableAutoBoost)
                 {
-                    boostInputs.z = Keyboard.current.wKey.isPressed ? 1f : 0f;
+                    // Check if all boost resource handlers are ready (have fuel)
+                    bool canBoost = true;
+                    if (engines != null && engines.BoostResourceHandlers != null && engines.BoostResourceHandlers.Count > 0)
+                    {
+                        for (int i = 0; i < engines.BoostResourceHandlers.Count; ++i)
+                        {
+                            if (!engines.BoostResourceHandlers[i].Ready())
+                            {
+                                canBoost = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Apply boost if resources available, otherwise fall back to normal speed
+                    boostInputs.z = canBoost ? 1f : 0f;
+                }
+                else
+                {
+                    // Manual boost with W key (original behavior)
+                    if (Keyboard.current != null)
+                    {
+                        boostInputs.z = Keyboard.current.wKey.isPressed ? 1f : 0f;
+                    }
                 }
             }
 
