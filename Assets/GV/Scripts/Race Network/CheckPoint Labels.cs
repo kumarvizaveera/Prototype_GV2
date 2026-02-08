@@ -207,6 +207,10 @@ public class CheckpointLabeler : MonoBehaviour
             contentTr.localScale = Vector3.one;
             contentTr.localRotation = overrideRotationOffset ? Quaternion.Euler(rotationOffsetEuler) : Quaternion.identity;
 
+            // Ensure wrapper and content are active (fixes labels coming in disabled)
+            wrapperGO.SetActive(true);
+            contentTr.gameObject.SetActive(true);
+
             // 3) TMP targets
             TMP_Text[] tmps = contentTr.GetComponentsInChildren<TMP_Text>(true);
 
