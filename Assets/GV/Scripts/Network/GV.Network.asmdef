@@ -8,6 +8,7 @@
         "VSX.Vehicles",
         "VSX.VehicleCombatKits",
         "VSX.EssentialUtilities",
+        "VSX.Cameras",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Fusion;
 using Fusion.Sockets;
+using VSX.CameraSystem;
+using VSX.VehicleCombatKits;
+using VSX.Vehicles;
 
 namespace GV.Network
 {
@@ -117,6 +120,14 @@ namespace GV.Network
             
             // Add callbacks after starting (Fusion 2 pattern)
             Runner.AddCallbacks(this);
+            
+            // Also register the NetworkedPlayerInput for input callbacks
+            var playerInput = GetComponent<NetworkedPlayerInput>();
+            if (playerInput != null)
+            {
+                Runner.AddCallbacks(playerInput);
+                Debug.Log("[NetworkManager] Registered NetworkedPlayerInput for callbacks");
+            }
 
             
             if (result.Ok)
@@ -158,6 +169,45 @@ namespace GV.Network
             return Quaternion.identity;
         }
         
+        private void SetupCameraFollow(GameObject playerObject)
+        {
+            Debug.Log($"[NetworkManager] SetupCameraFollow called for: {playerObject.name}");
+            
+            // Find the Vehicle component on the spawned player
+            var vehicle = playerObject.GetComponentInChildren<Vehicle>(true);
+            if (vehicle == null)
+            {
+                Debug.LogWarning("[NetworkManager] No Vehicle found on spawned player!");
+                return;
+            }
+            
+            Debug.Log($"[NetworkManager] Found Vehicle: {vehicle.name}");
+            
+            // Find the VehicleCamera in the scene (SpaceCombatKit's camera system)
+            var vehicleCamera = FindFirstObjectByType<VehicleCamera>();
+            if (vehicleCamera != null)
+            {
+                vehicleCamera.SetVehicle(vehicle);
+                Debug.Log($"[NetworkManager] VehicleCamera now following: {vehicle.name}");
+                return;
+            }
+            
+            // Fallback: try generic CameraEntity
+            var cameraEntity = FindFirstObjectByType<CameraEntity>();
+            if (cameraEntity != null)
+            {
+                var cameraTarget = playerObject.GetComponentInChildren<CameraTarget>(true);
+                if (cameraTarget != null)
+                {
+                    cameraEntity.SetCameraTarget(cameraTarget);
+                    Debug.Log($"[NetworkManager] CameraEntity now following: {playerObject.name}");
+                    return;
+                }
+            }
+            
+            Debug.LogWarning("[NetworkManager] No camera system found in scene!");
+        }
+        
         #region INetworkRunnerCallbacks
         
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
@@ -181,6 +231,12 @@ namespace GV.Network
                 {
                     playerObject.AssignInputAuthority(player);
                     Debug.Log($"[NetworkManager] Assigned InputAuthority to {player}, now authority is: {playerObject.InputAuthority}");
+                    
+                    // Setup camera to follow the local player
+                    if (player == runner.LocalPlayer)
+                    {
+                        SetupCameraFollow(playerObject.gameObject);
+                    }
                 }
                 
                 _spawnedPlayers[player] = playerObject;

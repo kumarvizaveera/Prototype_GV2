@@ -95,7 +95,14 @@ namespace GV.Network
             if (!Object.HasStateAuthority) return;
             if (engines == null) return;
             
-            // Get input from Fusion
+            // For LOCAL player: let the original input scripts handle everything
+            // This prevents overwriting what PlayerInput_InputSystem_SpaceshipControls sets
+            if (Object.HasInputAuthority)
+            {
+                return; // Local player uses native input scripts
+            }
+            
+            // For REMOTE players: apply networked input to engines
             var input = GetInput<PlayerInputData>();
             if (!input.HasValue) return;
             
