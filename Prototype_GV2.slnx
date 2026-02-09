@@ -2,6 +2,7 @@
   <Project Path="Assembly-CSharp.csproj" />
   <Project Path="VSX.Characters.Editor.csproj" />
   <Project Path="VSX.Utilities.Useful.csproj" />
+  <Project Path="Fusion.Unity.Editor.csproj" />
   <Project Path="VSX.SpaceCombatKit.csproj" />
   <Project Path="VSX.VehicleCombatKits.csproj" />
   <Project Path="VSX.Radar.csproj" />
@@ -13,9 +14,11 @@
   <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="VSX.Characters.csproj" />
   <Project Path="VSX.Vehicles.ControlAnimations.csproj" />
+  <Project Path="GV.Network.csproj" />
   <Project Path="VSX.EssentialUtilities.csproj" />
   <Project Path="VSX.ResourceSystem.csproj" />
   <Project Path="VSX.Controls.UnityInputSystem.csproj" />
+  <Project Path="Fusion.Unity.csproj" />
   <Project Path="VSX.Vehicles.csproj" />
   <Project Path="VSX.Teams.csproj" />
   <Project Path="VSX.Rumbles.csproj" />
@@ -35,5 +38,6 @@
   <Project Path="VSX.Engines3D.Editor.csproj" />
   <Project Path="VSX.EssentialUtilities.Editor.csproj" />
   <Project Path="VSX.SpaceCombatKit.Editor.csproj" />
+  <Project Path="Unity.Fusion.CodeGen.csproj" />
   <Project Path="VSX.Cameras.Editor.csproj" />
 </Solution>
