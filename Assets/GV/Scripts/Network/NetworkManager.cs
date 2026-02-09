@@ -115,6 +115,10 @@ namespace GV.Network
                 SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
             });
             
+            // Add callbacks after starting (Fusion 2 pattern)
+            Runner.AddCallbacks(this);
+
+            
             if (result.Ok)
             {
                 Debug.Log($"[NetworkManager] Started game as {mode}");
@@ -158,16 +162,32 @@ namespace GV.Network
         
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            Debug.Log($"[NetworkManager] Player {player.PlayerId} joined");
+            Debug.Log($"[NetworkManager] Player {player.PlayerId} joined. IsServer: {runner.IsServer}, playerPrefab: {(playerPrefab != null ? playerPrefab.name : "NULL")}");
             
             if (runner.IsServer && playerPrefab != null)
             {
                 var spawnPos = GetSpawnPosition(player);
                 var spawnRot = GetSpawnRotation(player);
                 
-                var playerObject = runner.Spawn(playerPrefab, spawnPos, spawnRot, player);
+                Debug.Log($"[NetworkManager] About to spawn player {player.PlayerId} at {spawnPos}");
+                
+                // Spawn player with explicit input authority assignment
+                var playerObject = runner.Spawn(playerPrefab, spawnPos, spawnRot, inputAuthority: player);
+                
+                Debug.Log($"[NetworkManager] Spawn returned: {(playerObject != null ? playerObject.name : "NULL")}");
+                
+                // Double-check: explicitly assign input authority after spawn
+                if (playerObject != null)
+                {
+                    playerObject.AssignInputAuthority(player);
+                    Debug.Log($"[NetworkManager] Assigned InputAuthority to {player}, now authority is: {playerObject.InputAuthority}");
+                }
+                
                 _spawnedPlayers[player] = playerObject;
-                Debug.Log($"[NetworkManager] Spawned player {player.PlayerId} at {spawnPos}");
+            }
+            else
+            {
+                Debug.LogWarning($"[NetworkManager] NOT spawning - IsServer: {runner.IsServer}, playerPrefab: {(playerPrefab != null ? "assigned" : "NULL")}");
             }
             
             OnPlayerJoinedGame?.Invoke(runner, player);

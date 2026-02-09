@@ -22,6 +22,9 @@ namespace GV.Network
         private bool _isBoosting;
         public bool IsBoosting => _isBoosting;
         
+        // Flag to track if we've done the initial authority check
+        private bool _hasCheckedAuthority = false;
+        
         public override void Spawned()
         {
             // Find engines if not assigned
@@ -30,7 +33,15 @@ namespace GV.Network
                 engines = GetComponentInChildren<VehicleEngines3D>();
             }
             
-            // Check if this is the local player using multiple methods
+            Debug.Log($"[NetworkedSpaceshipBridge] Spawned - will check authority on first network tick");
+        }
+        
+        private void CheckAuthorityAndSetupInput()
+        {
+            if (_hasCheckedAuthority) return;
+            _hasCheckedAuthority = true;
+            
+            // Check if this is the local player
             bool isLocalPlayer = Object.HasInputAuthority;
             
             // Alternative check: compare the input authority player to the local player
@@ -39,7 +50,7 @@ namespace GV.Network
                 isLocalPlayer = Object.InputAuthority == Runner.LocalPlayer;
             }
             
-            Debug.Log($"[NetworkedSpaceshipBridge] Spawned - HasInputAuthority: {Object.HasInputAuthority}, " +
+            Debug.Log($"[NetworkedSpaceshipBridge] Authority Check - HasInputAuthority: {Object.HasInputAuthority}, " +
                       $"InputAuthority: {Object.InputAuthority}, LocalPlayer: {Runner?.LocalPlayer}, " +
                       $"HasStateAuthority: {Object.HasStateAuthority}");
             
@@ -54,7 +65,6 @@ namespace GV.Network
                 Debug.Log($"[NetworkedSpaceshipBridge] Local player - keeping input enabled");
             }
         }
-
         
         private void DisableLocalInput()
         {
@@ -78,6 +88,9 @@ namespace GV.Network
         
         public override void FixedUpdateNetwork()
         {
+            // Check authority on first tick (after it's been assigned)
+            CheckAuthorityAndSetupInput();
+            
             // Only run input processing on state authority (host for spawned players)
             if (!Object.HasStateAuthority) return;
             if (engines == null) return;
@@ -107,4 +120,3 @@ namespace GV.Network
         }
     }
 }
-
