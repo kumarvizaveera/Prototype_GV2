@@ -6,6 +6,7 @@ using VSX.Pooling;
 using VSX.Vehicles;
 using VSX.Utilities;
 using VSX.Health;
+using Fusion;
 
 namespace VSX.Weapons
 {
@@ -100,6 +101,7 @@ namespace VSX.Weapons
         }
 
         protected Rigidbody rBody;
+        protected NetworkRunner runner;
 
         public override float Speed
         {
@@ -168,6 +170,10 @@ namespace VSX.Weapons
                 usePoolManager = false;
                 Debug.LogWarning("No PoolManager component found in scene, please add one to pool projectiles.");
             }
+            
+            // Try to find runner
+            runner = FindFirstObjectByType<NetworkRunner>();
+            if (runner == null && rootTransform != null) runner = rootTransform.GetComponentInParent<NetworkRunner>();
         }
 
 
@@ -210,37 +216,68 @@ namespace VSX.Weapons
                                                 Random.Range(-nextMaxInaccuracyAngle, nextMaxInaccuracyAngle)));
 
                 // Get/instantiate the projectile
-                Projectile projectileController;
+                Projectile projectileController = null;
 
-                if (usePoolManager)
-                {
-                    projectileController = PoolManager.Instance.Get(projectilePrefab.gameObject, spawnPoint.position, spawnPoint.rotation).GetComponent<Projectile>();
-                }
-                else
-                {
-                    projectileController = GameObject.Instantiate(projectilePrefab, spawnPoint.position, spawnPoint.rotation);
-                }
+                bool spawnedViaNetwork = false;
 
-                projectileController.SetOwner(owner);
-                projectileController.SetSenderRootTransform(rootTransform);
-
-                // Apply modifiers
-                projectileController.SetDamageMultiplier(damageMultiplier);
-                projectileController.SetHealingMultiplier(healingMultiplier);
+                // Network Spawning (Only if we are the StateAuthority/Host, OR if we want to predict spawning which is complex for projectiles)
+                // For simplest implementation: Host spawns projectiles.
+                // Clients just fire visually or wait for replication?
+                // Standard approach: InputAuthority requests fire -> Host spawns -> Replicated to all.
+                // WE ARE IN TRIGGERONCE, which usually runs on InputAuthority (client pressing button) AND StateAuthority (Host processing input).
+                // BUT TriggerOnce is typically called by the Weapon class which responds to Input.
+                // We need to check if we can spawn.
                 
-                // Apply character bonuses
-                projectileController.Speed *= speedMultiplier;
-                projectileController.SetMaxDistance(projectileController.Range * rangeMultiplier);
-                projectileController.SetLifetime(100f); // Default high lifetime so MaxDistance controls it, unless defined otherwise
-
-                if (addLauncherVelocityToProjectile && rBody != null)
+                if (runner != null && runner.IsRunning && runner.IsServer)
                 {
-                    projectileController.AddVelocity(rBody.linearVelocity);
-                    projectileController.AddVelocity(transform.TransformDirection(projectileRelativeImpulseVelocity));
+                     // Server spawns the network object
+                     var networkObject = runner.Spawn(projectilePrefab, spawnPoint.position, spawnPoint.rotation, runner.LocalPlayer);
+                     projectileController = networkObject.GetComponent<Projectile>();
+                     spawnedViaNetwork = true;
                 }
+                else if (runner == null || !runner.IsRunning)
+                {
+                     // Legacy/Offline fallback
+                    if (usePoolManager)
+                    {
+                        projectileController = PoolManager.Instance.Get(projectilePrefab.gameObject, spawnPoint.position, spawnPoint.rotation).GetComponent<Projectile>();
+                    }
+                    else
+                    {
+                        projectileController = GameObject.Instantiate(projectilePrefab, spawnPoint.position, spawnPoint.rotation);
+                    }
+                }
+                // If we are Client (and runner is running), we DO NOT spawn the projectile here for gameplay logic.
+                // However, visually we might want to? 
+                // If we spawn it locally, it will duplicate when the server one arrives.
+                // For now, let's rely on the Server spawn replicating to us. 
+                // This might cause a slight delay (RTT/2).
+                // Advanced: Spawn visual-only dummy, or use Client-Side Prediction with localized rollback.
+                // Given the complexity, let's stick to Server Spawn for now.
+                
+                if (projectileController != null)
+                {
+                    projectileController.SetOwner(owner);
+                    projectileController.SetSenderRootTransform(rootTransform);
 
-                // Call the event
-                onProjectileLaunched.Invoke(projectileController);
+                    // Apply modifiers
+                    projectileController.SetDamageMultiplier(damageMultiplier);
+                    projectileController.SetHealingMultiplier(healingMultiplier);
+                    
+                    // Apply character bonuses
+                    projectileController.Speed *= speedMultiplier;
+                    projectileController.SetMaxDistance(projectileController.Range * rangeMultiplier);
+                    projectileController.SetLifetime(100f); // Default high lifetime so MaxDistance controls it, unless defined otherwise
+
+                    if (addLauncherVelocityToProjectile && rBody != null)
+                    {
+                        projectileController.AddVelocity(rBody.linearVelocity);
+                        projectileController.AddVelocity(transform.TransformDirection(projectileRelativeImpulseVelocity));
+                    }
+
+                    // Call the event
+                    onProjectileLaunched.Invoke(projectileController);
+                }
             }
 
             ClearAim();

@@ -68,7 +68,8 @@
         "Assembly-CSharp-firstpass",
         "Fusion.Addons.Physics",
         "Fusion.Addons.FSM",
-        "GV.Network"
+        "GV.Network",
+        "VSX.Weapons"
     ],
     "UseSerializableDictionary": true,
     "NullChecksForNetworkedProperties": true,

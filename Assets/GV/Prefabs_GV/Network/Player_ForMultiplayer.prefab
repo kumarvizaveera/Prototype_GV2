@@ -4140,6 +4140,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: GV.Network::GV.Network.NetworkedSpaceshipBridge
   engines: {fileID: 0}
+  triggerablesManager: {fileID: 0}
   localInputScripts: []
 --- !u!1 &4609898187100312877
 GameObject:
@@ -5484,7 +5485,7 @@ MonoBehaviour:
     invertKeyboard: 0
     invertGamepad: 0
     invertJoystick: 0
-  mouseEnabled: 1
+  mouseEnabled: 0
   mouseSteeringType: 0
   controlHUDCursor: 1
   mouseDeadRadius: 0.03

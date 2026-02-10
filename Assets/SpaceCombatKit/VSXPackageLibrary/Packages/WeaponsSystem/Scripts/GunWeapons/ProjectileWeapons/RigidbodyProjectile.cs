@@ -143,8 +143,22 @@ namespace VSX.Weapons
         }
 
         // Physics update
+        public override void FixedUpdateNetwork()
+        {
+            if (propulsionType == ProjectilePropulsionType.Speed)
+            {
+                base.FixedUpdateNetwork();
+            }
+            else
+            {
+                MovementFixedUpdate();
+            }
+        }
+
         protected override void FixedUpdate()
         {
+            if (Object != null) return;
+
             MovementFixedUpdate();
         }
     }
