@@ -9,11 +9,13 @@
         "VSX.VehicleCombatKits",
         "VSX.EssentialUtilities",
         "VSX.Cameras",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "VSX.Weapons",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,

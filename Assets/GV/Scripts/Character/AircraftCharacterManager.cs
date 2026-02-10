@@ -390,10 +390,28 @@ namespace VSX.Engines3D
         private Dictionary<Triggerable, float> baseActionIntervals = new Dictionary<Triggerable, float>();
         private Dictionary<Triggerable, float> baseBurstIntervals = new Dictionary<Triggerable, float>();
 
+        private Coroutine retryRoutine;
+
         private void ApplyWeaponBonuses(CharacterData data, AircraftArtifactManager.ArtifactBonuses artifactBonuses)
         {
             // Find all weapons (active or inactive, as they might be swapped in)
             Weapon[] weapons = GetComponentsInChildren<Weapon>(true);
+            
+            Debug.Log($"[CharacterManager] ApplyWeaponBonuses called at frame {Time.frameCount}. Found {weapons.Length} weapons.");
+
+            if (weapons.Length == 0)
+            {
+                Debug.LogWarning("[CharacterManager] No weapons found! Starting retry loop...");
+                if (retryRoutine != null) StopCoroutine(retryRoutine);
+                retryRoutine = StartCoroutine(RetryApplyWeaponBonuses(data, artifactBonuses));
+                return;
+            }
+            
+            // Stop retry if successful
+            if (retryRoutine != null) {
+                StopCoroutine(retryRoutine);
+                retryRoutine = null;
+            }
 
             foreach (var weapon in weapons)
             {
@@ -442,6 +460,8 @@ namespace VSX.Engines3D
                 float finalFireRate = charFireRate * artFireRate * swFireRate;
                 float finalReload = charReload * artReload * swReload;
 
+                Debug.Log($"[CharacterManager] Applying to {weapon.name}: Damage x{finalDmg:F2} (Char x{charDmg} * Art x{artDmg} * Super x{swDmg})");
+
                 // Apply to WeaponUnits
                 foreach (var wUnit in weapon.WeaponUnits)
                 {
@@ -472,6 +492,25 @@ namespace VSX.Engines3D
                         trig.BurstInterval = baseBurstIntervals[trig] / finalReload;
                 }
             }
+        }
+
+        private IEnumerator RetryApplyWeaponBonuses(CharacterData data, AircraftArtifactManager.ArtifactBonuses artifactBonuses)
+        {
+            float elapsed = 0f;
+            while (elapsed < 3f)
+            {
+                yield return new WaitForSeconds(0.5f);
+                elapsed += 0.5f;
+
+                if (GetComponentsInChildren<Weapon>(true).Length > 0)
+                {
+                    Debug.Log($"[CharacterManager] Weapons found after {elapsed}s. Applying bonuses.");
+                    ApplyWeaponBonuses(data, artifactBonuses);
+                    yield break;
+                }
+            }
+            Debug.LogWarning("[CharacterManager] Timed out waiting for weapons.");
+            retryRoutine = null;
         }
 
         private float superSpeedMultiplier = 1f;

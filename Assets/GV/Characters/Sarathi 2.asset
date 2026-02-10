@@ -22,7 +22,7 @@ MonoBehaviour:
   projectileSpeedMultiplier: 1.1
   projectileFireRateMultiplier: 1.1
   projectileReloadMultiplier: 1.1
-  missileDamageMultiplier: 1.1
+  missileDamageMultiplier: 3
   missileRangeMultiplier: 1.1
   missileSpeedMultiplier: 1.1
   missileFireRateMultiplier: 1.1

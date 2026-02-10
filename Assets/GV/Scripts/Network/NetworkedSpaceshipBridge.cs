@@ -14,6 +14,7 @@ namespace GV.Network
     {
         [Header("References")]
         [SerializeField] private VehicleEngines3D engines;
+        [SerializeField] private VSX.Weapons.TriggerablesManager triggerablesManager;
         
         [Header("Input Scripts to Disable on Remote")]
         [SerializeField] private MonoBehaviour[] localInputScripts;
@@ -31,6 +32,11 @@ namespace GV.Network
             if (engines == null)
             {
                 engines = GetComponentInChildren<VehicleEngines3D>();
+            }
+
+            if (triggerablesManager == null)
+            {
+                triggerablesManager = GetComponentInChildren<VSX.Weapons.TriggerablesManager>();
             }
             
             Debug.Log($"[NetworkedSpaceshipBridge] Spawned - will check authority on first network tick");
@@ -118,6 +124,42 @@ namespace GV.Network
             // boostInputs
             _isBoosting = data.boost;
             engines.SetBoostInputs(data.boost ? new Vector3(0f, 0f, 1f) : Vector3.zero);
+
+            // Weapon Inputs
+            if (triggerablesManager != null)
+            {
+                // Primary Fire (Button 0)
+                if (data.buttons.IsSet(PlayerInputData.BUTTON_FIRE_PRIMARY))
+                {
+                    triggerablesManager.StartTriggeringAtIndex(0);
+                }
+                else
+                {
+                    triggerablesManager.StopTriggeringAtIndex(0);
+                }
+
+                // Secondary Fire (Button 1)
+                if (data.buttons.IsSet(PlayerInputData.BUTTON_FIRE_SECONDARY))
+                {
+                    triggerablesManager.StartTriggeringAtIndex(1);
+                }
+                else
+                {
+                    triggerablesManager.StopTriggeringAtIndex(1);
+                }
+
+                // Missile Fire (Button 2)
+                // Assuming missile is index 2 or handled separately - checking Button 2
+                 if (data.buttons.IsSet(PlayerInputData.BUTTON_FIRE_MISSILE))
+                {
+                    // If missiles are a distinct trigger index, e.g. 2
+                    triggerablesManager.StartTriggeringAtIndex(2);
+                }
+                else
+                {
+                    triggerablesManager.StopTriggeringAtIndex(2);
+                }
+            }
         }
         
         public override void Render()

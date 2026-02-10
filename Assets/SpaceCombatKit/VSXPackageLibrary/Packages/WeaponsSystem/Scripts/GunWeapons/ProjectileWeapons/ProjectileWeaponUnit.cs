@@ -78,8 +78,8 @@ namespace VSX.Weapons
         // Projectile launched event
         public OnProjectileLauncherProjectileLaunchedEventHandler onProjectileLaunched;
 
-        protected float damageMultiplier;
-        protected float healingMultiplier;
+        protected float damageMultiplier = 1;
+        protected float healingMultiplier = 1;
 
         protected Transform rootTransform;
         public Transform RootTransform

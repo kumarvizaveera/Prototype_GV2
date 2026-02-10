@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Splines;
+using VSX.Engines3D;
 
 [ExecuteAlways]
 [RequireComponent(typeof(SplineContainer))]
@@ -268,6 +269,28 @@ public class SplineEnergyTrackGlow : MonoBehaviour
 
     void Update()
     {
+        // Auto-find aircraft if not assigned (for dynamically spawned players)
+        if (Application.isPlaying && aircraft == null)
+        {
+            var engines = FindObjectOfType<VehicleEngines3D>();
+            if (engines != null)
+            {
+                aircraft = engines.transform;
+                
+                // Also find BoostGlow components on the aircraft
+                if (syncWithAircraftGlow)
+                {
+                    var glows = engines.GetComponentsInChildren<BoostGlow>(true);
+                    if (glows.Length > 0)
+                    {
+                        linkedBoostGlows = new List<BoostGlow>(glows);
+                    }
+                }
+                
+                Debug.Log($"[SplineEnergyTrackGlow] Auto-found aircraft: {aircraft.name}");
+            }
+        }
+
         PushStaticMaterialProps();
 
         var mat = _mr != null ? _mr.sharedMaterial : null;

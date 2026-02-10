@@ -87,11 +87,15 @@ namespace VSX.Engines3D
         public ArtifactBonuses GetTotalMultipliers()
         {
             ArtifactBonuses bonuses = new ArtifactBonuses();
+            
+            Debug.Log($"[ArtifactManager] Calculating total multipliers. Equipped artifacts: {artifacts.Count}");
 
             foreach (var a in artifacts)
             {
                 if (a != null)
                 {
+                    Debug.Log($"[ArtifactManager] Processing artifact: {a.artifactName} (Speed: {a.speedMultiplier}, Dmg: {a.projectileDamageMultiplier})");
+
                     bonuses.speed *= a.speedMultiplier;
                     bonuses.steering *= a.steeringMultiplier;
                     bonuses.boost *= a.boostMultiplier;
@@ -109,6 +113,8 @@ namespace VSX.Engines3D
                     bonuses.missileReload *= a.missileReloadMultiplier;
                 }
             }
+
+            Debug.Log($"[ArtifactManager] Total Projectile Damage Multiplier: {bonuses.projectileDamage}");
             return bonuses;
         }
     }

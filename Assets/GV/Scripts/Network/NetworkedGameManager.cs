@@ -23,6 +23,7 @@ namespace GV.Network
         [Header("Settings")]
         [SerializeField] private int countdownSeconds = 3;
         [SerializeField] private int minPlayersToStart = 1;
+        [SerializeField] public int totalLaps = 3;
         
         [Header("Debug")]
         [SerializeField] private bool autoStartRace = true;
