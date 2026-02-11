@@ -41,7 +41,7 @@ namespace GV
             // Auto-assign UI from MasterController
             if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.invisibilityTimerText != null)
             {
-                SetUI(PowerSphereMasterController.Instance.invisibilityTimerText, "Invisibility: {0:0.0}");
+                SetUI(PowerSphereMasterController.Instance.invisibilityTimerText, PowerSphereMasterController.Instance.invisibilityTimerFormat);
             }
 
             if (IsInvisible)

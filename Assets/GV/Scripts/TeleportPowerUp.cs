@@ -57,6 +57,7 @@ namespace GV.PowerUps
             if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.teleportTimerText != null)
             {
                 autoPilotTimerText = PowerSphereMasterController.Instance.teleportTimerText;
+                timerFormat = PowerSphereMasterController.Instance.teleportTimerFormat;
             }
 
             if (autoPilotTimerText) autoPilotTimerText.gameObject.SetActive(false);
@@ -113,6 +114,23 @@ namespace GV.PowerUps
                     Debug.LogError("[TeleportPowerUp] Cannot teleport: No CheckpointNetwork found or empty.");
                     return;
                 }
+            }
+
+            // Override from MasterController if available
+            if (PowerSphereMasterController.Instance != null)
+            {
+                var settings = PowerSphereMasterController.Instance.teleportSettings;
+                checkpointsToJump = settings.checkpointsToJump;
+                behindDistanceOnPath = settings.behindDistanceOnPath;
+                upOffset = settings.upOffset;
+                rightOffset = settings.rightOffset;
+                keepVelocity = settings.keepVelocity;
+                
+                autoPilotAfterTeleport = settings.autoPilotAfterTeleport;
+                autoPilotSeconds = settings.autoPilotSeconds;
+                autoPilotUseCurrentSpeed = settings.autoPilotUseCurrentSpeed;
+                autoPilotSpeed = settings.autoPilotSpeed;
+                autoPilotSpeedMultiplier = settings.autoPilotSpeedMultiplier;
             }
 
             // Find current position index

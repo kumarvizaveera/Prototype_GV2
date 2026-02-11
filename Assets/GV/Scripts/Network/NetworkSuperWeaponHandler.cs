@@ -57,6 +57,7 @@ namespace GV.Network
             if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.superWeaponTimerText != null)
             {
                 timerText = PowerSphereMasterController.Instance.superWeaponTimerText;
+                timerFormat = PowerSphereMasterController.Instance.superWeaponTimerFormat;
                 timerText.gameObject.SetActive(false);
             }
 

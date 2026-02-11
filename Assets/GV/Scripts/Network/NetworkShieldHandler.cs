@@ -38,7 +38,7 @@ namespace GV.Network
             // Auto-assign UI from MasterController
             if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.shieldTimerText != null)
             {
-                SetUI(PowerSphereMasterController.Instance.shieldTimerText, "Shield: {0:0.0}");
+                SetUI(PowerSphereMasterController.Instance.shieldTimerText, PowerSphereMasterController.Instance.shieldTimerFormat);
             }
 
             UpdateShieldState();

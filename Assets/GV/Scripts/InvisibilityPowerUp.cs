@@ -98,6 +98,14 @@ namespace GV.PowerUps
             // Pass UI settings
             handler.SetUI(timerText, timerFormat);
 
+            if (PowerSphereMasterController.Instance != null)
+            {
+                var settings = PowerSphereMasterController.Instance.invisibilitySettings;
+                glassMaterial = settings.glassMaterial;
+                duration = settings.duration;
+                revertOnExit = settings.revertOnExit;
+            }
+
             // Activate Invisibility
             handler.ActivateInvisibility(glassMaterial, duration, revertOnExit);
 

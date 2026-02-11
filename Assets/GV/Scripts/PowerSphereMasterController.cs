@@ -136,10 +136,19 @@ namespace GV
 
         [Header("UI References")]
         public TMPro.TMP_Text shieldTimerText;
+        public string shieldTimerFormat = "Shield: {0:0.0}";
+
         public TMPro.TMP_Text invisibilityTimerText;
+        public string invisibilityTimerFormat = "Invisibility: {0:0.0}";
+
         public TMPro.TMP_Text superBoostTimerText;
+        public string superBoostTimerFormat = "Boost: {0:0.0}";
+
         public TMPro.TMP_Text superWeaponTimerText;
+        public string superWeaponTimerFormat = "Weapon: {0:0.0}";
+
         public TMPro.TMP_Text teleportTimerText;
+        public string teleportTimerFormat = "Auto Pilot: {0:0.0}";
 
     }
 }

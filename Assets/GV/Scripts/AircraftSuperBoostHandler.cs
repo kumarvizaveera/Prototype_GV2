@@ -52,7 +52,7 @@ namespace VSX.Engines3D
             // Auto-assign UI from MasterController
             if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.superBoostTimerText != null)
             {
-                SetUI(PowerSphereMasterController.Instance.superBoostTimerText, "Boost: {0:0.0}");
+                SetUI(PowerSphereMasterController.Instance.superBoostTimerText, PowerSphereMasterController.Instance.superBoostTimerFormat);
             }
 
             // Apply initial state
@@ -104,9 +104,22 @@ namespace VSX.Engines3D
         /// <summary>
         /// Activates the super boost with specific multipliers and duration. (Server Only)
         /// </summary>
+        /// <summary>
+        /// Activates the super boost with specific multipliers and duration. (Server Only)
+        /// </summary>
         public void ActivateSuperBoost(float speedMult, float steeringMult, float boostMult, float duration)
         {
             if (!Object.HasStateAuthority) return;
+
+            // Override from MasterController if available
+            if (PowerSphereMasterController.Instance != null)
+            {
+                var settings = PowerSphereMasterController.Instance.superBoostSettings;
+                speedMult = settings.speedMultiplier;
+                steeringMult = settings.steeringMultiplier;
+                boostMult = settings.boostMultiplier;
+                duration = settings.boostDuration;
+            }
 
             CurrentSpeedMult = speedMult;
             CurrentSteeringMult = steeringMult;

@@ -142,9 +142,21 @@ public class DiceRingIndicator : MonoBehaviour
         FaceAllTMP();
     }
 
+    [Header("Overrides")]
+    [Tooltip("If checked, ignores weighted outcomes. Always sets value to 6, and randomly picks + or -.")]
+    public bool randomPlusMinus6 = false;
+
     [ContextMenu("Roll Now")]
     public void Roll()
     {
+        if (randomPlusMinus6)
+        {
+            diceValue = 6;
+            isForward = Random.value > 0.5f;
+            ApplyVisuals(force: true);
+            return;
+        }
+
         if (outcomes == null || outcomes.Length == 0) return;
 
         float totalWeight = 0f;

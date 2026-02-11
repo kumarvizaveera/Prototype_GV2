@@ -71,6 +71,11 @@ namespace GV.PowerUps
                 // Enable the game object containing the shield controller
 
                 // Enable the game object containing the shield controller
+                if (PowerSphereMasterController.Instance != null)
+                {
+                    duration = PowerSphereMasterController.Instance.shieldSettings.duration;
+                }
+
                 if (!shieldController.IsShieldActive)
                 {
                     shieldController.ActivateShield(duration);

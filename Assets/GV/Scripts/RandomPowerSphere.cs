@@ -310,7 +310,12 @@ namespace GV
                 switch (type)
                 {
                     case PowerUpType.Teleport:
-                        if (teleport) teleport.Apply(netObj.gameObject);
+                        if (teleport) 
+                        {
+                            // Master Controller check inside TeleportPowerUp.cs will handle overrides
+                            // But since TeleportPowerUp.Apply() calls internal logic, we trust it.
+                            teleport.Apply(netObj.gameObject);
+                        }
                         break;
                         
                     case PowerUpType.Invisibility:
@@ -319,7 +324,18 @@ namespace GV
                             var invHandler = netObj.GetComponentInChildren<InvisibilityHandler>(); 
                             if (invHandler) 
                             {
-                                invHandler.ActivateInvisibility(invisibility.glassMaterial, invisibility.duration, invisibility.revertOnExit);
+                                float finalDuration = invisibility.duration;
+                                Material finalMat = invisibility.glassMaterial;
+                                bool finalRevert = invisibility.revertOnExit;
+
+                                if (PowerSphereMasterController.Instance != null)
+                                {
+                                    finalDuration = PowerSphereMasterController.Instance.invisibilitySettings.duration;
+                                    finalMat = PowerSphereMasterController.Instance.invisibilitySettings.glassMaterial;
+                                    finalRevert = PowerSphereMasterController.Instance.invisibilitySettings.revertOnExit;
+                                }
+
+                                invHandler.ActivateInvisibility(finalMat, finalDuration, finalRevert);
                                 Debug.Log("[RandomPowerSphere] Applied Invisibility");
                             }
                             else Debug.LogError($"[RandomPowerSphere] InvisibilityHandler missing on {netObj.name}");
@@ -332,7 +348,13 @@ namespace GV
                             var shieldHandler = netObj.GetComponentInChildren<NetworkShieldHandler>();
                             if (shieldHandler)
                             {
-                                shieldHandler.ActivateShield(shield.duration);
+                                float finalDuration = shield.duration;
+                                if (PowerSphereMasterController.Instance != null)
+                                {
+                                    finalDuration = PowerSphereMasterController.Instance.shieldSettings.duration;
+                                }
+
+                                shieldHandler.ActivateShield(finalDuration);
                                 Debug.Log("[RandomPowerSphere] Applied Shield");
                             }
                             else Debug.LogError($"[RandomPowerSphere] NetworkShieldHandler missing on {netObj.name}");
@@ -345,7 +367,21 @@ namespace GV
                             var boostHandler = netObj.GetComponentInChildren<AircraftSuperBoostHandler>();
                             if (boostHandler)
                             {
-                                boostHandler.ActivateSuperBoost(superBoost.speedMultiplier, superBoost.steeringMultiplier, superBoost.boostMultiplier, superBoost.boostDuration);
+                                float sM = superBoost.speedMultiplier;
+                                float tM = superBoost.steeringMultiplier;
+                                float bM = superBoost.boostMultiplier;
+                                float bD = superBoost.boostDuration;
+
+                                if (PowerSphereMasterController.Instance != null)
+                                {
+                                    var settings = PowerSphereMasterController.Instance.superBoostSettings;
+                                    sM = settings.speedMultiplier;
+                                    tM = settings.steeringMultiplier;
+                                    bM = settings.boostMultiplier;
+                                    bD = settings.boostDuration;
+                                }
+
+                                boostHandler.ActivateSuperBoost(sM, tM, bM, bD);
                                 Debug.Log("[RandomPowerSphere] Applied SuperBoost");
                             }
                             else Debug.LogError($"[RandomPowerSphere] AircraftSuperBoostHandler missing on {netObj.name}");
@@ -359,19 +395,42 @@ namespace GV
                             if (swHandler)
                             {
                                 AircraftCharacterManager.SuperWeaponBonuses bonuses = new AircraftCharacterManager.SuperWeaponBonuses();
-                                bonuses.projectileDamage = superWeapon.projectileDamageMultiplier;
-                                bonuses.projectileRange = superWeapon.projectileRangeMultiplier;
-                                bonuses.projectileSpeed = superWeapon.projectileSpeedMultiplier;
-                                bonuses.projectileFireRate = superWeapon.projectileFireRateMultiplier;
-                                bonuses.projectileReload = superWeapon.projectileReloadMultiplier;
                                 
-                                bonuses.missileDamage = superWeapon.missileDamageMultiplier;
-                                bonuses.missileRange = superWeapon.missileRangeMultiplier;
-                                bonuses.missileSpeed = superWeapon.missileSpeedMultiplier;
-                                bonuses.missileFireRate = superWeapon.missileFireRateMultiplier;
-                                bonuses.missileReload = superWeapon.missileReloadMultiplier;
+                                float dur = superWeapon.duration;
 
-                                swHandler.ActivateSuperWeapon(superWeapon.duration, bonuses);
+                                if (PowerSphereMasterController.Instance != null)
+                                {
+                                    var settings = PowerSphereMasterController.Instance.superWeaponSettings;
+                                    dur = settings.duration;
+
+                                    bonuses.projectileDamage = settings.projectileDamageMultiplier;
+                                    bonuses.projectileRange = settings.projectileRangeMultiplier;
+                                    bonuses.projectileSpeed = settings.projectileSpeedMultiplier;
+                                    bonuses.projectileFireRate = settings.projectileFireRateMultiplier;
+                                    bonuses.projectileReload = settings.projectileReloadMultiplier;
+                                    
+                                    bonuses.missileDamage = settings.missileDamageMultiplier;
+                                    bonuses.missileRange = settings.missileRangeMultiplier;
+                                    bonuses.missileSpeed = settings.missileSpeedMultiplier;
+                                    bonuses.missileFireRate = settings.missileFireRateMultiplier;
+                                    bonuses.missileReload = settings.missileReloadMultiplier;
+                                }
+                                else
+                                {
+                                    bonuses.projectileDamage = superWeapon.projectileDamageMultiplier;
+                                    bonuses.projectileRange = superWeapon.projectileRangeMultiplier;
+                                    bonuses.projectileSpeed = superWeapon.projectileSpeedMultiplier;
+                                    bonuses.projectileFireRate = superWeapon.projectileFireRateMultiplier;
+                                    bonuses.projectileReload = superWeapon.projectileReloadMultiplier;
+                                    
+                                    bonuses.missileDamage = superWeapon.missileDamageMultiplier;
+                                    bonuses.missileRange = superWeapon.missileRangeMultiplier;
+                                    bonuses.missileSpeed = superWeapon.missileSpeedMultiplier;
+                                    bonuses.missileFireRate = superWeapon.missileFireRateMultiplier;
+                                    bonuses.missileReload = superWeapon.missileReloadMultiplier;
+                                }
+
+                                swHandler.ActivateSuperWeapon(dur, bonuses);
                                 Debug.Log("[RandomPowerSphere] Applied SuperWeapon");
                             }
                             else Debug.LogError($"[RandomPowerSphere] NetworkSuperWeaponHandler missing on {netObj.name}");

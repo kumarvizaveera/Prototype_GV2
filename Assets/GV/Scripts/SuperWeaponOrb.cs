@@ -92,17 +92,37 @@ namespace VSX.Engines3D
                 // Create the bonus object
                 AircraftCharacterManager.SuperWeaponBonuses bonuses = new AircraftCharacterManager.SuperWeaponBonuses();
                 
-                bonuses.projectileDamage = projectileDamageMultiplier;
-                bonuses.projectileRange = projectileRangeMultiplier;
-                bonuses.projectileSpeed = projectileSpeedMultiplier;
-                bonuses.projectileFireRate = projectileFireRateMultiplier;
-                bonuses.projectileReload = projectileReloadMultiplier;
+                if (PowerSphereMasterController.Instance != null)
+                {
+                    var settings = PowerSphereMasterController.Instance.superWeaponSettings;
+                    duration = settings.duration;
+                    
+                    bonuses.projectileDamage = settings.projectileDamageMultiplier;
+                    bonuses.projectileRange = settings.projectileRangeMultiplier;
+                    bonuses.projectileSpeed = settings.projectileSpeedMultiplier;
+                    bonuses.projectileFireRate = settings.projectileFireRateMultiplier;
+                    bonuses.projectileReload = settings.projectileReloadMultiplier;
 
-                bonuses.missileDamage = missileDamageMultiplier;
-                bonuses.missileRange = missileRangeMultiplier;
-                bonuses.missileSpeed = missileSpeedMultiplier;
-                bonuses.missileFireRate = missileFireRateMultiplier;
-                bonuses.missileReload = missileReloadMultiplier;
+                    bonuses.missileDamage = settings.missileDamageMultiplier;
+                    bonuses.missileRange = settings.missileRangeMultiplier;
+                    bonuses.missileSpeed = settings.missileSpeedMultiplier;
+                    bonuses.missileFireRate = settings.missileFireRateMultiplier;
+                    bonuses.missileReload = settings.missileReloadMultiplier;
+                }
+                else
+                {
+                    bonuses.projectileDamage = projectileDamageMultiplier;
+                    bonuses.projectileRange = projectileRangeMultiplier;
+                    bonuses.projectileSpeed = projectileSpeedMultiplier;
+                    bonuses.projectileFireRate = projectileFireRateMultiplier;
+                    bonuses.projectileReload = projectileReloadMultiplier;
+
+                    bonuses.missileDamage = missileDamageMultiplier;
+                    bonuses.missileRange = missileRangeMultiplier;
+                    bonuses.missileSpeed = missileSpeedMultiplier;
+                    bonuses.missileFireRate = missileFireRateMultiplier;
+                    bonuses.missileReload = missileReloadMultiplier;
+                }
 
                 // Pass UI settings
                 manager.SetSuperWeaponUI(timerText, timerFormat);
