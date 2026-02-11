@@ -129,12 +129,19 @@ namespace GV
                 // Populate available powers based on the shared global order
                 m_AvailableCyclePowers.Clear();
                 
+                // Check if Teleport is allowed globally
+                bool teleportAllowed = true;
+                if (PowerSphereMasterController.Instance != null)
+                {
+                    teleportAllowed = PowerSphereMasterController.Instance.teleportSettings.allowCycling;
+                }
+
                 foreach (PowerUpType type in s_GlobalCycleOrder)
                 {
                    switch (type)
                    {
                        case PowerUpType.Teleport:
-                           if (teleport) m_AvailableCyclePowers.Add(type);
+                           if (teleport && teleportAllowed) m_AvailableCyclePowers.Add(type);
                            break;
                        case PowerUpType.Invisibility:
                            if (invisibility) m_AvailableCyclePowers.Add(type);

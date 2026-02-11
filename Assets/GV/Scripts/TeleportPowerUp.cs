@@ -52,6 +52,13 @@ namespace GV.PowerUps
         private void Start()
         {
             if (debugLogs) Debug.Log($"[TeleportPowerUp] Started on {gameObject.name}. Manual: {manualTriggerOnly}");
+            
+            // Auto-assign UI from MasterController
+            if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.teleportTimerText != null)
+            {
+                autoPilotTimerText = PowerSphereMasterController.Instance.teleportTimerText;
+            }
+
             if (autoPilotTimerText) autoPilotTimerText.gameObject.SetActive(false);
             
             if (!network)

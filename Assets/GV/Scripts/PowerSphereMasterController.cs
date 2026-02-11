@@ -105,6 +105,7 @@ namespace GV
         [System.Serializable]
         public struct TeleportSettings
         {
+            public bool allowCycling; // New option to exclude from random cycle
             public int checkpointsToJump;
             public float behindDistanceOnPath;
             public float upOffset;
@@ -120,6 +121,7 @@ namespace GV
         [Header("Power Up: Teleport")]
         public TeleportSettings teleportSettings = new TeleportSettings 
         { 
+            allowCycling = true,
             checkpointsToJump = 6,
             behindDistanceOnPath = 4.0f,
             upOffset = 0f,
@@ -131,5 +133,13 @@ namespace GV
             autoPilotSpeed = 50f,
             autoPilotSpeedMultiplier = 1f
         };
+
+        [Header("UI References")]
+        public TMPro.TMP_Text shieldTimerText;
+        public TMPro.TMP_Text invisibilityTimerText;
+        public TMPro.TMP_Text superBoostTimerText;
+        public TMPro.TMP_Text superWeaponTimerText;
+        public TMPro.TMP_Text teleportTimerText;
+
     }
 }

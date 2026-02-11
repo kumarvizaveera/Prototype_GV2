@@ -38,6 +38,12 @@ namespace GV
         {
             _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
             
+            // Auto-assign UI from MasterController
+            if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.invisibilityTimerText != null)
+            {
+                SetUI(PowerSphereMasterController.Instance.invisibilityTimerText, "Invisibility: {0:0.0}");
+            }
+
             if (IsInvisible)
             {
                 ApplyInvisibility(defaultGlassMaterial);

@@ -54,6 +54,12 @@ namespace GV.Network
             _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
             characterManager = GetComponent<AircraftCharacterManager>();
 
+            if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.superWeaponTimerText != null)
+            {
+                timerText = PowerSphereMasterController.Instance.superWeaponTimerText;
+                timerText.gameObject.SetActive(false);
+            }
+
             if (IsSuperWeaponActive)
             {
                 ApplyBonuses(true);

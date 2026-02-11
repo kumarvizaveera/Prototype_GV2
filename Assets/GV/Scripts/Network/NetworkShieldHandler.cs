@@ -17,12 +17,29 @@ namespace GV.Network
         // Server-side timer to disable shield
         [Networked] private TickTimer ShieldTimer { get; set; }
 
+        [Header("UI")]
+        public TMPro.TMP_Text timerText;
+        public string timerFormat = "Shield: {0:0.0}";
+
+        public void SetUI(TMPro.TMP_Text timerText, string timerFormat)
+        {
+            this.timerText = timerText;
+            this.timerFormat = timerFormat;
+            if (this.timerText != null) this.timerText.gameObject.SetActive(false);
+        }
+
         public override void Spawned()
         {
             _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
             
             if (shieldController == null)
                 shieldController = GetComponentInChildren<EnergyShieldController>(true);
+
+            // Auto-assign UI from MasterController
+            if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.shieldTimerText != null)
+            {
+                SetUI(PowerSphereMasterController.Instance.shieldTimerText, "Shield: {0:0.0}");
+            }
 
             UpdateShieldState();
         }
@@ -37,7 +54,22 @@ namespace GV.Network
                 }
             }
             
-            // Optional: Sync timer to UI if needed, but for now just sync state
+            // UI Update (local only)
+            if (IsShieldActive && timerText != null)
+            {
+                 float remaining = 0f;
+                 if (ShieldTimer.IsRunning)
+                     remaining = (float)ShieldTimer.RemainingTime(Runner);
+                 
+                 if (remaining > 0)
+                 {
+                     timerText.text = string.Format(timerFormat, remaining);
+                 }
+                 else
+                 {
+                     timerText.gameObject.SetActive(false);
+                 }
+            }
         }
 
         public override void FixedUpdateNetwork()
@@ -62,6 +94,12 @@ namespace GV.Network
                 
                 // If we want the local controller to handle the fade in/out or hit effects, 
                 // SetShieldActive usually toggles the mesh renderer. 
+            }
+
+            if (timerText != null)
+            {
+                if (IsShieldActive) timerText.gameObject.SetActive(true);
+                else timerText.gameObject.SetActive(false); 
             }
         }
 

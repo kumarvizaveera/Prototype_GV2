@@ -3,6 +3,7 @@ using TMPro;
 using System.Collections;
 using UnityEngine.Events;
 using Fusion;
+using GV;
 
 namespace VSX.Engines3D
 {
@@ -47,6 +48,12 @@ namespace VSX.Engines3D
             _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
             characterManager = GetComponent<AircraftCharacterManager>();
             if (characterManager == null) characterManager = GetComponentInChildren<AircraftCharacterManager>();
+
+            // Auto-assign UI from MasterController
+            if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.superBoostTimerText != null)
+            {
+                SetUI(PowerSphereMasterController.Instance.superBoostTimerText, "Boost: {0:0.0}");
+            }
 
             // Apply initial state
             if (IsBoostActive)
