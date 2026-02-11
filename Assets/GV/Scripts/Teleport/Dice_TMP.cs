@@ -143,7 +143,7 @@ public class DiceRingIndicator : MonoBehaviour
     }
 
     [Header("Overrides")]
-    [Tooltip("If checked, ignores weighted outcomes. Always sets value to 6, and randomly picks + or -.")]
+    [Tooltip("If checked, ignores weighted outcomes. Randomly picks a value between 1 and 6, and randomly picks + or -.")]
     public bool randomPlusMinus6 = false;
 
     [ContextMenu("Roll Now")]
@@ -151,7 +151,7 @@ public class DiceRingIndicator : MonoBehaviour
     {
         if (randomPlusMinus6)
         {
-            diceValue = 6;
+            diceValue = Random.Range(1, 7);
             isForward = Random.value > 0.5f;
             ApplyVisuals(force: true);
             return;
