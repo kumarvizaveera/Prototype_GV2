@@ -3391,6 +3391,11 @@ GameObject:
   - component: {fileID: 3880726929680333257}
   - component: {fileID: 8293294363971003067}
   - component: {fileID: 3129783300356845761}
+  - component: {fileID: 8519753181047599757}
+  - component: {fileID: 853346092032983344}
+  - component: {fileID: 2270161741032241767}
+  - component: {fileID: 1355889850145589077}
+  - component: {fileID: 2364409008901317538}
   m_Layer: 0
   m_Name: Player_ForMultiplayer
   m_TagString: Untagged
@@ -4109,6 +4114,13 @@ MonoBehaviour:
   NetworkedBehaviours:
   - {fileID: 8293294363971003067}
   - {fileID: 3129783300356845761}
+  - {fileID: 8519753181047599757}
+  - {fileID: 853346092032983344}
+  - {fileID: 2270161741032241767}
+  - {fileID: 1355889850145589077}
+  - {fileID: 2364409008901317538}
+  - {fileID: 3420246686420463674}
+  - {fileID: 8112468108042422247}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &8293294363971003067
 MonoBehaviour:
@@ -4142,6 +4154,111 @@ MonoBehaviour:
   engines: {fileID: 0}
   triggerablesManager: {fileID: 0}
   localInputScripts: []
+--- !u!114 &8519753181047599757
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4309686302888358143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4669237181f097e4b8d5768838390760, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.Network.NetworkShieldHandler
+  shieldController: {fileID: 0}
+  _IsShieldActive:
+    _value: 0
+--- !u!114 &853346092032983344
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4309686302888358143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 954c8d947818b7d4db5f60a1b6e00f50, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.Network.NetworkSuperWeaponHandler
+  projectileDamageMultiplier: 2
+  projectileRangeMultiplier: 2
+  projectileSpeedMultiplier: 2
+  projectileFireRateMultiplier: 2
+  projectileReloadMultiplier: 2
+  missileDamageMultiplier: 2
+  missileRangeMultiplier: 2
+  missileSpeedMultiplier: 2
+  missileFireRateMultiplier: 2
+  missileReloadMultiplier: 2
+  timerText: {fileID: 0}
+  timerFormat: 'Weapon: {0:0.0}'
+  _IsSuperWeaponActive:
+    _value: 0
+  _NetProjDmg: 0
+  _NetProjRange: 0
+  _NetProjSpeed: 0
+  _NetProjRate: 0
+  _NetProjReload: 0
+  _NetMissileDmg: 0
+  _NetMissileRange: 0
+  _NetMissileSpeed: 0
+  _NetMissileRate: 0
+  _NetMissileReload: 0
+--- !u!114 &2270161741032241767
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4309686302888358143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e9a0600d53410d40846a85f62c02012, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VSX.Engines3D.AircraftSuperBoostHandler
+  OnSuperBoostStart:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSuperBoostEnd:
+    m_PersistentCalls:
+      m_Calls: []
+  _IsBoostActive:
+    _value: 0
+  _CurrentSpeedMult: 0
+  _CurrentSteeringMult: 0
+  _CurrentBoostMult: 0
+--- !u!114 &1355889850145589077
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4309686302888358143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 161d49be5df569d43a66b33856424472, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.InvisibilityHandler
+  defaultGlassMaterial: {fileID: 2100000, guid: e7093abd7427b9b4fb81b08c9e5fb8b3,
+    type: 2}
+  _IsInvisible:
+    _value: 0
+--- !u!114 &2364409008901317538
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4309686302888358143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e16b2be74d6e4904d9b28957967949cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.Network.NetworkedCheckpointTracker
+  _CurrentLap: 0
+  _CurrentCheckpointIndex: 0
+  localCheckpointSystem: {fileID: 0}
 --- !u!1 &4609898187100312877
 GameObject:
   m_ObjectHideFlags: 0
@@ -5485,7 +5602,7 @@ MonoBehaviour:
     invertKeyboard: 0
     invertGamepad: 0
     invertJoystick: 0
-  mouseEnabled: 0
+  mouseEnabled: 1
   mouseSteeringType: 0
   controlHUDCursor: 1
   mouseDeadRadius: 0.03
@@ -20211,6 +20328,10 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 3420246686420463674}
+    - targetCorrespondingSourceObject: {fileID: 6499979924966097099, guid: c11c75430698989468fe532c3b045fae,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8112468108042422247}
     - targetCorrespondingSourceObject: {fileID: 6358101792507805970, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       insertIndex: -1
@@ -20664,6 +20785,26 @@ MonoBehaviour:
   OnSuperBoostEnd:
     m_PersistentCalls:
       m_Calls: []
+  _IsBoostActive:
+    _value: 0
+  _CurrentSpeedMult: 0
+  _CurrentSteeringMult: 0
+  _CurrentBoostMult: 0
+--- !u!114 &8112468108042422247
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5592321729158715839}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e16b2be74d6e4904d9b28957967949cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.Network.NetworkedCheckpointTracker
+  _CurrentLap: 0
+  _CurrentCheckpointIndex: 0
+  localCheckpointSystem: {fileID: 0}
 --- !u!1 &5592482295720810039 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6499546051415625539, guid: c11c75430698989468fe532c3b045fae,

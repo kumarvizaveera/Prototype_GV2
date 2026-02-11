@@ -29,7 +29,7 @@ namespace GV
 
         [Header("Global Cycling Settings")]
         [Tooltip("If true, all spheres cycle powers.")]
-        public bool cyclePowers = false;
+        public bool cyclePowers = true;
         
         [Tooltip("Time in seconds between power switches.")]
         public float cycleInterval = 5f;

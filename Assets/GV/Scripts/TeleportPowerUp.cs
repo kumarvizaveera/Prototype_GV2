@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using GV;
+using Fusion;
 
 namespace GV.PowerUps
 {
@@ -124,12 +125,27 @@ namespace GV.PowerUps
             Vector3 savedVel = rb.linearVelocity;
             Vector3 savedAngVel = rb.angularVelocity;
 
-            // Move
-            rb.position = destPos;
-            
             // Rotate to face track direction
+            Quaternion rot = rb.rotation;
             if (tangent.sqrMagnitude > 0.000001f)
-                rb.rotation = Quaternion.LookRotation(tangent, Vector3.up);
+                rot = Quaternion.LookRotation(tangent, Vector3.up);
+
+            // Network Handle
+            NetworkTransform netTransform = rb.GetComponent<NetworkTransform>();
+            if (netTransform == null) netTransform = rb.GetComponentInParent<NetworkTransform>();
+
+            if (netTransform != null)
+            {
+                 // FUSION TELEPORT
+                 netTransform.Teleport(destPos, rot);
+                 if (debugLogs) Debug.Log($"[TeleportPowerUp] Network Teleport to {destPos}");
+            }
+            else
+            {
+                // STANDARD TELEPORT
+                rb.position = destPos;
+                rb.rotation = rot;
+            }
 
             // Restore physics
             if (keepVelocity)

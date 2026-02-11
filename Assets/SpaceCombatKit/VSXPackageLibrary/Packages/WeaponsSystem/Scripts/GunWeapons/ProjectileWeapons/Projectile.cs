@@ -110,10 +110,28 @@ namespace VSX.Weapons
         protected bool disableAfterDistanceCovered = true;
         
         [Networked]
-        protected Vector3 lastPosition { get; set; }
+        protected Vector3 NetworkedLastPosition { get; set; }
+        
+        private Vector3 _localLastPosition;
+        protected Vector3 lastPosition { 
+            get { return (Object != null && Object.IsValid) ? NetworkedLastPosition : _localLastPosition; }
+            set { 
+                _localLastPosition = value;
+                if (Object != null && Object.IsValid && Object.HasStateAuthority) NetworkedLastPosition = value;
+            }
+        }
         
         [Networked]
-        protected float distanceCovered { get; set; }
+        protected float NetworkedDistanceCovered { get; set; }
+
+        private float _localDistanceCovered;
+        protected float distanceCovered { 
+             get { return (Object != null && Object.IsValid) ? NetworkedDistanceCovered : _localDistanceCovered; }
+            set { 
+                _localDistanceCovered = value;
+                if (Object != null && Object.IsValid && Object.HasStateAuthority) NetworkedDistanceCovered = value;
+            }
+        }
 
         [SerializeField]
         protected float maxDistance = 1000;
@@ -430,6 +448,21 @@ namespace VSX.Weapons
             }
         }
 
+        protected float SafeDistanceCovered
+        {
+            get {
+                return distanceCovered;
+            }
+        }
+
+         protected float SafeNetworkedMaxDistance
+        {
+            get {
+                if(Object != null && Object.IsValid) { try { return NetworkedMaxDistance; } catch {} }
+                return maxDistance;
+            }
+        }
+
         public virtual float Range
         {
             get { return Mathf.Min(disableAfterLifetime ? lifetime * Speed : Mathf.Infinity, disableAfterDistanceCovered ? (Object != null ? NetworkedMaxDistance : maxDistance) : Mathf.Infinity); }
@@ -465,7 +498,7 @@ namespace VSX.Weapons
 
                     // Damage
                     // Corrected: Uses healthModifier which is synced via OnChanged
-                    info.amount = healthModifier.GetDamage(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(distanceCovered / (Object != null ? NetworkedMaxDistance : maxDistance));
+                    info.amount = healthModifier.GetDamage(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(SafeDistanceCovered / SafeNetworkedMaxDistance);
 
                     if (!Mathf.Approximately(info.amount, 0))
                     {
@@ -473,7 +506,7 @@ namespace VSX.Weapons
                     }
 
                     // Healing
-                    info.amount = healthModifier.GetHealing(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(distanceCovered / (Object != null ? NetworkedMaxDistance : maxDistance));
+                    info.amount = healthModifier.GetHealing(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(SafeDistanceCovered / SafeNetworkedMaxDistance);
 
                     if (!Mathf.Approximately(info.amount, 0))
                     {
@@ -611,7 +644,7 @@ namespace VSX.Weapons
 
                             // Damage
 
-                            info.amount = healthModifier.GetDamage(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(distanceCovered / maxDistance);
+                            info.amount = healthModifier.GetDamage(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(SafeDistanceCovered / SafeNetworkedMaxDistance);
                             info.amount *= areaEffectFalloff.Evaluate(distanceFromSource / areaEffectRadius);
 
                             if (!Mathf.Approximately(info.amount, 0))
@@ -621,7 +654,7 @@ namespace VSX.Weapons
 
                             // Healing
 
-                            info.amount = healthModifier.GetHealing(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(distanceCovered / maxDistance);
+                            info.amount = healthModifier.GetHealing(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(SafeDistanceCovered / SafeNetworkedMaxDistance);
 
                             if (!Mathf.Approximately(info.amount, 0))
                             {
@@ -643,9 +676,10 @@ namespace VSX.Weapons
 
         protected virtual void MovementUpdate()
         {
-            if (detonator.DetonationState == DetonationState.Detonating || detonator.DetonationState == DetonationState.Detonated) return;
+            if (detonator != null && (detonator.DetonationState == DetonationState.Detonating || detonator.DetonationState == DetonationState.Detonated)) return;
             
-            float currentSpeed = (Object != null && Object.IsValid) ? NetworkedSpeed : speed;
+            float currentSpeed = speed;
+            if (Object != null && Object.IsValid) { try { currentSpeed = NetworkedSpeed; } catch {} }
             if(currentSpeed == 0) currentSpeed = speed; // fallback
 
             float deltaTime = 0f;
@@ -685,7 +719,7 @@ namespace VSX.Weapons
                     Vector3 direction = (transform.position - previousPosition).normalized;
                     float dist = Vector3.Distance(previousPosition, transform.position);
 
-                    if (Runner.LagCompensation.Raycast(previousPosition, direction, dist, Object.InputAuthority, out var hit, collisionScanner != null ? collisionScanner.HitMask : Physics.DefaultRaycastLayers, HitOptions.IgnoreInputAuthority))
+                    if (Runner.LagCompensation != null && Runner.LagCompensation.Raycast(previousPosition, direction, dist, Object.InputAuthority, out var hit, collisionScanner != null ? collisionScanner.HitMask : Physics.DefaultRaycastLayers, HitOptions.IgnoreInputAuthority))
                     {
                         // We hit something!
                          // Check self collision if needed
@@ -723,10 +757,12 @@ namespace VSX.Weapons
              
              if (Object.HasStateAuthority)
              {
-                 distanceCovered += (transform.position - lastPosition).magnitude;
+                 try {
+                     distanceCovered += (transform.position - lastPosition).magnitude;
+                 } catch {}
                  lastPosition = transform.position;
 
-                 float currentMaxDist = NetworkedMaxDistance > 0 ? NetworkedMaxDistance : maxDistance;
+                 float currentMaxDist = SafeNetworkedMaxDistance;
                  
                   if (disableAfterLifetime)
                 {
@@ -738,12 +774,12 @@ namespace VSX.Weapons
                     }
                 }
                 
-                 if (disableAfterDistanceCovered)
+                if (disableAfterDistanceCovered)
                 {
-                    if (distanceCovered >= currentMaxDist)
-                    {
-                       Detonate(); // Will Despawn
-                    }
+                   if (SafeDistanceCovered >= currentMaxDist)
+                   {
+                      Detonate(); // Will Despawn
+                   }
                 }
              }
         }

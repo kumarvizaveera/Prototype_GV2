@@ -2,11 +2,12 @@ using UnityEngine;
 using TMPro;
 using System.Collections;
 using UnityEngine.Events;
+using Fusion;
 
 namespace VSX.Engines3D
 {
-    [RequireComponent(typeof(AircraftCharacterManager))]
-    public class AircraftSuperBoostHandler : MonoBehaviour
+    // [RequireComponent(typeof(AircraftCharacterManager))] // Removed to allow flexible placement
+    public class AircraftSuperBoostHandler : NetworkBehaviour
     {
         // Default values (internal fallback)
         private const float defaultSpeedMultiplier = 2.0f;
@@ -19,8 +20,17 @@ namespace VSX.Engines3D
         public UnityEvent OnSuperBoostEnd;
 
         private AircraftCharacterManager characterManager;
-        private Coroutine boostCoroutine;
-        private bool isBoosted = false;
+        // private Coroutine boostCoroutine; // Replaced by Network Timer
+        
+        [Networked] public NetworkBool IsBoostActive { get; set; }
+        [Networked] public TickTimer BoostTimer { get; set; }
+        
+        // Multipliers effectively need to be synced if they vary per pickup
+        [Networked] public float CurrentSpeedMult { get; set; }
+        [Networked] public float CurrentSteeringMult { get; set; }
+        [Networked] public float CurrentBoostMult { get; set; }
+
+        private ChangeDetector _changes;
 
         private TMP_Text timerText;
         private string timerFormat = "{0:0.0}";
@@ -32,24 +42,71 @@ namespace VSX.Engines3D
             if (this.timerText != null) this.timerText.gameObject.SetActive(false);
         }
 
-        private void Awake()
+        public override void Spawned()
         {
+            _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
             characterManager = GetComponent<AircraftCharacterManager>();
+            if (characterManager == null) characterManager = GetComponentInChildren<AircraftCharacterManager>();
+
+            // Apply initial state
+            if (IsBoostActive)
+            {
+                ApplyBoost(true);
+            }
+        }
+
+        public override void Render()
+        {
+            foreach (var change in _changes.DetectChanges(this))
+            {
+                if (change == nameof(IsBoostActive))
+                {
+                    ApplyBoost(IsBoostActive);
+                }
+            }
+
+            // UI Update (local only)
+            if (IsBoostActive && timerText != null)
+            {
+                 float remaining = 0f;
+                 if (BoostTimer.IsRunning)
+                     remaining = (float)BoostTimer.RemainingTime(Runner);
+                 
+                 if (remaining > 0)
+                 {
+                     timerText.text = string.Format(timerFormat, remaining);
+                 }
+                 else
+                 {
+                     timerText.gameObject.SetActive(false);
+                 }
+            }
+        }
+
+        public override void FixedUpdateNetwork()
+        {
+            if (Object.HasStateAuthority)
+            {
+                if (IsBoostActive && BoostTimer.Expired(Runner))
+                {
+                    IsBoostActive = false;
+                }
+            }
         }
 
         /// <summary>
-        /// Activates the super boost with specific multipliers and duration.
+        /// Activates the super boost with specific multipliers and duration. (Server Only)
         /// </summary>
         public void ActivateSuperBoost(float speedMult, float steeringMult, float boostMult, float duration)
         {
-            if (characterManager == null) return;
+            if (!Object.HasStateAuthority) return;
 
-            if (boostCoroutine != null)
-            {
-                StopCoroutine(boostCoroutine);
-            }
-
-            boostCoroutine = StartCoroutine(BoostRoutine(speedMult, steeringMult, boostMult, duration));
+            CurrentSpeedMult = speedMult;
+            CurrentSteeringMult = steeringMult;
+            CurrentBoostMult = boostMult;
+            
+            IsBoostActive = true;
+            BoostTimer = TickTimer.CreateFromSeconds(Runner, duration);
         }
 
         /// <summary>
@@ -60,48 +117,51 @@ namespace VSX.Engines3D
             ActivateSuperBoost(defaultSpeedMultiplier, defaultSteeringMultiplier, defaultBoostMultiplier, defaultDuration);
         }
 
-        private IEnumerator BoostRoutine(float speedMult, float steeringMult, float boostMult, float duration)
+        private void ApplyBoost(bool active)
         {
-            if (!isBoosted)
+            if (active)
             {
-                isBoosted = true;
-                OnSuperBoostStart.Invoke();
-            }
-
-            // Apply boost
-            characterManager.SetSuperBoost(speedMult, steeringMult, boostMult);
-
-            // Wait for duration
-            float remaining = duration;
-            if (timerText != null) timerText.gameObject.SetActive(true);
-
-            while (remaining > 0)
-            {
-                if (timerText != null)
+                if (characterManager == null) 
                 {
-                   timerText.text = string.Format(timerFormat, remaining);
+                    characterManager = GetComponent<AircraftCharacterManager>();
+                    if (characterManager == null) characterManager = GetComponentInChildren<AircraftCharacterManager>();
                 }
-                remaining -= Time.deltaTime;
-                yield return null;
+                
+                if (characterManager != null)
+                {
+                    OnSuperBoostStart.Invoke();
+                    
+                    // Use networked multipliers
+                    characterManager.SetSuperBoost(CurrentSpeedMult, CurrentSteeringMult, CurrentBoostMult);
+                    
+                    if (timerText != null) timerText.gameObject.SetActive(true);
+                }
             }
+            else
+            {
+                if (characterManager == null) 
+                {
+                    characterManager = GetComponent<AircraftCharacterManager>();
+                    if (characterManager == null) characterManager = GetComponentInChildren<AircraftCharacterManager>();
+                }
 
-            if (timerText != null) timerText.gameObject.SetActive(false);
-
-            // Reset boost
-            characterManager.SetSuperBoost(1f, 1f, 1f);
-            
-            isBoosted = false;
-            OnSuperBoostEnd.Invoke();
-            boostCoroutine = null;
+                if (characterManager != null)
+                {
+                    characterManager.SetSuperBoost(1f, 1f, 1f);
+                    OnSuperBoostEnd.Invoke();
+                    
+                    if (timerText != null) timerText.gameObject.SetActive(false);
+                }
+            }
         }
 
         private void OnDisable()
         {
             // Safety reset if disabled while boosted
-            if (isBoosted && characterManager != null)
+            // Check if Object is valid to avoid "Networked properties can only be accessed when Spawned()" error
+            if (Object != null && Object.IsValid && IsBoostActive && characterManager != null)
             {
                 characterManager.SetSuperBoost(1f, 1f, 1f);
-                isBoosted = false;
             }
         }
     }

@@ -180,6 +180,7 @@ namespace GV.Network
         private void OnGUI()
         {
             if (NetworkManager.Instance == null || !NetworkManager.Instance.IsConnected) return;
+            if (Object == null || !Object.IsValid) return;
             
             GUILayout.BeginArea(new Rect(Screen.width / 2 - 100, 10, 200, 80));
             GUILayout.BeginVertical("box");

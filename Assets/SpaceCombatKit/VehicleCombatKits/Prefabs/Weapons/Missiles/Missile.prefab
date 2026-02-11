@@ -181,6 +181,7 @@ GameObject:
   - component: {fileID: 114499931625191688}
   - component: {fileID: 114094907774580586}
   - component: {fileID: 4225739792124085214}
+  - component: {fileID: 45339304244999799}
   m_Layer: 0
   m_Name: Missile
   m_TagString: Untagged
@@ -331,6 +332,12 @@ MonoBehaviour:
   onOwnedByAI:
     m_PersistentCalls:
       m_Calls: []
+  _NetworkedSpeed: 0
+  _NetworkedMaxDistance: 0
+  _NetworkedDamageMultiplier: 0
+  _NetworkedHealingMultiplier: 0
+  _OwnerId:
+    Raw: 0
   m_Rigidbody: {fileID: 54057555662210932}
   propulsionType: 0
   force: 500
@@ -629,6 +636,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   missile: {fileID: 114418243159451540}
   targetLocker: {fileID: 114045265111119580}
+--- !u!114 &45339304244999799
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1484232227335732}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
+  SortKey: 1543580737
+  ObjectInterest: 1
+  Flags: 262145
+  NestedObjects: []
+  NetworkedBehaviours:
+  - {fileID: 114418243159451540}
+  ForceRemoteRenderTimeframe: 0
 --- !u!1 &1549836998667386
 GameObject:
   m_ObjectHideFlags: 0
