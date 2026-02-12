@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Fusion;
 
 [DefaultExecutionOrder(200)]
-public class SpawnObjectsAtRandomizedCheckpoints : MonoBehaviour
+public class SpawnObjectsAtRandomizedCheckpoints : NetworkBehaviour
 {
     [System.Serializable]
     public struct SpawnTarget
@@ -15,7 +16,7 @@ public class SpawnObjectsAtRandomizedCheckpoints : MonoBehaviour
     }
 
     [Header("Configuration")]
-    [Tooltip("The object prefab to spawn.")]
+    [Tooltip("The object prefab to spawn. MUST have a NetworkObject component!")]
     public GameObject objectToSpawn;
 
     [Tooltip("List of spawn locations with their random ranges.")]
@@ -43,11 +44,14 @@ public class SpawnObjectsAtRandomizedCheckpoints : MonoBehaviour
     [Tooltip("Minimum distance (in checkpoint indices) to keep from existing objects.")]
     public int minSafeDistance = 6;
 
-    void Start()
+    // Use Spawned() to run logic when this object is part of the network simulation
+    public override void Spawned()
     {
-        // Small delay to ensure other script has run if execution order doesn't catch it
-        // But DefaultExecutionOrder(200) should handle it (assuming other script is default 0).
-        SpawnObjects();
+        // Only the server spawns objects
+        if (Object.HasStateAuthority)
+        {
+            SpawnObjects();
+        }
     }
 
     [ContextMenu("Spawn Objects")]
@@ -107,9 +111,7 @@ public class SpawnObjectsAtRandomizedCheckpoints : MonoBehaviour
                     if (candidateIndex < 0 || candidateIndex >= CheckpointNetwork.Instance.Count) 
                         continue;
                 }
-                // If wrap is on, we'd Normalize index here, but let's assume clamping for now as per previous logic.
-                // Actually, let's normalize for distance check purposes if wrapping were true. 
-                // However, the previous code strictly clamped. Let's stick to clamped logic for simplicity unless wrapping is confirmed.
+                
                 candidateIndex = Mathf.Clamp(candidateIndex, 0, CheckpointNetwork.Instance.Count - 1);
 
                 allCandidates.Add(candidateIndex);
@@ -142,11 +144,19 @@ public class SpawnObjectsAtRandomizedCheckpoints : MonoBehaviour
                 Vector3 spawnPos = checkpoint.position + (checkpoint.rotation * positionOffset);
                 Quaternion spawnRot = checkpoint.rotation * Quaternion.Euler(rotationOffset);
 
-                GameObject spawnedObj = Instantiate(objectToSpawn, spawnPos, spawnRot);
-                
-                if (parentToCheckpoint)
+                // Fusion Spawn
+                NetworkObject prefabNO = objectToSpawn.GetComponent<NetworkObject>();
+                if (prefabNO == null)
                 {
-                    spawnedObj.transform.SetParent(checkpoint);
+                    Debug.LogError($"[SpawnObjectsAtRandomizedCheckpoints] Assigned prefab '{objectToSpawn.name}' is missing a NetworkObject component!");
+                    return;
+                }
+
+                NetworkObject spawnedNO = Runner.Spawn(prefabNO, spawnPos, spawnRot, Object.InputAuthority);
+                
+                if (parentToCheckpoint && spawnedNO)
+                {
+                    spawnedNO.transform.SetParent(checkpoint);
                 }
                 
                 // Mark this new index as occupied for subsequent iterations
@@ -165,9 +175,6 @@ public class SpawnObjectsAtRandomizedCheckpoints : MonoBehaviour
     {
         foreach (int occ in occupied)
         {
-            // Simple distance check. 
-            // Note: Does not account for wrap-around distance if world is circular, 
-            // but matches standard linear index comparison.
             if (Mathf.Abs(candidate - occ) < minSafeDistance)
             {
                 return false;

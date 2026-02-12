@@ -2,14 +2,14 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using GV;
+using Fusion;
 
 [RequireComponent(typeof(Collider))]
-public class ShortcutCrystalJump : MonoBehaviour
+public class ShortcutCrystalJump : NetworkBehaviour
 {
-    [Header("Power Up Settings")]
+    [Header("Configuration")]
     public bool manualTriggerOnly = false;
-    public PowerUpType powerUpType = PowerUpType.Teleport;
-
+    
     [Header("Network (leave empty)")]
     public CheckpointNetwork network;
 
@@ -58,7 +58,7 @@ public class ShortcutCrystalJump : MonoBehaviour
     public float autoPilotSpeed = 50f;
     public float autoPilotSpeedMultiplier = 1f;
 
-    static readonly Dictionary<int, float> _nextAllowed = new Dictionary<int, float>();
+    static readonly Dictionary<NetworkId, float> _nextAllowed = new Dictionary<NetworkId, float>();
     float _ignoreEnterUntilTime = 0f;
 
     void Reset()
@@ -69,12 +69,17 @@ public class ShortcutCrystalJump : MonoBehaviour
 
     void Awake() => ResolveRefs();
 
+    // Use Spawned instead of OnEnable for Network logic initialization if needed, 
+    // but OnEnable is fine for local refs.
+    public override void Spawned()
+    {
+        if (ignoreEnterRightAfterEnable)
+            _ignoreEnterUntilTime = Time.time + ignoreEnterSeconds;
+    }
+
     void OnEnable()
     {
         ResolveRefs();
-
-        if (ignoreEnterRightAfterEnable)
-            _ignoreEnterUntilTime = Time.time + ignoreEnterSeconds;
     }
 
     void ResolveRefs()
@@ -121,125 +126,165 @@ public class ShortcutCrystalJump : MonoBehaviour
         return root && root.CompareTag(playerTag);
     }
 
-    void Start()
-    {
-        Debug.Log($"[ShortcutCrystalJump] Script started on {gameObject.name}. Manual: {manualTriggerOnly}");
-    }
-
     void OnTriggerEnter(Collider other)
     {
-        Debug.Log($"[ShortcutCrystalJump] OnTriggerEnter. Manual: {manualTriggerOnly} Other: {other.name}");
+        if (!Object) 
+        {
+            Debug.LogWarning("[ShortcutCrystalJump] OnTriggerEnter: No NetworkObject on this script!");
+            return;
+        }
+        
+        // PREDICTIVE LOGIC: Run on State Authority (Server) AND Input Authority (Client)
+        // Proxies do nothing; they wait for valid state serialization from server.
+        
         if (manualTriggerOnly) return;
-
         if (ignoreEnterRightAfterEnable && Time.time < _ignoreEnterUntilTime) return;
 
         Rigidbody rb = other.attachedRigidbody;
+
         if (!IsPlayer(other, rb)) return;
         if (!rb) return;
 
-        Debug.Log($"[ShortcutCrystalJump] Trigger valid. Applying to {rb.name}");
-        Apply(rb.gameObject);
+        var no = rb.GetComponent<NetworkObject>();
+        if (!no) no = rb.GetComponentInParent<NetworkObject>();
+        if (!no) 
+        {
+             Debug.LogWarning($"[ShortcutCrystalJump] Player {rb.name} has no NetworkObject!");
+             return; 
+        }
+
+        // Only run if we control this player (Host or Client Owner)
+        if (!no.HasStateAuthority && !no.HasInputAuthority) return;
+
+        Debug.Log($"[ShortcutCrystalJump] Triggered by Player {no.name} (ID: {no.Id}) [Auth: {no.HasStateAuthority}/{no.HasInputAuthority}]. Executing Teleport.");
+        ExecuteTeleport(no, rb);
     }
 
-    public void Apply(GameObject target)
+    // Shared predictive logic
+    void ExecuteTeleport(NetworkObject targetPlayer, Rigidbody rb)
     {
-        Rigidbody rb = target.GetComponent<Rigidbody>();
-        if (!rb)
+        // Rate Limit (Local check is fine for prediction)
+        float now = Runner.SimulationTime;
+        if (_nextAllowed.TryGetValue(targetPlayer.Id, out float allowed) && now < allowed) 
         {
-            rb = target.GetComponentInParent<Rigidbody>();
+            Debug.Log($"[ShortcutCrystalJump] Rate limit active for {targetPlayer.Id}. Wait {allowed - now:F2}s");
+            return;
         }
-        
-        if (!rb) return;
-
-        // Register Collection
-        if (PowerUpManager.Instance != null)
-        {
-            PowerUpManager.Instance.RegisterCollection(powerUpType);
-        }
-
-        int id = rb.GetInstanceID();
-        float now = Time.time;
-        if (_nextAllowed.TryGetValue(id, out float allowed) && now < allowed) return;
+        _nextAllowed[targetPlayer.Id] = now + cooldownSeconds;
 
         if (!network)
         {
             network = CheckpointNetwork.Instance;
             if (!network) network = FindObjectOfType<CheckpointNetwork>(true);
         }
-        if (!network) 
+        
+        if (!network || network.Count == 0)
         {
-            Debug.LogError("[ShortcutCrystalJump] Apply failed: No CheckpointNetwork found.");
-            return;
-        }
-
-        if (network.Count == 0)
-        {
-            network.Build();
-            if (network.Count == 0)
-            {
-                Debug.LogError("[ShortcutCrystalJump] Apply failed: CheckpointNetwork has 0 checkpoints.");
-                 return;
-            }
-        }
-
-        if (!dice)
-        {
-            // If no dice is hooked up (e.g. manual Mystery Sphere), assume 1 forward? 
-            // Or maybe we can't teleport without dice context?
-            // Existing logic enforced dice return, let's keep it safe but maybe try to find one if missing.
-             dice = GetComponentInParent<DiceRingIndicator>(true);
-             if (!dice)
+             if (network) network.Build();
+             if (!network || network.Count == 0) 
              {
-                 Debug.LogWarning("[ShortcutCrystalJump] No DiceRingIndicator found. Using default +1 increment.");
-                 // Fallback logic implemented below
-             } 
+                 Debug.LogError("[ShortcutCrystalJump] No CheckpointNetwork found or built!");
+                 return;
+             }
         }
 
+        if (!dice) dice = GetComponentInParent<DiceRingIndicator>(true);
+        
+        // Calculate destination
         int anchorIndex = network.GetNearestIndex(transform.position);
-
         int delta = 1;
-        if (dice != null)
+
+        if (dice)
         {
-            delta = dice.IsForward ? dice.DiceValue : -dice.DiceValue;
+            delta = dice.CurrentIsForward ? dice.CurrentDiceValue : -dice.CurrentDiceValue;
+            Debug.Log($"[ShortcutCrystalJump] Using Dice: Forward={dice.CurrentIsForward}, Value={dice.CurrentDiceValue}, Delta={delta}");
         }
         else
         {
-             // Default behavior for power-ups without dice: Jump 1 checkpoint forward?
-             // Or maybe we want to jump 3? Let's stick to 1 for now or make it a public variable later.
-             delta = 1;
+             Debug.LogWarning("[ShortcutCrystalJump] No DiceRingIndicator found! Defaulting to +1.");
         }
 
         int targetIndex = network.ClampOrWrapIndex(anchorIndex + delta);
 
-        Vector3 tangent;
-        Vector3 basePos = network.GetPositionBehindOnPath(targetIndex, behindDistanceOnPath, out tangent);
-
-        Vector3 right = Vector3.Cross(Vector3.up, tangent).normalized;
-        Vector3 destPos = basePos + Vector3.up * upOffset + right * rightOffset;
-
-        Vector3 savedVel = rb.linearVelocity;
-        Vector3 savedAngVel = rb.angularVelocity;
-
-        rb.position = destPos;
-        if (tangent.sqrMagnitude > 0.000001f)
-            rb.rotation = Quaternion.LookRotation(tangent, Vector3.up);
-
-        if (keepVelocity)
+        // SIMPLIFIED LOGIC: Direct High-Level Teleport (Bypassing Path Walking)
+        // We just go to the checkpoint position + local offsets.
+        Transform targetT = network.GetCheckpoint(targetIndex);
+        if (!targetT)
         {
-            rb.linearVelocity = savedVel;
-            rb.angularVelocity = savedAngVel;
+             Debug.LogError($"[ShortcutCrystalJump] Target Checkpoint Index {targetIndex} is null!");
+             return;
+        }
+
+        Vector3 basePos = targetT.position;
+        // Assume forward is the checkpoint's forward, or calculate from previous
+        Vector3 tangent = targetT.forward; 
+        
+        // Optional: specific tangent from track if available
+        // But for now, trust the checkpoint's rotation
+        
+        Vector3 right = targetT.right;
+        Vector3 up = targetT.up;
+
+        Vector3 destPos = basePos + up * upOffset + right * rightOffset - tangent * behindDistanceOnPath;
+
+        Quaternion destRot = targetT.rotation; // Match checkpoint rotation
+
+        Debug.Log($"[ShortcutCrystalJump] Teleporting NetId {targetPlayer.Id} to {targetT.name} (Index {targetIndex}). Pos: {destPos}");
+        
+        // PERFOM TELEPORT
+        if (targetPlayer.TryGetComponent<NetworkTransform>(out var nt))
+        {
+            nt.Teleport(destPos, destRot);
+            
+            if (rb)
+            {
+                if (!keepVelocity)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+                else
+                {
+                    // Redirect velocity to match new forward direction so we don't fly sideways
+                    float speed = rb.linearVelocity.magnitude;
+                    if (speed > 1f)
+                    {
+                        rb.linearVelocity = destRot * Vector3.forward * speed;
+                        // Also kill angular velocity to stop spinning
+                        rb.angularVelocity = Vector3.zero;
+                    }
+                }
+            }
         }
         else
         {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            // Fallback
+            rb.position = destPos;
+            rb.rotation = destRot;
+            rb.transform.position = destPos;
+            rb.transform.rotation = destRot;
+            
+            if (!keepVelocity)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
+            else
+            {
+                // Redirect velocity to match new forward direction so we don't fly sideways
+                float speed = rb.linearVelocity.magnitude;
+                if (speed > 1f)
+                {
+                    rb.linearVelocity = destRot * Vector3.forward * speed;
+                    rb.angularVelocity = Vector3.zero;
+                }
+            }
         }
 
-        _nextAllowed[id] = now + cooldownSeconds;
-
-        // Play SFX AFTER teleport
+        // SFX
         TryPlayTeleportSfx(rb, destPos);
 
+        // AutoPilot
         if (autoPilotAfterTeleport)
         {
             var ap = rb.GetComponent<PathAutoPilot>();
@@ -248,11 +293,14 @@ public class ShortcutCrystalJump : MonoBehaviour
             float speedToUse = autoPilotSpeed;
             if (autoPilotUseCurrentSpeed)
             {
-                float v = savedVel.magnitude;
+                float v = rb.linearVelocity.magnitude;
                 speedToUse = Mathf.Max(5f, v * autoPilotSpeedMultiplier);
             }
 
-            ap.Begin(targetIndex, autoPilotSeconds, speedToUse);
+            int nextIndex = network.GetNextIndex(targetIndex);
+
+            Debug.Log($"[ShortcutCrystalJump] Engaging AutoPilot towards Next Index: {nextIndex} (Current: {targetIndex})");
+            ap.Begin(nextIndex, autoPilotSeconds, speedToUse);
         }
     }
 
@@ -285,7 +333,6 @@ public class ShortcutCrystalJump : MonoBehaviour
 
         if (src)
         {
-            // Ensure we don't accidentally Play() a clip assigned on the source; use OneShot only.
             src.playOnAwake = false;
             src.PlayOneShot(teleportSfx, teleportSfxVolume);
         }

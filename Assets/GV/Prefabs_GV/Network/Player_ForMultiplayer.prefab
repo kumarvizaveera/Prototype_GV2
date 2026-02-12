@@ -4119,6 +4119,7 @@ MonoBehaviour:
   - {fileID: 2270161741032241767}
   - {fileID: 1355889850145589077}
   - {fileID: 2364409008901317538}
+  - {fileID: 1301586559464983885}
   - {fileID: 3420246686420463674}
   - {fileID: 8112468108042422247}
   ForceRemoteRenderTimeframe: 0
@@ -4169,6 +4170,8 @@ MonoBehaviour:
   shieldController: {fileID: 0}
   _IsShieldActive:
     _value: 0
+  timerText: {fileID: 0}
+  timerFormat: 'Shield: {0:0.0}'
 --- !u!114 &853346092032983344
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5661,7 +5664,7 @@ MonoBehaviour:
   setThrottle: 0
   throttleSensitivity: 1
   boostChangeSpeed: 10
-  enableAutoForward: 1
+  enableAutoForward: 0
   enableAutoBoost: 0
 --- !u!1 &6464765573918466416
 GameObject:
@@ -20580,7 +20583,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5592321729158715839}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2a5ed3a29572ba4499b0e82805b99148, type: 3}
   m_Name: 

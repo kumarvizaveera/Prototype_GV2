@@ -3,7 +3,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 
-public class PathAutoPilot : MonoBehaviour
+using Fusion;
+
+public class PathAutoPilot : NetworkBehaviour
 {
     [Header("Refs")]
     public Rigidbody rb;
@@ -93,13 +95,24 @@ public class PathAutoPilot : MonoBehaviour
         // Disable controls during full autopilot
         SetControlsEnabled(false);
         
-        StartCoroutine(PhysicsLoop());
-
         // Save kinematic state (keep whatever you use normally)
         _savedWasKinematic = rb.isKinematic;
         // Autopilot steering works best with dynamic RB:
         rb.isKinematic = false;
         rb.WakeUp();
+
+        // SNAP VELOCITY (Fix for "Random" teleport issue)
+        // If we are starting from a teleport, our old velocity vector is likely wrong.
+        // We calculate the direction to the target and SNAP our velocity to it immediately.
+        Transform firstGoal = network.GetCheckpoint(_goalIndex);
+        if (firstGoal)
+        {
+            Vector3 dir = (firstGoal.position - rb.position).normalized;
+            rb.linearVelocity = dir * _speed;
+            rb.rotation = Quaternion.LookRotation(dir, Vector3.up);
+            // Also reset angular velocity to prevent spinning
+            rb.angularVelocity = Vector3.zero;
+        }
     }
 
     void Update()
@@ -141,23 +154,23 @@ public class PathAutoPilot : MonoBehaviour
         }
     }
 
-    void FixedUpdate()
+    public override void FixedUpdateNetwork()
     {
-        // Logic moved to Coroutine to override other physics scripts
+        if (!_active) return;
+        ApplyPhysicsOverride(Runner.DeltaTime);
     }
 
-    System.Collections.IEnumerator PhysicsLoop()
+    void FixedUpdate()
     {
-        var wait = new WaitForFixedUpdate();
-        while (_active)
+        // Fallback for when script is added dynamically (NetworkObject not initialized)
+        if (!_active) return;
+        if (Object == null)
         {
-            yield return wait;
-            if (!_active) break;
-            ApplyPhysicsOverride();
+            ApplyPhysicsOverride(Time.fixedDeltaTime);
         }
     }
 
-    void ApplyPhysicsOverride()
+    void ApplyPhysicsOverride(float dt)
     {
         if (!rb || !network || network.Count == 0) return;
 
@@ -208,7 +221,7 @@ public class PathAutoPilot : MonoBehaviour
         Vector3 desiredVel = dir * _speed;
 
         // Strong Override: Directly set velocity if far from target velocity, or blend fast
-        float vLerp = 1f - Mathf.Exp(-velocityLerp * Time.fixedDeltaTime);
+        float vLerp = 1f - Mathf.Exp(-velocityLerp * dt);
         // Force override other physics by setting velocity 'last'
         rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, desiredVel, vLerp * weight);
 
@@ -219,7 +232,7 @@ public class PathAutoPilot : MonoBehaviour
 
             Quaternion targetRot = Quaternion.LookRotation(dir, Vector3.up);
             // Slerp for smoothness, but apply DIRECTLY to rotation to bypass RB inertia
-            float rLerp = 1f - Mathf.Exp(-rotationLerp * Time.fixedDeltaTime);
+            float rLerp = 1f - Mathf.Exp(-rotationLerp * dt);
             rb.rotation = Quaternion.Slerp(rb.rotation, targetRot, rLerp * weight);
         }
     }

@@ -1,8 +1,9 @@
 using UnityEngine;
 using TMPro;
+using Fusion;
 
 [ExecuteAlways]
-public class DiceRingIndicator : MonoBehaviour
+public class DiceRingIndicator : NetworkBehaviour
 {
     [Header("Text (TMP) - assign ALL duplicated TMPs here")]
     public TMP_Text[] tmpTexts;
@@ -84,9 +85,16 @@ public class DiceRingIndicator : MonoBehaviour
     [Tooltip("Flip if text appears backwards.")]
     public bool invertFacing = false;
 
-    [Header("Read-only (for later teleport logic)")]
-    [SerializeField] private bool isForward = true;
-    [SerializeField] private int diceValue = 1;
+    [Header("Network State")]
+    [Networked]
+    public NetworkBool IsForward { get; set; } = true;
+
+    [Networked]
+    public int DiceValue { get; set; } = 1;
+
+    // Local backing fields for Edit Mode
+    [SerializeField, HideInInspector] private bool _localIsForward = true;
+    [SerializeField, HideInInspector] private int _localDiceValue = 1;
 
     MaterialPropertyBlock _mpb;
     float _t;
@@ -95,8 +103,25 @@ public class DiceRingIndicator : MonoBehaviour
     float _lastAppliedIntensity = -9999f;
     Color _lastAppliedBaseCol = new Color(999, 999, 999, 999);
 
-    public bool IsForward => isForward;
-    public int DiceValue => diceValue;
+    public bool CurrentIsForward => Object != null ? (bool)IsForward : _localIsForward;
+    public int CurrentDiceValue => Object != null ? DiceValue : _localDiceValue;
+
+    // Fusion Spawned
+    public override void Spawned()
+    {
+        if (Object.HasStateAuthority)
+        {
+            if (rollOnStart) Roll();
+        }
+        ApplyVisuals(force: true);
+    }
+
+    public override void Render()
+    {
+        // Update visuals every render frame based on networked state
+        // The specific apply methods internally check if changes are needed
+        ApplyVisuals(force: false);
+    }
 
     void OnEnable()
     {
@@ -104,9 +129,13 @@ public class DiceRingIndicator : MonoBehaviour
         EnableEmissionKeyword();
 
         TryAutoFindTarget();
+        
+        // In Edit mode or non-networked play (if any), apply visuals immediately
+        if (!Application.isPlaying || Object == null)
+        {
+             ApplyVisuals(force: true);
+        }
 
-        if (Application.isPlaying && rollOnStart) Roll();
-        ApplyVisuals(force: true);
         FaceAllTMP();
     }
 
@@ -123,18 +152,30 @@ public class DiceRingIndicator : MonoBehaviour
             return;
         }
 
-        if (autoRoll)
+        // Only the State Authority (Server/Host) rolls the dice
+        if (Object != null && Object.HasStateAuthority && autoRoll)
         {
             _t += Time.deltaTime;
             if (_t >= rollInterval)
             {
                 _t = 0f;
-                Roll(); // Roll applies visuals
+                Roll(); // Roll modifies Networked vars -> triggers OnStateChanged -> ApplyVisuals
                 return;
             }
         }
+        else if (Object == null && autoRoll) // Fallback for local testing if not spawned yet
+        {
+             _t += Time.deltaTime;
+             if (_t >= rollInterval)
+             {
+                 _t = 0f;
+                 Roll();
+                 return;
+             }
+        }
 
         ApplyEmissionOnlyIfChanged();
+        // Constant update not strictly needed for TMP if values don't change, but ensuring we refresh facing
     }
 
     void LateUpdate()
@@ -149,41 +190,70 @@ public class DiceRingIndicator : MonoBehaviour
     [ContextMenu("Roll Now")]
     public void Roll()
     {
+        // Only run logic if we are server, or if we are not networked (e.g. editor time or pre-spawn)
+        if (Object != null && !Object.HasStateAuthority) return;
+
+        bool nextIsForward;
+        int nextValue;
+
         if (randomPlusMinus6)
         {
-            diceValue = Random.Range(1, 7);
-            isForward = Random.value > 0.5f;
-            ApplyVisuals(force: true);
-            return;
+            nextValue = Random.Range(1, 7);
+            nextIsForward = Random.value > 0.5f;
         }
-
-        if (outcomes == null || outcomes.Length == 0) return;
-
-        float totalWeight = 0f;
-        for (int i = 0; i < outcomes.Length; i++) totalWeight += outcomes[i].probability;
-
-        float rnd = Random.Range(0f, totalWeight);
-        float current = 0f;
-
-        for (int i = 0; i < outcomes.Length; i++)
+        else
         {
-            current += outcomes[i].probability;
-            if (rnd <= current)
+            if (outcomes == null || outcomes.Length == 0) return;
+
+            float totalWeight = 0f;
+            for (int i = 0; i < outcomes.Length; i++) totalWeight += outcomes[i].probability;
+
+            float rnd = Random.Range(0f, totalWeight);
+            float current = 0f;
+
+            nextIsForward = outcomes[0].isForward;
+            nextValue = outcomes[0].value;
+
+            for (int i = 0; i < outcomes.Length; i++)
             {
-                isForward = outcomes[i].isForward;
-                diceValue = outcomes[i].value;
-                break;
+                current += outcomes[i].probability;
+                if (rnd <= current)
+                {
+                    nextIsForward = outcomes[i].isForward;
+                    nextValue = outcomes[i].value;
+                    break;
+                }
             }
         }
 
-        ApplyVisuals(force: true);
+        if (Object != null)
+        {
+            IsForward = nextIsForward;
+            DiceValue = nextValue;
+        }
+        else
+        {
+            _localIsForward = nextIsForward;
+            _localDiceValue = nextValue;
+            ApplyVisuals(force: true);
+        }
     }
 
     public void SetState(bool forward, int value)
     {
-        isForward = forward;
-        diceValue = value; // Direct assignment; validation is up to caller or we rely on it being correct visuals
-        ApplyVisuals(force: true);
+        if (Object != null && !Object.HasStateAuthority) return;
+
+        if (Object != null)
+        {
+            IsForward = forward;
+            DiceValue = value;
+        }
+        else
+        {
+            _localIsForward = forward;
+            _localDiceValue = value;
+            ApplyVisuals(force: true);
+        }
     }
 
     // Runtime-safe assignment (useful if you spawn aircraft / additive scenes)
@@ -200,8 +270,11 @@ public class DiceRingIndicator : MonoBehaviour
 
     void ApplyTMP()
     {
-        string s = showSign ? ((isForward ? "+" : "-") + diceValue) : diceValue.ToString();
-        Color tmpCol = isForward ? tmpForwardGreen : tmpBackwardRed;
+        bool fwd = CurrentIsForward;
+        int val = CurrentDiceValue;
+
+        string s = showSign ? ((fwd ? "+" : "-") + val) : val.ToString();
+        Color tmpCol = fwd ? tmpForwardGreen : tmpBackwardRed;
 
         if (tmpTexts != null)
         {
@@ -222,7 +295,8 @@ public class DiceRingIndicator : MonoBehaviour
 
     void ApplyEmissionOnlyIfChanged()
     {
-        Color baseCol = isForward ? forwardGreen : backwardRed;
+        bool fwd = CurrentIsForward;
+        Color baseCol = fwd ? forwardGreen : backwardRed;
         float intensityNow = GetCurrentIntensity();
 
         if (Mathf.Abs(intensityNow - _lastAppliedIntensity) < 0.0001f &&
@@ -234,7 +308,8 @@ public class DiceRingIndicator : MonoBehaviour
 
     void ApplyEmission(bool force)
     {
-        Color ringBaseCol = isForward ? forwardGreen : backwardRed;
+        bool fwd = CurrentIsForward;
+        Color ringBaseCol = fwd ? forwardGreen : backwardRed;
         float intensity = GetCurrentIntensity();
 
         _lastAppliedIntensity = intensity;
