@@ -1,6 +1,9 @@
 using UnityEngine;
 using Fusion;
 using VSX.Engines3D;
+using VSX.CameraSystem;
+using VSX.Vehicles;
+using VSX.VehicleCombatKits;
 
 namespace GV.Network
 {
@@ -40,6 +43,47 @@ namespace GV.Network
             }
             
             Debug.Log($"[NetworkedSpaceshipBridge] Spawned - will check authority on first network tick");
+
+            // --- ADDED: Camera Setup since we are on the client ---
+            if (Object.HasInputAuthority)
+            {
+                Debug.Log($"[NetworkedSpaceshipBridge] We have InputAuthority! Setting up camera.");
+                SetupCamera();
+            }
+        }
+
+        private void SetupCamera()
+        {
+             // Find the Vehicle component on the spawned player
+            var vehicle = GetComponentInChildren<Vehicle>(true);
+            if (vehicle == null)
+            {
+                Debug.LogWarning("[NetworkedSpaceshipBridge] No Vehicle found on spawned player!");
+                return;
+            }
+            
+            // Find the VehicleCamera in the scene (SpaceCombatKit's camera system)
+            var vehicleCamera = FindFirstObjectByType<VehicleCamera>();
+            if (vehicleCamera != null)
+            {
+                vehicleCamera.SetVehicle(vehicle);
+                Debug.Log($"[NetworkedSpaceshipBridge] VehicleCamera now following: {vehicle.name}");
+                return;
+            }
+             // Fallback: try generic CameraEntity
+            var cameraEntity = FindFirstObjectByType<CameraEntity>();
+            if (cameraEntity != null)
+            {
+                var cameraTarget = GetComponentInChildren<CameraTarget>(true);
+                if (cameraTarget != null)
+                {
+                    cameraEntity.SetCameraTarget(cameraTarget);
+                    Debug.Log($"[NetworkedSpaceshipBridge] CameraEntity now following: {name}");
+                    return;
+                }
+            }
+
+            Debug.LogWarning("[NetworkedSpaceshipBridge] No camera system found for local player!");
         }
         
         private void CheckAuthorityAndSetupInput()

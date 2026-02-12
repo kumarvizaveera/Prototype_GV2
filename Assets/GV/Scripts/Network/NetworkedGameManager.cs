@@ -46,8 +46,11 @@ namespace GV.Network
             Instance = this;
         }
         
+        private bool _isSpawned = false;
+
         public override void Spawned()
         {
+            _isSpawned = true;
             if (Object.HasStateAuthority)
             {
                 CurrentState = GameState.WaitingForPlayers;
@@ -181,6 +184,7 @@ namespace GV.Network
         {
             if (NetworkManager.Instance == null || !NetworkManager.Instance.IsConnected) return;
             if (Object == null || !Object.IsValid) return;
+            if (!_isSpawned) return; // Wait for Spawned() to be called
             
             GUILayout.BeginArea(new Rect(Screen.width / 2 - 100, 10, 200, 80));
             GUILayout.BeginVertical("box");
