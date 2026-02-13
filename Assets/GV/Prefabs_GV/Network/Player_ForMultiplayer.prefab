@@ -1918,7 +1918,7 @@ MonoBehaviour:
   moduleLayer: Default
   loadExistingChildModules: 1
   defaultModulePrefabs:
-  - {fileID: 114115692733585616, guid: 21757be9c8dc0cc419d6fa0daaf8102b, type: 3}
+  - {fileID: 114115692733585616, guid: 98c94a88a4585254582bf7065b695924, type: 3}
   createDefaultModulesAtStart: 1
   onModuleMounted:
     m_PersistentCalls:
@@ -3013,6 +3013,7 @@ MonoBehaviour:
   - {fileID: 1301586559464983885}
   - {fileID: 3420246686420463674}
   - {fileID: 8112468108042422247}
+  - {fileID: 3809411344610667540}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &8293294363971003067
 MonoBehaviour:
@@ -3383,7 +3384,7 @@ MonoBehaviour:
   moduleLayer: Default
   loadExistingChildModules: 1
   defaultModulePrefabs:
-  - {fileID: 114115692733585616, guid: 21757be9c8dc0cc419d6fa0daaf8102b, type: 3}
+  - {fileID: 114115692733585616, guid: 98c94a88a4585254582bf7065b695924, type: 3}
   createDefaultModulesAtStart: 1
   onModuleMounted:
     m_PersistentCalls:
@@ -3820,7 +3821,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7098662260982550191}
-  - component: {fileID: 6037953570006407854}
+  - component: {fileID: 3809411344610667540}
   m_Layer: 0
   m_Name: SecondaryMounts_Vimana
   m_TagString: Untagged
@@ -3847,7 +3848,7 @@ Transform:
   - {fileID: 8381362049986770135}
   m_Father: {fileID: 7903389420891630645}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6037953570006407854
+--- !u!114 &3809411344610667540
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3856,9 +3857,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 6073448470308120719}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 29a5fab7ccba52a478d075ba1d72c1d7, type: 3}
+  m_Script: {fileID: 11500000, guid: a93b4d8316bfd904db368428e0dcf71d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GV.Scripts.MissileCycleController
+  m_EditorClassIdentifier: Assembly-CSharp::GV.Scripts.MissileCycleControllerDynamic
   missileMounts:
   - mount: {fileID: 9131629011506781721}
     statsText: {fileID: 7563538572317199935}
@@ -3881,7 +3882,7 @@ MonoBehaviour:
   activeTextMaterial: {fileID: 2100000, guid: 9e9b6508c66995349aa688a06c2cd175, type: 2}
   inactiveTextMaterial: {fileID: 2100000, guid: 9a5ac4e6a2501c546bd13e9446fefa2a,
     type: 2}
-  emptyTextMaterial: {fileID: 0}
+  emptyTextMaterial: {fileID: 2100000, guid: 9dec41b37e05ff849b1b5b29aee27d61, type: 2}
 --- !u!1 &6277993804557570670
 GameObject:
   m_ObjectHideFlags: 0
@@ -4661,7 +4662,7 @@ MonoBehaviour:
   moduleLayer: Default
   loadExistingChildModules: 1
   defaultModulePrefabs:
-  - {fileID: 114115692733585616, guid: 21757be9c8dc0cc419d6fa0daaf8102b, type: 3}
+  - {fileID: 114115692733585616, guid: 98c94a88a4585254582bf7065b695924, type: 3}
   createDefaultModulesAtStart: 1
   onModuleMounted:
     m_PersistentCalls:
@@ -9200,7 +9201,7 @@ PrefabInstance:
     - target: {fileID: 2322834899752569209, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       propertyPath: fillToCapacityAfterEmptiedPause
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2323833520569420179, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
