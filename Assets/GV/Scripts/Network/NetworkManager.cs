@@ -30,6 +30,9 @@ namespace GV.Network
         [Header("Debug")]
         [SerializeField] private bool showDebugUI = true;
         
+        [Header("Auto Start")]
+        [SerializeField] private bool autoHostInBuild = true;
+        
         public NetworkRunner Runner { get; private set; }
         public bool IsConnected => Runner != null && Runner.IsRunning;
         
@@ -51,6 +54,15 @@ namespace GV.Network
             
             Instance = this;
             DontDestroyOnLoad(gameObject);
+        }
+
+        private void Start()
+        {
+            if (!Application.isEditor && autoHostInBuild)
+            {
+                Debug.Log("[NetworkManager] Auto-starting as Host (Build)...");
+                StartHost();
+            }
         }
         
         private void Update()
