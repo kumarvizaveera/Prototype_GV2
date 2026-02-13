@@ -300,7 +300,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: -2
+  m_text: +1
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -311,7 +311,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4278190335
-  m_fontColor: {r: 1, g: 0, b: 0, a: 1}
+  m_fontColor: {r: 0, g: 1, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -431,8 +431,12 @@ MonoBehaviour:
   faceCamera: 1
   faceYawOnly: 1
   invertFacing: 0
-  isForward: 0
-  diceValue: 4
+  _IsForward:
+    _value: 1
+  _DiceValue: 1
+  _localIsForward: 1
+  _localDiceValue: 1
+  randomPlusMinus6: 0
 --- !u!1 &1909365673610054784
 GameObject:
   m_ObjectHideFlags: 0
@@ -837,7 +841,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: -2
+  m_text: +1
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -848,7 +852,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4278190335
-  m_fontColor: {r: 1, g: 0, b: 0, a: 1}
+  m_fontColor: {r: 0, g: 1, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -968,8 +972,12 @@ MonoBehaviour:
   faceCamera: 1
   faceYawOnly: 1
   invertFacing: 0
-  isForward: 0
-  diceValue: 6
+  _IsForward:
+    _value: 1
+  _DiceValue: 1
+  _localIsForward: 1
+  _localDiceValue: 1
+  randomPlusMinus6: 0
 --- !u!1 &4298653785545571932
 GameObject:
   m_ObjectHideFlags: 0
@@ -1066,8 +1074,12 @@ MonoBehaviour:
   faceCamera: 1
   faceYawOnly: 1
   invertFacing: 1
-  isForward: 0
-  diceValue: 2
+  _IsForward:
+    _value: 1
+  _DiceValue: 1
+  _localIsForward: 1
+  _localDiceValue: 1
+  randomPlusMinus6: 0
 --- !u!1 &4584702681082624461
 GameObject:
   m_ObjectHideFlags: 0
@@ -1481,7 +1493,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: -2
+  m_text: +1
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -1492,7 +1504,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4278190335
-  m_fontColor: {r: 1, g: 0, b: 0, a: 1}
+  m_fontColor: {r: 0, g: 1, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1612,8 +1624,12 @@ MonoBehaviour:
   faceCamera: 1
   faceYawOnly: 1
   invertFacing: 0
-  isForward: 0
-  diceValue: 6
+  _IsForward:
+    _value: 1
+  _DiceValue: 1
+  _localIsForward: 1
+  _localDiceValue: 1
+  randomPlusMinus6: 0
 --- !u!1 &7491160422042149239
 GameObject:
   m_ObjectHideFlags: 0
@@ -1853,7 +1869,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShortcutCrystalJump
   manualTriggerOnly: 0
-  powerUpType: 0
   network: {fileID: 0}
   dice: {fileID: 4010602391145724695}
   requirePlayerTag: 1
@@ -1983,7 +1998,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: -2
+  m_text: +1
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 3d48b0671c3fe8141af61719628e3e7d, type: 2}
   m_sharedMaterial: {fileID: 9123942880416622910, guid: 3d48b0671c3fe8141af61719628e3e7d,
@@ -1994,7 +2009,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4278190335
-  m_fontColor: {r: 1, g: 0, b: 0, a: 1}
+  m_fontColor: {r: 0, g: 1, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -2114,5 +2129,9 @@ MonoBehaviour:
   faceCamera: 1
   faceYawOnly: 1
   invertFacing: 0
-  isForward: 1
-  diceValue: 2
+  _IsForward:
+    _value: 1
+  _DiceValue: 1
+  _localIsForward: 1
+  _localDiceValue: 1
+  randomPlusMinus6: 0
