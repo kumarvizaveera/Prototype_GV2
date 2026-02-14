@@ -41,9 +41,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/SpaceCombatKit/VehicleCombatKits/Scenes/EnterableTurrets.unity
     guid: dbfdc6cceaf2f7d4dbcf5464d0fd27e3
-  - enabled: 1
+  - enabled: 0
     path: Assets/Build tests.unity
     guid: f0f91d789a45ca54196a2c4088a7e222
+  - enabled: 1
+    path: Assets/BR_Tests_ClaudeCoWork.unity
+    guid: e71f72a3103a6ad46ba443cf0df5b540
   m_configObjects:
     com.unity.input.settings: {fileID: 11400000, guid: 15762e7d1852b174496d703157a471ea,
       type: 2}
