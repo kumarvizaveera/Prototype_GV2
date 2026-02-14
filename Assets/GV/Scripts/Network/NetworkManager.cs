@@ -32,6 +32,7 @@ namespace GV.Network
         
         [Header("Auto Start")]
         [SerializeField] private bool autoHostInBuild = true;
+        [SerializeField] private string fixedRegion = "us"; // Force US region by default
         
         public NetworkRunner Runner { get; private set; }
         public bool IsConnected => Runner != null && Runner.IsRunning;
@@ -54,6 +55,9 @@ namespace GV.Network
             
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            
+            // Critical for local testing on same machine (prevents Host from pausing when alt-tabbed)
+            Application.runInBackground = true;
         }
 
         private void Start()
@@ -98,7 +102,7 @@ namespace GV.Network
             Debug.Log("[NetworkManager] Starting as Client...");
             await StartGame(GameMode.Client);
         }
-        
+
         private async Task StartGame(GameMode mode)
         {
             // Create runner if needed
@@ -121,13 +125,42 @@ namespace GV.Network
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             sceneInfo.AddSceneRef(SceneRef.FromIndex(scene.buildIndex));
             
+            // Setup AppSettings with fixed region and fallback AppID
+            var appSettings = new Fusion.Photon.Realtime.FusionAppSettings();
+            
+            string appId = "";
+            string appVersion = "1.0";
+            
+            if (Fusion.Photon.Realtime.PhotonAppSettings.Global != null && 
+                Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings != null)
+            {
+                appId = Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings.AppIdFusion;
+                appVersion = Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings.AppVersion;
+            }
+            
+            // Fail-safe: Hardcode the known AppID if retrieval failed
+            if (string.IsNullOrEmpty(appId))
+            {
+                Debug.LogWarning("[NetworkManager] Could not find AppID in Global Settings! Using Fallback.");
+                appId = "4f22d424-faf1-48c0-a0f6-ef7db60063dc";
+            }
+            
+            appSettings.AppIdFusion = appId;
+            appSettings.AppVersion = appVersion;
+            appSettings.FixedRegion = fixedRegion;
+            appSettings.UseNameServer = true;
+            
+            Debug.Log($"[NetworkManager] Starting game. Region: {fixedRegion}, AppID: ...{appId.Substring(Math.Max(0, appId.Length - 4))}");
+            _lastError = $"Starting... Region: {fixedRegion}"; // Show status in UI
+
             var result = await Runner.StartGame(new StartGameArgs
             {
                 GameMode = mode,
                 SessionName = "GV_Race",
                 PlayerCount = maxPlayers,
                 Scene = sceneInfo,
-                SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
+                SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>(),
+                CustomPhotonAppSettings = appSettings
             });
             
             // Add callbacks after starting (Fusion 2 pattern)
@@ -150,6 +183,7 @@ namespace GV.Network
             else
             {
                 Debug.LogError($"[NetworkManager] Failed to start: {result.ShutdownReason}");
+                _lastError = $"Failed: {result.ShutdownReason}";
             }
         }
         
@@ -160,6 +194,8 @@ namespace GV.Network
                 Runner.Shutdown();
             }
         }
+        
+        // ... (spawn logic omitted for brevity, keeping existing methods) ...
         
         private Vector3 GetSpawnPosition(PlayerRef player)
         {
@@ -180,7 +216,7 @@ namespace GV.Network
             }
             return Quaternion.identity;
         }
-        
+
         private void SetupCameraFollow(GameObject playerObject)
         {
             Debug.Log($"[NetworkManager] SetupCameraFollow called for: {playerObject.name}");
@@ -280,15 +316,23 @@ namespace GV.Network
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
         {
             Debug.Log($"[NetworkManager] Shutdown: {shutdownReason}");
+            _lastError = $"Shutdown: {shutdownReason}";
             OnDisconnectedEvent?.Invoke(runner, shutdownReason);
             _spawnedPlayers.Clear();
             Runner = null;
         }
-        
-        public void OnConnectedToServer(NetworkRunner runner) { }
+
+        public void OnConnectedToServer(NetworkRunner runner) 
+        {
+            Debug.Log($"[NetworkManager] Connected to server. Region: {runner.SessionInfo.Region}");
+            _currentRegion = runner.SessionInfo.Region;
+        }
         public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
         public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { request.Accept(); }
-        public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
+        public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) 
+        {
+            _lastError = $"Connect Failed: {reason}";
+        }
         public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
         public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
         public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
@@ -302,13 +346,33 @@ namespace GV.Network
         
         #endregion
         
+        private string _lastError = "";
+        private string _currentRegion = "Unknown";
+        
         private void OnGUI()
         {
             if (!showDebugUI) return;
             
-            GUILayout.BeginArea(new Rect(10, 10, 200, 150));
+            GUILayout.BeginArea(new Rect(10, 10, 300, 250));
             GUILayout.BeginVertical("box");
             
+            GUILayout.Label($"Region: {_currentRegion}");
+            
+            if (Runner != null)
+            {
+                 GUILayout.Label($"State: {Runner.State}");
+                 var globalSettings = Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings;
+                 if (globalSettings != null && !string.IsNullOrEmpty(globalSettings.AppIdFusion))
+                    GUILayout.Label($"AppID: ...{(globalSettings.AppIdFusion.Length > 4 ? globalSettings.AppIdFusion.Substring(globalSettings.AppIdFusion.Length - 4) : "???")}");
+            }
+
+            if (!string.IsNullOrEmpty(_lastError))
+            {
+                GUI.color = Color.yellow;
+                GUILayout.Label($"Status: {_lastError}");
+                GUI.color = Color.white;
+            }
+
             if (!IsConnected)
             {
                 GUILayout.Label("Photon Fusion 2");
@@ -322,6 +386,7 @@ namespace GV.Network
             {
                 GUILayout.Label($"Connected as {(Runner.IsServer ? "Host" : "Client")}");
                 GUILayout.Label($"Players: {Runner.ActivePlayers.Count()}");
+                GUILayout.Label($"Session: {Runner.SessionInfo.Name}");
                 if (GUILayout.Button("Disconnect")) Disconnect();
             }
             
