@@ -12,6 +12,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Projectile_Energy_VehicleWeapon
       objectReference: {fileID: 0}
+    - target: {fileID: 1649931267902942, guid: 33b80b6b4c5e5e54f9b3d5be851cdb1d, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4140573685538426, guid: 33b80b6b4c5e5e54f9b3d5be851cdb1d, type: 3}
       propertyPath: m_RootOrder
       value: 0
@@ -61,6 +65,11 @@ PrefabInstance:
       propertyPath: hitMask.m_Bits
       value: 245555
       objectReference: {fileID: 0}
+    - target: {fileID: 120987921870114206, guid: 33b80b6b4c5e5e54f9b3d5be851cdb1d,
+        type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: be6131e992eb42c42bae7e11bdf5d183, type: 2}
     - target: {fileID: 120987921870114206, guid: 33b80b6b4c5e5e54f9b3d5be851cdb1d,
         type: 3}
       propertyPath: m_Positions.Array.data[1].z
