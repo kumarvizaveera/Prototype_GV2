@@ -4,6 +4,7 @@ using VSX.VehicleCombatKits; // Namespace where VehicleHealth likely resides
 using VSX.Health;            // Namespace for Damageable/HealthType
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 
 namespace GV.Network
 {
@@ -21,6 +22,17 @@ namespace GV.Network
 
         [Header("Visuals")]
         [SerializeField] private Transform sphereVisual;
+
+        [Header("UI")]
+        [SerializeField] private TextMeshProUGUI timerText;
+        [Tooltip("Text shown before the timer. e.g. \"Sphere zone is shrinking in \"")]
+        [SerializeField] private string timerPrefix = "";
+        [Tooltip("Text shown after the timer. e.g. \" remaining\"")]
+        [SerializeField] private string timerSuffix = "";
+        [Tooltip("Text shown when the shrink timer has finished.")]
+        [SerializeField] private string timerFinishedText = "00:00";
+        [Tooltip("Text shown before shrinking starts. Leave empty to show full duration.")]
+        [SerializeField] private string timerIdleText = "";
 
         [Networked] public float CurrentRadius { get; set; }
         [Networked] public NetworkBool IsShrinking { get; set; }
@@ -83,6 +95,45 @@ namespace GV.Network
                 // Diameter = Radius * 2
                 float diameter = CurrentRadius * 2f;
                 sphereVisual.localScale = new Vector3(diameter, diameter, diameter);
+            }
+
+            // Update timer UI on all clients
+            if (timerText != null)
+            {
+                if (IsShrinking && ShrinkTimer.IsRunning)
+                {
+                    float? remaining = ShrinkTimer.RemainingTime(Runner);
+                    if (remaining.HasValue && remaining.Value > 0f)
+                    {
+                        int totalSeconds = Mathf.CeilToInt(remaining.Value);
+                        int minutes = totalSeconds / 60;
+                        int seconds = totalSeconds % 60;
+                        timerText.text = $"{timerPrefix}{minutes:00}:{seconds:00}{timerSuffix}";
+                    }
+                    else
+                    {
+                        timerText.text = timerFinishedText;
+                    }
+                }
+                else if (!IsShrinking && CurrentRadius <= minRadius)
+                {
+                    timerText.text = timerFinishedText;
+                }
+                else
+                {
+                    // Not yet started
+                    if (!string.IsNullOrEmpty(timerIdleText))
+                    {
+                        timerText.text = timerIdleText;
+                    }
+                    else
+                    {
+                        int totalSeconds = Mathf.CeilToInt(shrinkDuration);
+                        int minutes = totalSeconds / 60;
+                        int seconds = totalSeconds % 60;
+                        timerText.text = $"{timerPrefix}{minutes:00}:{seconds:00}{timerSuffix}";
+                    }
+                }
             }
         }
 
