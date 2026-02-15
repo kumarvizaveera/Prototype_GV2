@@ -23,6 +23,7 @@ namespace GV.Network
         [SerializeField] private NetworkRunner runnerPrefab;
         [SerializeField] private NetworkObject playerPrefab;
         [SerializeField] private int maxPlayers = 4;
+        [SerializeField] private LevelSynchronizer levelSynchronizerPrefab;
         
         [Header("Spawn Points")]
         [SerializeField] private Transform[] spawnPoints;
@@ -179,6 +180,12 @@ namespace GV.Network
             {
                 Debug.Log($"[NetworkManager] Started game as {mode}");
                 OnConnectedEvent?.Invoke(Runner);
+
+                if (Runner.IsServer && levelSynchronizerPrefab != null)
+                {
+                    Runner.Spawn(levelSynchronizerPrefab);
+                    Debug.Log("[NetworkManager] Spawned LevelSynchronizer");
+                }
             }
             else
             {

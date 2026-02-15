@@ -17,7 +17,8 @@ namespace VSX.UniversalVehicleCombat
         {
 			Awake,
 			Start,
-			OnEnable
+			OnEnable,
+            Scripted
         }
 
 		[SerializeField]
@@ -104,7 +105,7 @@ namespace VSX.UniversalVehicleCombat
 		/// <summary>
 		/// Create the objects in the scene
 		/// </summary>
-		protected virtual void CreateObjects()
+		public virtual void CreateObjects()
 		{
 			for (int i = 0; i < numX; ++i)
 			{

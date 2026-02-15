@@ -61,8 +61,18 @@ public class ExistingObjectsToCheckpoints : MonoBehaviour
     // The actual start index used this session (for debugging)
     private int actualStartIndex;
 
-    void Start()
+    System.Collections.IEnumerator Start()
     {
+        // Wait until the LevelSynchronizer is ready and has a valid seed
+        while (GV.Network.LevelSynchronizer.Instance == null)
+        {
+            yield return null;
+        }
+
+        // Combine the global level seed with a unique offset for this script
+        int seed = GV.Network.LevelSynchronizer.Instance.LevelSeed + transform.position.GetHashCode() + 12345; // Added constant to differentiate from MassObjectSpawner
+        Random.InitState(seed);
+
         // At runtime, snap all objects to their calculated positions
         SnapAllToCheckpoints();
     }
