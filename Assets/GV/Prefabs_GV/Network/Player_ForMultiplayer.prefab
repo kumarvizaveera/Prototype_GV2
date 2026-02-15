@@ -9217,7 +9217,7 @@ PrefabInstance:
     - target: {fileID: 2322834899752569209, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       propertyPath: fillToCapacityAfterEmptiedPause
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2323833520569420179, guid: c11c75430698989468fe532c3b045fae,
         type: 3}

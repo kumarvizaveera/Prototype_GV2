@@ -54,6 +54,21 @@ namespace GV.Network
                       $"HasStateAuthority: {Object.HasStateAuthority}, " +
                       $"InputAuthority: {Object.InputAuthority}");
 
+            // --- CRITICAL: Make Rigidbody kinematic on non-authority instances ---
+            // The prefab uses Rigidbody for physics movement but only has NetworkTransform (not NetworkRigidbody3D).
+            // Without this, the local Rigidbody fights NetworkTransform and the ship stays stuck at spawn.
+            // Only the state authority (host) should run physics; everyone else lets NetworkTransform drive position.
+            if (!Object.HasStateAuthority)
+            {
+                var rb = GetComponentInChildren<Rigidbody>(true);
+                if (rb != null)
+                {
+                    rb.isKinematic = true;
+                    rb.interpolation = RigidbodyInterpolation.None; // Let NetworkTransform handle interpolation
+                    Debug.Log($"[NetworkedSpaceshipBridge] Made Rigidbody kinematic (no state authority)");
+                }
+            }
+
             // --- Immediately disable input on remote player ships ---
             // This MUST happen right away to prevent both ships responding to same keyboard
             bool isLocalPlayer = Object.HasInputAuthority;
@@ -214,26 +229,94 @@ namespace GV.Network
                 Debug.Log($"[NetworkedSpaceshipBridge] Disabled Unity PlayerInput on: {upi.gameObject.name}");
             }
 
-            // 5. Disable GameAgentManager on remote ships to prevent it from
-            //    forwarding input or interfering with the local player's agent
-            var gameAgentManagers = GetComponentsInChildren<VSX.Vehicles.GameAgentManager>(true);
-            foreach (var gam in gameAgentManagers)
+            // 5. Handle GameAgent on remote ships:
+            //    - Unregister from GameAgentManager (prevents interference with host's focused agent)
+            //    - Manually enter the vehicle so SCK's ModuleManagers activate (renders weapons, effects, etc.)
+            //    - Then destroy the GameAgent component so it can't interfere further
+            //    Note: GameAgent.Awake() already registered before Spawned(), so we must unregister.
+            //    Note: startingVehicle is null on the prefab, so EnterVehicle never runs in Start().
+            //    We need to call it ourselves to activate the vehicle's module system.
+            var vehicle = GetComponentInChildren<Vehicle>(true);
+            var gameAgents = GetComponentsInChildren<GameAgent>(true);
+            foreach (var ga in gameAgents)
             {
-                gam.enabled = false;
-                Debug.Log($"[NetworkedSpaceshipBridge] Disabled GameAgentManager on: {gam.gameObject.name}");
+                // Unregister from the singleton to prevent any scene-level reactions
+                if (GameAgentManager.Instance != null)
+                {
+                    GameAgentManager.Instance.Unregister(ga);
+                    Debug.Log($"[NetworkedSpaceshipBridge] Unregistered remote GameAgent: {ga.name}");
+                }
+
+                // Manually enter the vehicle to activate SCK's ModuleManagers
+                // This makes weapons, effects, and visual modules visible
+                if (vehicle != null && !ga.IsInVehicle)
+                {
+                    ga.EnterVehicle(vehicle);
+                    Debug.Log($"[NetworkedSpaceshipBridge] Entered vehicle for remote ship activation: {vehicle.name}");
+                }
+
+                // Now destroy the GameAgent component entirely
+                // (the vehicle stays entered, modules stay active, but no further interference)
+                Destroy(ga);
+                Debug.Log($"[NetworkedSpaceshipBridge] Destroyed GameAgent on remote ship: {ga.gameObject.name}");
             }
+
+            // Re-disable any VehicleInput scripts that EnterVehicle() may have re-initialized
+            var reactivatedInputs = GetComponentsInChildren<VehicleInput>(true);
+            foreach (var vi in reactivatedInputs)
+            {
+                ((MonoBehaviour)vi).enabled = false;
+            }
+            var reactivatedGeneralInputs = GetComponentsInChildren<VSX.Controls.GeneralInput>(true);
+            foreach (var gi in reactivatedGeneralInputs)
+            {
+                ((MonoBehaviour)gi).enabled = false;
+            }
+            Debug.Log($"[NetworkedSpaceshipBridge] Re-disabled {reactivatedInputs.Length} input scripts after vehicle activation");
         }
+
+        // Debug flags
+        private float _lastDebugTime = 0f;
+        private bool _loggedFirstTick = false;
 
         public override void FixedUpdateNetwork()
         {
+            // ONE-TIME unconditional log to confirm FixedUpdateNetwork is running
+            if (!_loggedFirstTick)
+            {
+                _loggedFirstTick = true;
+                var rb = GetComponentInChildren<Rigidbody>();
+                Debug.Log($"[NetworkedSpaceshipBridge] FIRST TICK on {gameObject.name} - " +
+                          $"StateAuth:{Object.HasStateAuthority}, InputAuth:{Object.HasInputAuthority}, " +
+                          $"engines:{(engines != null ? engines.name : "NULL")}, " +
+                          $"rb.isKinematic:{rb?.isKinematic}, pos:{transform.position}");
+            }
+
             // Safety: re-check authority on first tick in case Spawned() ran before authority was assigned
             CheckAuthorityAndSetupInput();
 
-            if (engines == null) return;
+            if (engines == null)
+            {
+                if (Time.time - _lastDebugTime > 2f)
+                {
+                    _lastDebugTime = Time.time;
+                    Debug.LogWarning($"[NetworkedSpaceshipBridge] engines is NULL on {gameObject.name}!");
+                }
+                return;
+            }
 
             // Try to get networked input for this player
             var input = GetInput<PlayerInputData>();
-            if (!input.HasValue) return;
+            if (!input.HasValue)
+            {
+                if (Time.time - _lastDebugTime > 2f)
+                {
+                    _lastDebugTime = Time.time;
+                    Debug.LogWarning($"[NetworkedSpaceshipBridge] No input for {gameObject.name} - " +
+                                    $"StateAuth:{Object.HasStateAuthority}, InputAuth:{Object.HasInputAuthority}");
+                }
+                return;
+            }
 
             var data = input.Value;
 
@@ -243,12 +326,32 @@ namespace GV.Network
             // The client's own ship movement is synced via NetworkTransform from the host.
             if (Object.HasStateAuthority && !Object.HasInputAuthority)
             {
+                // Ensure engines are activated (SCK defaults to enginesActivated=false,
+                // and the normal activation via Start()/ModuleManagers may not work on network-spawned remote ships)
+                if (!engines.EnginesActivated)
+                {
+                    engines.SetEngineActivation(true);
+                    engines.ControlsDisabled = false;
+                    Debug.Log($"[NetworkedSpaceshipBridge] Force-activated engines on remote ship {gameObject.name}");
+                }
+
                 // Host processing REMOTE player's movement
                 engines.SetSteeringInputs(data.steering);
                 engines.SetMovementInputs(data.movement);
 
                 _isBoosting = data.boost;
                 engines.SetBoostInputs(data.boost ? new Vector3(0f, 0f, 1f) : Vector3.zero);
+
+                // Debug: log every 2 seconds
+                if (Time.time - _lastDebugTime > 2f)
+                {
+                    _lastDebugTime = Time.time;
+                    var rb = GetComponentInChildren<Rigidbody>();
+                    Debug.Log($"[NetworkedSpaceshipBridge] HOST driving remote ship {gameObject.name}: " +
+                              $"movement={data.movement}, steering={data.steering}, boost={data.boost}, " +
+                              $"enginesActive={engines.EnginesActivated}, controlsDisabled={engines.ControlsDisabled}, " +
+                              $"pos={transform.position}, rb.isKinematic={rb?.isKinematic}, rb.velocity={rb?.linearVelocity}");
+                }
             }
 
             // === WEAPONS ===
