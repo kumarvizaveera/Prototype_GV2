@@ -280,18 +280,24 @@ namespace GV.Network
                 Debug.Log($"[NetworkedSpaceshipBridge] Disabled Unity PlayerInput on: {upi.gameObject.name}");
             }
 
-            // 5. DESTROY SetStartAtCheckpoint on remote ships — it teleports to checkpoint position
-            //    which fights with NetworkTransform syncing the actual position from the host.
-            //    We Destroy instead of disable because:
-            //    - Start() coroutine may have already completed the teleport before Spawned() runs
-            //    - Destroying ensures no further interference
-            //    - We also need to reset position after teleport (NetworkTransform will override on next sync)
-            var checkpointScripts = GetComponentsInChildren<SetStartAtCheckpoint>(true);
-            foreach (var cs in checkpointScripts)
+            // 5. DESTROY SetStartAtCheckpoint ONLY on PROXY ships (no state authority).
+            //    On the HOST, we have state authority over remote ships and WANT the teleport to happen
+            //    so the client's ship starts at the correct checkpoint position.
+            //    On the CLIENT, proxy ships get their position from [Networked] SyncPosition,
+            //    so SetStartAtCheckpoint would fight with our manual sync — destroy it there.
+            if (!Object.HasStateAuthority)
             {
-                cs.StopAllCoroutines(); // Stop any in-progress coroutine
-                Destroy(cs);
-                Debug.Log($"[NetworkedSpaceshipBridge] Destroyed SetStartAtCheckpoint on remote ship (would fight NetworkTransform)");
+                var checkpointScripts = GetComponentsInChildren<SetStartAtCheckpoint>(true);
+                foreach (var cs in checkpointScripts)
+                {
+                    cs.StopAllCoroutines(); // Stop any in-progress coroutine
+                    Destroy(cs);
+                    Debug.Log($"[NetworkedSpaceshipBridge] Destroyed SetStartAtCheckpoint on PROXY ship (would fight position sync)");
+                }
+            }
+            else
+            {
+                Debug.Log($"[NetworkedSpaceshipBridge] Keeping SetStartAtCheckpoint on host-controlled remote ship (will teleport to checkpoint)");
             }
 
             // 6. Handle GameAgent on remote ships:
