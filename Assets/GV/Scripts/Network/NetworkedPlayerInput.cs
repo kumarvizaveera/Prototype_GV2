@@ -39,7 +39,7 @@ namespace GV.Network
     public class NetworkedPlayerInput : MonoBehaviour, INetworkRunnerCallbacks
     {
         [Header("Settings")]
-        [SerializeField] private bool enableAutoForward = true;
+        [SerializeField] private bool enableAutoForward = false;
         
         private PlayerInputData _inputData;
         
@@ -52,33 +52,82 @@ namespace GV.Network
         
         private void CollectInput()
         {
-            // Get mouse/gamepad steering input
-            Vector2 rawSteer = Vector2.zero;
-            if (Mouse.current != null)
+            // --- STEERING ---
+            // Mouse provides pitch (vertical) and yaw (horizontal) via screen-position mode,
+            // matching SCK's PlayerInput_Base_SpaceshipControls ScreenPosition behavior.
+            // Keyboard Q/E provides roll. Arrow keys as fallback for pitch/yaw if no mouse.
+            //
+            // IMPORTANT: Mouse position is ALWAYS somewhere on screen, even when the user
+            // isn't actively steering with it. We must only use mouse steering when the mouse
+            // is inside the game window AND the window has focus. Otherwise keyboard steering
+            // would be overridden by stale mouse position (causing random spinning).
+
+            float pitch = 0f;
+            float yaw = 0f;
+            float roll = 0f;
+            bool mouseProvidedSteering = false;
+
+            // Mouse screen-position steering (SCK ScreenPosition mode)
+            // Only use mouse when: window is focused, screen size is valid, mouse is inside game window
+            if (Mouse.current != null && Application.isFocused
+                && Screen.width > 100 && Screen.height > 100)
             {
-                // For mouse steering, typically use screen position delta or direct values
-                // For now, use keyboard/gamepad as primary
+                Vector2 mousePos = Mouse.current.position.ReadValue();
+
+                // CRITICAL: Only process mouse if it's actually inside the game window.
+                // In the Unity Editor, Mouse.current.position can return coordinates outside
+                // the Game View (e.g., hovering over Console or Inspector), which would produce
+                // wild steering values and cause the ship to spin randomly.
+                bool mouseInsideWindow = mousePos.x >= 0 && mousePos.x <= Screen.width
+                                      && mousePos.y >= 0 && mousePos.y <= Screen.height;
+
+                if (mouseInsideWindow)
+                {
+                    // Convert to viewport-centered coords: -0.5 to +0.5
+                    float viewportX = (mousePos.x / Screen.width) - 0.5f;
+                    float viewportY = (mousePos.y / Screen.height) - 0.5f;
+
+                    // Dead zone and max distance (matches SCK defaults)
+                    float mouseDeadRadius = 0.1f;
+                    float maxDistance = 0.475f;
+
+                    float magnitude = new Vector2(viewportX, viewportY).magnitude;
+
+                    if (magnitude > mouseDeadRadius)
+                    {
+                        // Normalize the input from dead zone edge to max distance
+                        float amount = Mathf.Clamp01((magnitude - mouseDeadRadius) / (maxDistance - mouseDeadRadius));
+                        Vector2 direction = new Vector2(viewportX, viewportY).normalized;
+
+                        // SCK convention: -viewportY = pitch (mouse up = pitch up), viewportX = yaw
+                        pitch = -direction.y * amount;
+                        yaw = direction.x * amount;
+
+                        pitch = Mathf.Clamp(pitch, -1f, 1f);
+                        yaw = Mathf.Clamp(yaw, -1f, 1f);
+                        mouseProvidedSteering = true;
+                    }
+                }
             }
-            
+
+            // Keyboard roll (Q/E) — always active
             if (Keyboard.current != null)
             {
-                // Arrow keys for steering
-                float pitch = 0f;
-                float yaw = 0f;
-                float roll = 0f;
-                
-                if (Keyboard.current.upArrowKey.isPressed) pitch = 1f;
-                else if (Keyboard.current.downArrowKey.isPressed) pitch = -1f;
-                
-                if (Keyboard.current.rightArrowKey.isPressed) yaw = 1f;
-                else if (Keyboard.current.leftArrowKey.isPressed) yaw = -1f;
-                
                 if (Keyboard.current.qKey.isPressed) roll = 1f;
                 else if (Keyboard.current.eKey.isPressed) roll = -1f;
-                
-                rawSteer = new Vector2(yaw, pitch);
-                _inputData.steering = new Vector3(pitch, yaw, roll);
+
+                // Arrow keys as fallback only if mouse didn't provide steering
+                if (!mouseProvidedSteering)
+                {
+                    if (Keyboard.current.upArrowKey.isPressed) pitch = 1f;
+                    else if (Keyboard.current.downArrowKey.isPressed) pitch = -1f;
+
+                    if (Keyboard.current.rightArrowKey.isPressed) yaw = 1f;
+                    else if (Keyboard.current.leftArrowKey.isPressed) yaw = -1f;
+                }
             }
+
+            _inputData.steering = new Vector3(pitch, yaw, roll);
             
             // Movement (throttle and strafe)
             float throttle = 0f;

@@ -23,6 +23,17 @@ namespace GV.Network
         [Header("Input Scripts to Disable on Remote")]
         [SerializeField] private MonoBehaviour[] localInputScripts;
 
+        // --- MANUAL POSITION SYNC ---
+        // NetworkTransform alone doesn't reliably sync the host's own ship to clients.
+        // The host's ship moves via Rigidbody physics (native SCK), and NetworkTransform
+        // reads Transform.position in FixedUpdateNetwork. But the physics step may run
+        // AFTER FUN, so NetworkTransform reads stale positions. For the client's ship this
+        // isn't an issue because our bridge drives it via SetSteeringInputs within FUN.
+        // Solution: manually sync position/rotation via [Networked] properties, written by
+        // the state authority every tick, and applied on proxies in Render().
+        [Networked] private Vector3 SyncPosition { get; set; }
+        [Networked] private Quaternion SyncRotation { get; set; }
+
         // Local state for visual feedback (not networked for now)
         private bool _isBoosting;
         public bool IsBoosting => _isBoosting;
@@ -131,11 +142,43 @@ namespace GV.Network
         }
 
         /// <summary>
-        /// Retry camera setup in Update for cases where the camera isn't ready at Spawned() time.
-        /// This is critical for clients where the scene camera may initialize after the network object.
+        /// Update handles:
+        /// 1. Camera setup retry for local player
+        /// 2. Proxy position diagnostics (for host's ship on client where FixedUpdateNetwork doesn't run)
         /// </summary>
+        private float _proxyDebugTimer = 0f;
+        private bool _proxyFirstLog = false;
+
         private void Update()
         {
+            // --- PROXY DIAGNOSTIC ---
+            // In Fusion 2, FixedUpdateNetwork does NOT run on proxy objects (no state or input authority).
+            // The host's ship on the client is a proxy. We use Update() to monitor its position.
+            if (!Object.HasStateAuthority && !Object.HasInputAuthority)
+            {
+                if (!_proxyFirstLog)
+                {
+                    _proxyFirstLog = true;
+                    var rb = GetComponentInChildren<Rigidbody>();
+                    var nt = GetComponent<Fusion.NetworkTransform>();
+                    Debug.Log($"[NetworkedSpaceshipBridge] PROXY FIRST UPDATE {gameObject.name}: " +
+                              $"pos={transform.position}, enabled={this.enabled}, " +
+                              $"NetworkTransform:{(nt != null ? nt.enabled.ToString() : "MISSING")}, " +
+                              $"rb.isKinematic={rb?.isKinematic}");
+                }
+
+                _proxyDebugTimer += Time.deltaTime;
+                if (_proxyDebugTimer > 3f)
+                {
+                    _proxyDebugTimer = 0f;
+                    Debug.Log($"[NetworkedSpaceshipBridge] PROXY POS {gameObject.name}: " +
+                              $"pos={transform.position}, syncPos={SyncPosition}, " +
+                              $"rot={transform.rotation.eulerAngles}");
+                }
+                return; // Proxy doesn't need camera setup
+            }
+
+            // --- CAMERA RETRY (local player only) ---
             if (_cameraSetupDone) return;
             if (!Object.HasInputAuthority) return;
 
@@ -192,12 +235,19 @@ namespace GV.Network
         private void DisableLocalInput()
         {
             // 1. Disable explicitly assigned input scripts
+            //    SAFETY: Skip this bridge itself (NetworkedSpaceshipBridge) — if accidentally added
+            //    to localInputScripts in the Inspector, disabling it would kill FixedUpdateNetwork.
             if (localInputScripts != null)
             {
                 foreach (var script in localInputScripts)
                 {
                     if (script != null)
                     {
+                        if (script == this)
+                        {
+                            Debug.LogWarning($"[NetworkedSpaceshipBridge] SKIPPING self in localInputScripts! Remove NetworkedSpaceshipBridge from the array in the Inspector.");
+                            continue;
+                        }
                         script.enabled = false;
                         Debug.Log($"[NetworkedSpaceshipBridge] Disabled assigned script: {script.GetType().Name}");
                     }
@@ -229,7 +279,21 @@ namespace GV.Network
                 Debug.Log($"[NetworkedSpaceshipBridge] Disabled Unity PlayerInput on: {upi.gameObject.name}");
             }
 
-            // 5. Handle GameAgent on remote ships:
+            // 5. DESTROY SetStartAtCheckpoint on remote ships — it teleports to checkpoint position
+            //    which fights with NetworkTransform syncing the actual position from the host.
+            //    We Destroy instead of disable because:
+            //    - Start() coroutine may have already completed the teleport before Spawned() runs
+            //    - Destroying ensures no further interference
+            //    - We also need to reset position after teleport (NetworkTransform will override on next sync)
+            var checkpointScripts = GetComponentsInChildren<SetStartAtCheckpoint>(true);
+            foreach (var cs in checkpointScripts)
+            {
+                cs.StopAllCoroutines(); // Stop any in-progress coroutine
+                Destroy(cs);
+                Debug.Log($"[NetworkedSpaceshipBridge] Destroyed SetStartAtCheckpoint on remote ship (would fight NetworkTransform)");
+            }
+
+            // 6. Handle GameAgent on remote ships:
             //    - Unregister from GameAgentManager (prevents interference with host's focused agent)
             //    - Manually enter the vehicle so SCK's ModuleManagers activate (renders weapons, effects, etc.)
             //    - Then destroy the GameAgent component so it can't interfere further
@@ -273,6 +337,15 @@ namespace GV.Network
                 ((MonoBehaviour)gi).enabled = false;
             }
             Debug.Log($"[NetworkedSpaceshipBridge] Re-disabled {reactivatedInputs.Length} input scripts after vehicle activation");
+
+            // CRITICAL SAFETY: Ensure THIS component (NetworkedSpaceshipBridge) is still enabled.
+            // EnterVehicle() or other SCK cascades may have disabled us. FixedUpdateNetwork
+            // will NOT run if the component is disabled, which breaks all network functionality.
+            if (!this.enabled)
+            {
+                this.enabled = true;
+                Debug.LogWarning($"[NetworkedSpaceshipBridge] RE-ENABLED self after DisableLocalInput! Something disabled the bridge.");
+            }
         }
 
         // Debug flags
@@ -286,14 +359,37 @@ namespace GV.Network
             {
                 _loggedFirstTick = true;
                 var rb = GetComponentInChildren<Rigidbody>();
+                var nt = GetComponent<Fusion.NetworkTransform>();
                 Debug.Log($"[NetworkedSpaceshipBridge] FIRST TICK on {gameObject.name} - " +
                           $"StateAuth:{Object.HasStateAuthority}, InputAuth:{Object.HasInputAuthority}, " +
                           $"engines:{(engines != null ? engines.name : "NULL")}, " +
-                          $"rb.isKinematic:{rb?.isKinematic}, pos:{transform.position}");
+                          $"rb.isKinematic:{rb?.isKinematic}, pos:{transform.position}, " +
+                          $"NetworkTransform:{(nt != null ? "YES" : "MISSING")}");
+            }
+
+            // DEBUG: Log position of remote ships we DON'T control (to diagnose host ship not syncing on client)
+            // This logs for the host's ship on the client (no state auth, no input auth)
+            if (!Object.HasStateAuthority && !Object.HasInputAuthority)
+            {
+                if (Time.time - _lastDebugTime > 2f)
+                {
+                    _lastDebugTime = Time.time;
+                    Debug.Log($"[NetworkedSpaceshipBridge] REMOTE SHIP SYNC {gameObject.name}: " +
+                              $"pos={transform.position}, rot={transform.rotation.eulerAngles}");
+                }
             }
 
             // Safety: re-check authority on first tick in case Spawned() ran before authority was assigned
             CheckAuthorityAndSetupInput();
+
+            // --- MANUAL POSITION SYNC: Write position on state authority (host) ---
+            // This runs for ALL ships the host controls (both host's own and client's).
+            // Written every tick so clients always have fresh position data.
+            if (Object.HasStateAuthority)
+            {
+                SyncPosition = transform.position;
+                SyncRotation = transform.rotation;
+            }
 
             if (engines == null)
             {
@@ -307,14 +403,22 @@ namespace GV.Network
 
             // Try to get networked input for this player
             var input = GetInput<PlayerInputData>();
+            
+            // Debug input status occasionally
+            if (Object.HasStateAuthority && !Object.HasInputAuthority)
+            {
+                 if (Time.time - _lastDebugTime > 2f)
+                 {
+                     _lastDebugTime = Time.time;
+                     if (!input.HasValue)
+                        Debug.LogWarning($"[NetworkedSpaceshipBridge] Waiting for input on {gameObject.name} from Client {Object.InputAuthority}...");
+                     else
+                        Debug.Log($"[NetworkedSpaceshipBridge] Received Input from Client {Object.InputAuthority}: Move={input.Value.movement}, Steer={input.Value.steering}, Boost={input.Value.boost}");
+                 }
+            }
+
             if (!input.HasValue)
             {
-                if (Time.time - _lastDebugTime > 2f)
-                {
-                    _lastDebugTime = Time.time;
-                    Debug.LogWarning($"[NetworkedSpaceshipBridge] No input for {gameObject.name} - " +
-                                    $"StateAuth:{Object.HasStateAuthority}, InputAuth:{Object.HasInputAuthority}");
-                }
                 return;
             }
 
@@ -326,14 +430,20 @@ namespace GV.Network
             // The client's own ship movement is synced via NetworkTransform from the host.
             if (Object.HasStateAuthority && !Object.HasInputAuthority)
             {
-                // Ensure engines are activated (SCK defaults to enginesActivated=false,
-                // and the normal activation via Start()/ModuleManagers may not work on network-spawned remote ships)
+                // Ensure engines are activated (SCK's Engines.Start() may activate via activateEnginesAtStart,
+                // but we force it here as a safety net for network-spawned objects)
                 if (!engines.EnginesActivated)
                 {
                     engines.SetEngineActivation(true);
-                    engines.ControlsDisabled = false;
                     Debug.Log($"[NetworkedSpaceshipBridge] Force-activated engines on remote ship {gameObject.name}");
                 }
+
+                // CRITICAL: Always ensure ControlsDisabled is false BEFORE setting inputs.
+                // SCK's SetMovementInputs/SetSteeringInputs/SetBoostInputs all silently return
+                // if controlsDisabled is true. This must be set EVERY tick, not just on first activation,
+                // because Engines.Start() may activate engines before our first FixedUpdateNetwork,
+                // and other SCK systems could re-enable controlsDisabled at any time.
+                engines.ControlsDisabled = false;
 
                 // Host processing REMOTE player's movement
                 engines.SetSteeringInputs(data.steering);
@@ -411,6 +521,16 @@ namespace GV.Network
 
         public override void Render()
         {
+            // --- MANUAL POSITION SYNC: Apply on proxies (client viewing host's ship) ---
+            // Proxies have no state or input authority. FixedUpdateNetwork doesn't run on them.
+            // We apply the [Networked] SyncPosition/SyncRotation here every render frame.
+            // This bypasses the broken NetworkTransform and gives us reliable position sync.
+            if (!Object.HasStateAuthority && !Object.HasInputAuthority)
+            {
+                transform.position = SyncPosition;
+                transform.rotation = SyncRotation;
+            }
+
             // Visual feedback can be done here for all clients
             // e.g., boost effects, engine sounds based on IsBoosting
         }

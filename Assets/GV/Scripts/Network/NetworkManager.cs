@@ -15,6 +15,7 @@ namespace GV.Network
     /// Central manager for Photon Fusion 2 networking.
     /// Handles connection, player spawning, and network callbacks.
     /// </summary>
+    [RequireComponent(typeof(NetworkedPlayerInput))]
     public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         public static NetworkManager Instance { get; private set; }
@@ -169,11 +170,14 @@ namespace GV.Network
             
             // Also register the NetworkedPlayerInput for input callbacks
             var playerInput = GetComponent<NetworkedPlayerInput>();
-            if (playerInput != null)
+            if (playerInput == null)
             {
-                Runner.AddCallbacks(playerInput);
-                Debug.Log("[NetworkManager] Registered NetworkedPlayerInput for callbacks");
+                playerInput = gameObject.AddComponent<NetworkedPlayerInput>();
+                Debug.Log("[NetworkManager] Created NetworkedPlayerInput component");
             }
+            
+            Runner.AddCallbacks(playerInput);
+            Debug.Log("[NetworkManager] Registered NetworkedPlayerInput for callbacks");
 
             
             if (result.Ok)
