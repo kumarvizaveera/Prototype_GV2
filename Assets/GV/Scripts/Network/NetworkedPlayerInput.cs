@@ -12,11 +12,15 @@ namespace GV.Network
     /// </summary>
     public struct PlayerInputData : INetworkInput
     {
-        // Steering: x = pitch, y = yaw, z = roll (matches VehicleEngines3D steeringInputs)
-        public Vector3 steering;
+        // Steering (broken down to floats to fix serialization issue)
+        public float steerPitch;
+        public float steerYaw;
+        public float steerRoll;
         
-        // Movement: x = strafe horizontal, y = strafe vertical, z = throttle
-        public Vector3 movement;
+        // Movement (broken down to floats)
+        public float moveX;
+        public float moveY;
+        public float moveZ; // Throttle
         
         // Boost
         public NetworkBool boost;
@@ -30,6 +34,9 @@ namespace GV.Network
         public const int BUTTON_CYCLE_WEAPON = 3;
         public const int BUTTON_CYCLE_CHARACTER = 4;
         public const int BUTTON_SWAP_AIRCRAFT = 5;
+        
+        // Diagnostic
+        public int magicNumber;
     }
     
     /// <summary>
@@ -127,7 +134,9 @@ namespace GV.Network
                 }
             }
 
-            _inputData.steering = new Vector3(pitch, yaw, roll);
+            _inputData.steerPitch = pitch;
+            _inputData.steerYaw = yaw;
+            _inputData.steerRoll = roll;
             
             // Movement (throttle and strafe)
             float throttle = 0f;
@@ -136,7 +145,6 @@ namespace GV.Network
             
             if (Keyboard.current != null)
             {
-                // Auto-forward mode
                 if (enableAutoForward)
                 {
                     throttle = 1f; // Always forward
@@ -148,12 +156,18 @@ namespace GV.Network
                     else if (Keyboard.current.sKey.isPressed) throttle = -1f;
                 }
                 
+                // Debug raw collection
+                if (throttle != 0) Debug.Log($"[NetworkedPlayerInput] CollectInput (Instance {this.GetInstanceID()}): Throttle {throttle}");
+
+                
                 // Strafe
                 if (Keyboard.current.aKey.isPressed) strafeX = -1f;
                 else if (Keyboard.current.dKey.isPressed) strafeX = 1f;
             }
             
-            _inputData.movement = new Vector3(strafeX, strafeY, throttle);
+            _inputData.moveX = strafeX;
+            _inputData.moveY = strafeY;
+            _inputData.moveZ = throttle;
             
             // Boost (shift or W with auto-forward)
             if (Keyboard.current != null)
@@ -182,10 +196,19 @@ namespace GV.Network
                 _inputData.buttons.Set(PlayerInputData.BUTTON_CYCLE_CHARACTER, Keyboard.current.cKey.wasPressedThisFrame);
                 _inputData.buttons.Set(PlayerInputData.BUTTON_SWAP_AIRCRAFT, Keyboard.current.vKey.wasPressedThisFrame);
             }
+            
+            // Diagnostic: Set valid flag
+            _inputData.magicNumber = 42;
         }
         
         public void OnInput(NetworkRunner runner, NetworkInput input)
         {
+            // Debug frequency limiter for OnInput
+            if (Time.frameCount % 60 == 0 && Mathf.Abs(_inputData.moveZ) > 0)
+            {
+                Debug.Log($"[NetworkedPlayerInput] OnInput (Instance {this.GetInstanceID()}): Client {runner.LocalPlayer} Sending Throttle {_inputData.moveZ}");
+            }
+
             input.Set(_inputData);
             _inputData.buttons = default; // Reset one-shot buttons
         }

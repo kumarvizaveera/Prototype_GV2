@@ -356,7 +356,9 @@ namespace GV.Network
         }
 
         // Debug flags
-        private float _lastDebugTime = 0f;
+        private float _lastInputDebugTime = 0f;
+        private float _lastMovementDebugTime = 0f;
+        private float _lastRemoteSyncDebugTime = 0f;
         private bool _loggedFirstTick = false;
 
         public override void FixedUpdateNetwork()
@@ -378,9 +380,9 @@ namespace GV.Network
             // This logs for the host's ship on the client (no state auth, no input auth)
             if (!Object.HasStateAuthority && !Object.HasInputAuthority)
             {
-                if (Time.time - _lastDebugTime > 2f)
+                if (Time.time - _lastRemoteSyncDebugTime > 2f)
                 {
-                    _lastDebugTime = Time.time;
+                    _lastRemoteSyncDebugTime = Time.time;
                     Debug.Log($"[NetworkedSpaceshipBridge] REMOTE SHIP SYNC {gameObject.name}: " +
                               $"pos={transform.position}, rot={transform.rotation.eulerAngles}");
                 }
@@ -413,9 +415,9 @@ namespace GV.Network
 
             if (engines == null)
             {
-                if (Time.time - _lastDebugTime > 2f)
+                if (Time.time - _lastMovementDebugTime > 2f)
                 {
-                    _lastDebugTime = Time.time;
+                    _lastMovementDebugTime = Time.time;
                     Debug.LogWarning($"[NetworkedSpaceshipBridge] engines is NULL on {gameObject.name}!");
                 }
                 return;
@@ -427,13 +429,16 @@ namespace GV.Network
             // Debug input status occasionally
             if (Object.HasStateAuthority && !Object.HasInputAuthority)
             {
-                 if (Time.time - _lastDebugTime > 2f)
+                 if (Time.time - _lastInputDebugTime > 2f)
                  {
-                     _lastDebugTime = Time.time;
+                     _lastInputDebugTime = Time.time;
                      if (!input.HasValue)
                         Debug.LogWarning($"[NetworkedSpaceshipBridge] Waiting for input on {gameObject.name} from Client {Object.InputAuthority}...");
                      else
-                        Debug.Log($"[NetworkedSpaceshipBridge] Received Input from Client {Object.InputAuthority}: Move={input.Value.movement}, Steer={input.Value.steering}, Boost={input.Value.boost}");
+                        Debug.Log($"[NetworkedSpaceshipBridge] Received Input from Client {Object.InputAuthority}: " +
+                                  $"Move=({input.Value.moveX:F2}, {input.Value.moveY:F2}, {input.Value.moveZ:F2}), " +
+                                  $"Steer=({input.Value.steerPitch:F2}, {input.Value.steerYaw:F2}, {input.Value.steerRoll:F2}), " +
+                                  $"Boost={input.Value.boost}");
                  }
             }
 
@@ -465,22 +470,40 @@ namespace GV.Network
                 // and other SCK systems could re-enable controlsDisabled at any time.
                 engines.ControlsDisabled = false;
 
+                // Reconstruct Vector3s from floats
+                Vector3 steering = new Vector3(data.steerPitch, data.steerYaw, data.steerRoll);
+                Vector3 movement = new Vector3(data.moveX, data.moveY, data.moveZ);
+
                 // Host processing REMOTE player's movement
-                engines.SetSteeringInputs(data.steering);
-                engines.SetMovementInputs(data.movement);
+                engines.SetSteeringInputs(steering);
+                engines.SetMovementInputs(movement);
 
                 _isBoosting = data.boost;
                 engines.SetBoostInputs(data.boost ? new Vector3(0f, 0f, 1f) : Vector3.zero);
 
-                // Debug: log every 2 seconds
-                if (Time.time - _lastDebugTime > 2f)
+                // Ensure Rigidbody is dynamic (physics-driven) on the Host
+                var rb = GetComponentInChildren<Rigidbody>();
+                if (rb != null)
                 {
-                    _lastDebugTime = Time.time;
-                    var rb = GetComponentInChildren<Rigidbody>();
+                    if (rb.isKinematic)
+                    {
+                        rb.isKinematic = false;
+                        Debug.LogWarning($"[NetworkedSpaceshipBridge] Forced Rigidbody.isKinematic = false on Host for {gameObject.name}");
+                    }
+                    
+                    // Optional: Check constraints if needed, usually default is fine but just in case
+                    // rb.constraints = RigidbodyConstraints.None; 
+                }
+
+                // Debug: log every 2 seconds
+                if (Time.time - _lastMovementDebugTime > 2f)
+                {
+                    _lastMovementDebugTime = Time.time;
                     Debug.Log($"[NetworkedSpaceshipBridge] HOST driving remote ship {gameObject.name}: " +
-                              $"movement={data.movement}, steering={data.steering}, boost={data.boost}, " +
+                              $"movement={movement}, steering={steering}, boost={data.boost}, " +
                               $"enginesActive={engines.EnginesActivated}, controlsDisabled={engines.ControlsDisabled}, " +
-                              $"pos={transform.position}, rb.isKinematic={rb?.isKinematic}, rb.velocity={rb?.linearVelocity}");
+                              $"pos={transform.position}, rb.isKinematic={rb?.isKinematic}, rb.velocity={rb?.linearVelocity}, " +
+                              $"mass={rb?.mass}, drag={rb?.linearDamping}, magic={data.magicNumber}");
                 }
             }
 
