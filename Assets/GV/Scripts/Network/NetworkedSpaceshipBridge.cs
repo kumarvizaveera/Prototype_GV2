@@ -33,6 +33,7 @@ namespace GV.Network
         // the state authority every tick, and applied on proxies in Render().
         [Networked] private Vector3 SyncPosition { get; set; }
         [Networked] private Quaternion SyncRotation { get; set; }
+        [Networked] private int SyncTick { get; set; } // Diagnostic: increments every host FUN tick
 
         // Local state for visual feedback (not networked for now)
         private bool _isBoosting;
@@ -173,7 +174,7 @@ namespace GV.Network
                     _proxyDebugTimer = 0f;
                     Debug.Log($"[NetworkedSpaceshipBridge] PROXY POS {gameObject.name}: " +
                               $"pos={transform.position}, syncPos={SyncPosition}, " +
-                              $"rot={transform.rotation.eulerAngles}");
+                              $"syncTick={SyncTick}, rot={transform.rotation.eulerAngles}");
                 }
                 return; // Proxy doesn't need camera setup
             }
@@ -384,11 +385,24 @@ namespace GV.Network
 
             // --- MANUAL POSITION SYNC: Write position on state authority (host) ---
             // This runs for ALL ships the host controls (both host's own and client's).
-            // Written every tick so clients always have fresh position data.
+            // CRITICAL: We sync the RIGIDBODY's position, NOT the root transform.
+            // In SCK, the Rigidbody+VehicleEngines3D live on a CHILD object (e.g. SpaceFighter_Light).
+            // Physics moves the child via AddRelativeForce, but the ROOT transform stays at spawn.
+            // The camera follows the child, so the host sees movement, but transform.position is stuck.
             if (Object.HasStateAuthority)
             {
-                SyncPosition = transform.position;
-                SyncRotation = transform.rotation;
+                SyncTick++;
+                var rb = GetComponentInChildren<Rigidbody>();
+                if (rb != null)
+                {
+                    SyncPosition = rb.position;
+                    SyncRotation = rb.rotation;
+                }
+                else
+                {
+                    SyncPosition = transform.position;
+                    SyncRotation = transform.rotation;
+                }
             }
 
             if (engines == null)
@@ -521,18 +535,48 @@ namespace GV.Network
 
         public override void Render()
         {
-            // --- MANUAL POSITION SYNC: Apply on proxies (client viewing host's ship) ---
-            // Proxies have no state or input authority. FixedUpdateNetwork doesn't run on them.
-            // We apply the [Networked] SyncPosition/SyncRotation here every render frame.
-            // This bypasses the broken NetworkTransform and gives us reliable position sync.
-            if (!Object.HasStateAuthority && !Object.HasInputAuthority)
-            {
-                transform.position = SyncPosition;
-                transform.rotation = SyncRotation;
-            }
-
             // Visual feedback can be done here for all clients
             // e.g., boost effects, engine sounds based on IsBoosting
+        }
+
+        /// <summary>
+        /// LateUpdate applies [Networked] position sync for proxy ships.
+        /// We use LateUpdate instead of Render() because:
+        /// - LateUpdate is a standard Unity callback, guaranteed to run on all enabled MonoBehaviours
+        /// - It runs AFTER all Update/FixedUpdate/physics, so it has the final word on position
+        /// - Fusion's Render() may not run on proxy objects in all configurations
+        /// </summary>
+        private bool _lateUpdateProxyFirstLog = false;
+
+        private void LateUpdate()
+        {
+            // Only apply on proxies (host's ship on client — no state or input authority)
+            if (!Object.HasStateAuthority && !Object.HasInputAuthority)
+            {
+                // One-time diagnostic to confirm LateUpdate is running and show SyncPosition value
+                if (!_lateUpdateProxyFirstLog)
+                {
+                    _lateUpdateProxyFirstLog = true;
+                    var rb = GetComponentInChildren<Rigidbody>();
+                    Debug.Log($"[NetworkedSpaceshipBridge] PROXY LATE UPDATE ACTIVE on {gameObject.name}: " +
+                              $"SyncPosition={SyncPosition}, rbChild={rb?.gameObject.name ?? "NULL"}, " +
+                              $"rootPos={transform.position}, rbPos={rb?.position}");
+                }
+
+                // Apply the [Networked] position to the CHILD that has the Rigidbody,
+                // matching how the host's physics moves the child, not the root.
+                var proxyRb = GetComponentInChildren<Rigidbody>();
+                if (proxyRb != null)
+                {
+                    proxyRb.transform.position = SyncPosition;
+                    proxyRb.transform.rotation = SyncRotation;
+                }
+                else
+                {
+                    transform.position = SyncPosition;
+                    transform.rotation = SyncRotation;
+                }
+            }
         }
     }
 }
