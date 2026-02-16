@@ -88,6 +88,12 @@ namespace GV.Network
                 bool mouseInsideWindow = mousePos.x >= 0 && mousePos.x <= Screen.width
                                       && mousePos.y >= 0 && mousePos.y <= Screen.height;
 
+                // Debug mouse diagnostics
+                if (Time.frameCount % 60 == 0) // Log once per second
+                {
+                     Debug.Log($"[NetworkedPlayerInput] MousePos: {mousePos}, Screen: {Screen.width}x{Screen.height}, Inside: {mouseInsideWindow}, Focused: {Application.isFocused}");
+                }
+
                 if (mouseInsideWindow)
                 {
                     // Convert to viewport-centered coords: -0.5 to +0.5
@@ -113,6 +119,9 @@ namespace GV.Network
                         pitch = Mathf.Clamp(pitch, -1f, 1f);
                         yaw = Mathf.Clamp(yaw, -1f, 1f);
                         mouseProvidedSteering = true;
+                        
+                        // Debug active steering
+                        if (amount > 0) Debug.Log($"[NetworkedPlayerInput] Mouse Steering: Pitch={pitch:F2}, Yaw={yaw:F2}");
                     }
                 }
             }
