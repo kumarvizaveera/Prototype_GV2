@@ -1,6 +1,6 @@
 # Multiplayer Debug Session - Full Context Transfer
 ## Unity Space Combat Kit + Photon Fusion 2
-### Date: February 15-16, 2026
+### Date: February 15-17, 2026
 
 ---
 
@@ -37,7 +37,8 @@ public override void Spawned()
     // Find engines (VehicleEngines3D) and triggerablesManager
     // Make Rigidbody kinematic if !HasStateAuthority (client-side fix for NetworkTransform conflict)
     // Determine isLocalPlayer via HasInputAuthority
-    // If remote: DisableLocalInput()
+    // If remote (host processing client's ship): DisableLocalInput()
+    // If client's own ship: DisableClientOwnShipScripts() — makes it a pure visual shell
     // If local: SetupCamera() with retry mechanism in Update()
 }
 
@@ -53,12 +54,26 @@ private void DisableLocalInput()
     // 8. SAFETY: Re-enable self if something disabled the bridge
 }
 
+private void DisableClientOwnShipScripts()  // NEW IN SESSION 3
+{
+    // Client's own ship is a "pure visual shell" — position comes entirely from host sync
+    // 1. Disable ALL VehicleInput-derived components
+    // 2. Disable ALL GeneralInput components
+    // 3. Disable Unity PlayerInput (New Input System)
+    // 4. Disable VehicleEngines3D
+    // 5. Destroy SetStartAtCheckpoint
+    // 6. Unregister GameAgent (disable, don't destroy)
+    // SAFETY: Re-enable self if disabled
+}
+
 private void Update()
 {
     // PROXY DIAGNOSTIC: Logs position every 3s for proxy ships (host's ship on client)
     //   - FixedUpdateNetwork does NOT run on proxies in Fusion 2
     //   - Logs: pos, syncPos, syncTick, rot
     // CAMERA RETRY: For local player if camera setup failed in Spawned()
+    //   - Runs repeatedly for 5 seconds (30 checks at 0.2s intervals) — Session 3 improvement
+    //   - Uses VehicleCamera.TargetVehicle (not .Vehicle) and SetVehicle()
 }
 
 public override void FixedUpdateNetwork()
@@ -66,13 +81,23 @@ public override void FixedUpdateNetwork()
     // FIRST TICK one-time debug log (unconditional)
     // CheckAuthorityAndSetupInput()
 
+    // CONTINUOUS VEHICLEINPUT ENFORCEMENT (Session 3):
+    //   - On host for client's ship: force-disable any VehicleInput that reactivated
+    //   - SCK's EnterVehicle() and callbacks can re-enable VehicleInput scripts
+
     // MANUAL POSITION SYNC: Write Rigidbody position (not root transform!) every tick
     //   - Uses rb.position/rb.rotation (child object with physics)
     //   - Root transform stays at spawn; physics moves the CHILD
     //   - Also increments SyncTick for diagnostic
 
     // engines null check with warning
-    // GetInput<PlayerInputData>() with warning if no value
+
+    // INPUT ROUTING (Session 3 - reworked):
+    //   - For CLIENT'S SHIP ON HOST (HasStateAuthority && !HasInputAuthority):
+    //       Skip GetInput entirely — it returns HOST's input, not client's!
+    //       Use RPC input first, then raw data fallback
+    //   - For HOST'S OWN SHIP:
+    //       GetInput works correctly — use normally
 
     // MOVEMENT: Only if HasStateAuthority && !HasInputAuthority (host processing remote ship)
     //   - Force-activate engines if not activated
@@ -89,6 +114,7 @@ private void LateUpdate()
     // PROXY POSITION APPLY: For proxy ships (host's ship on client)
     //   - Reads [Networked] SyncPosition/SyncRotation
     //   - Applies to the CHILD Rigidbody transform (not root)
+    //   - Uses Lerp/Slerp interpolation at speed 15f (Session 3 adjustment)
     //   - Matches host's physics hierarchy where child moves, root stays at spawn
 }
 
@@ -98,25 +124,47 @@ public override void Render()
 }
 ```
 
-### 2. NetworkManager.cs (NOT MODIFIED - Read only)
+### 2. NetworkManager.cs (MODIFIED - Session 3)
 **Path**: `Assets/GV/Scripts/Network/NetworkManager.cs`
 - Handles Photon Fusion connection, player spawning in OnPlayerJoined
 - Spawns with `runner.Spawn(playerPrefab, spawnPos, spawnRot, inputAuthority: player)`
 - Camera setup via `SetupCameraFollow()` for local player on host
 - `autoHostInBuild = true` — build auto-hosts, editor must press J to join
+- **Session 3 changes:**
+  - Per-player magic number encoding in OnInput: `data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 42` (host=1042, client=2042)
+  - Same encoding in raw data send block
+  - Updated validation: `magicNumber % 1000 == 42`
+  - `Screen.SetResolution(1920, 1080, FullScreenMode.FullScreenWindow)` in StartGame() for standalone builds
+  - Exposes `RawSendCount`, `RawSendErrorCount`, `RawSendBlockReason`, `RawSendError`, `RawSendErrorStack` for diagnostic display
 
-### 3. NetworkedPlayerInput.cs (MODIFIED)
+### 3. NetworkedPlayerInput.cs (HEAVILY MODIFIED - Session 3)
 **Path**: `Assets/GV/Scripts/Network/NetworkedPlayerInput.cs`
-- Collects keyboard/mouse input in Update(), sends via OnInput() callback
+- Collects keyboard/mouse input in Update(), provides via `CurrentInputData` property
 - `enableAutoForward` field — **code default changed to `false`** (was `true`)
 - When autoForward is off: W = forward, S = reverse (no automatic throttle)
 - When autoForward is off: Shift = boost (instead of W)
-- **Mouse steering**: Screen-position mode matching SCK's ScreenPosition behavior
-  - Mouse position relative to screen center → pitch (vertical) and yaw (horizontal)
-  - Dead zone (0.1) and max distance (0.475) matching SCK defaults
-  - Only active when mouse is inside game window AND Application.isFocused
-  - Keyboard Q/E for roll, arrow keys as fallback when mouse is centered/outside window
-- Input struct: `PlayerInputData` with steering (Vector3), movement (Vector3), boost (NetworkBool), buttons (NetworkButtons)
+- **Session 3 major rewrite — Mouse steering changed from absolute position to delta-based accumulated reticle:**
+  - SCK locks cursor (`CursorLockMode.Locked`) — `Mouse.current.position` is always screen center, useless
+  - Now reads `Mouse.current.delta.ReadValue()` (pixels moved per frame)
+  - Accumulates delta into virtual reticle position (viewport coords, 0.5=center)
+  - Auto-centering: reticle drifts back to center when mouse stops moving (`Lerp` at `centerSpeed = 2.0f * Time.deltaTime`)
+  - Clamp with aspect ratio correction (`maxReticleDistance = 0.4f`)
+  - Steer computed from reticle offset: pitch = -Y, yaw = X (SCK convention)
+  - Dead radius: 0.02f (reduced from original 0.1)
+  - `Application.isFocused` gate — prevents reading mouse when window unfocused (critical for same-machine testing)
+  - Unfocused: reticle resets to center (no steer)
+  - Keyboard Q/E for roll, arrow keys as fallback when mouse not providing steering
+- **Session 3 input architecture change:**
+  - No longer registered via `AddCallbacks` — OnInput is vestigial
+  - `CurrentInputData` property exposes latest input data
+  - `NotifyInputConsumed()` called by NetworkManager after `input.Set()` to reset one-shot buttons
+- **OnGUI diagnostic display** (non-editor builds only):
+  - Application.isFocused (color-coded green/red)
+  - Mouse delta and reticle position
+  - Steer values (color-coded: green=non-zero, yellow=zero)
+  - Magic number
+  - Runner state (IsClient, IsServer, LocalPlayer)
+  - Raw send diagnostics from NetworkManager
 
 ### 4. Player_ForMultiplayer.prefab
 **Path**: Prefab used for network spawning
@@ -131,6 +179,10 @@ public override void Render()
 - Waits for CheckpointNetwork singleton, then sets transform.position
 - Resets Rigidbody velocity and does Sleep/WakeUp
 - **On remote ships**: Destroyed in DisableLocalInput() to prevent fighting NetworkTransform
+
+### 6. NetworkProjectConfig.fusion (MODIFIED - Session 2)
+**Path**: `Assets/Photon/Fusion/Resources/NetworkProjectConfig.fusion`
+- **InputDataWordCount changed from 0 to 16** — Root cause of early "InputDataWordCount: 0" bug. Without this, Fusion silently drops all player input.
 
 ---
 
@@ -196,6 +248,47 @@ public override void Render()
 - **Also**: Destroy SetStartAtCheckpoint on remote ships (its Start() coroutine teleports to checkpoint, fighting any position sync)
 - **Also**: Self-protection in DisableLocalInput() — skips disabling NetworkedSpaceshipBridge if accidentally in localInputScripts array, and re-enables self at the end if something disabled it
 
+### Bug 13: CS1061 — VehicleCamera.Vehicle doesn't exist (FIXED - Session 3)
+**Cause**: Camera setup code referenced `VehicleCamera.Vehicle` property which doesn't exist.
+**Fix**: Changed to `VehicleCamera.TargetVehicle` (the correct property name). Uses `SetVehicle()` method to assign.
+
+### Bug 14: Client screen violent shaking (FIXED - Session 3)
+**Cause**: On CLIENT's own ship, ALL SCK scripts were still running (VehicleInput, VehicleEngines3D, GameAgent, etc.) because `DisableLocalInput()` was intentionally skipped for the local player's ship. These scripts fought with LateUpdate position sync, causing violent jitter.
+**Fix**: New `DisableClientOwnShipScripts()` method makes client's own ship a "pure visual shell" — disables VehicleInput, GeneralInput, PlayerInput, VehicleEngines3D, destroys SetStartAtCheckpoint, and unregisters GameAgent. Position/rotation come entirely from host via [Networked] SyncPosition/SyncRotation.
+
+### Bug 15: Client ship mirrors host's mouse steer on host screen (FIXED - Session 3)
+**Cause**: Three layers:
+1. **GetInput() returns HOST's input for ALL ships** in Fusion 2 Host Mode. Even when calling `GetInput()` for the client's ship, it returns the host's locally-collected `PlayerInputData` — NOT the client's.
+2. **Same-machine shared mouse**: Both apps (editor + build) on same PC share `Mouse.current.position`, so the host's mouse position was being sent to both ships.
+3. **VehicleInput reactivation**: SCK's `EnterVehicle()` and callbacks can re-enable VehicleInput scripts after initial disable.
+
+**Fix**:
+- Skip `GetInput()` entirely for client's ship — use RPC/raw data input only
+- `Application.isFocused` gate prevents unfocused app from reading the other app's mouse
+- Continuous VehicleInput enforcement in FixedUpdateNetwork (re-disable every tick)
+- Per-player magic number (`playerID * 1000 + 42`) to distinguish host (1042) vs client (2042) input
+
+### Bug 16: Client mouse not responding after focus gate fix (FIXED - Session 3)
+**Cause**: After adding `Application.isFocused` check, client mouse input stopped working even when focused. Initial fix attempt added a "mouse-in-bounds fallback" that bypassed the focus check — but this defeated the focus gate and re-introduced mirroring.
+**Fix**: Removed the mouse-in-bounds fallback. The real problem was Bug 17 (cursor locked).
+
+### Bug 17: Mouse coordinates stuck at screen center — cursor locked (FIXED - Session 3)
+**Cause**: SCK's `GameStateManager` sets `Cursor.lockState = CursorLockMode.Locked` (at lines 191/213 of GameStateManager.cs). This locks/hides the cursor at screen center. `Mouse.current.position.ReadValue()` always returns ~(960, 540) on 1920×1080 — making absolute position-based steering completely useless. The deadzone check always saw near-zero offset.
+**Fix**: Complete rewrite of mouse steering from absolute position to **delta-based accumulated reticle** (matching SCK's actual input approach):
+- Read `Mouse.current.delta.ReadValue()` instead of `.position`
+- Accumulate delta into virtual reticle position (viewport coords)
+- Reticle auto-centers when mouse stops
+- Steer computed from reticle offset from center
+- This approach works regardless of cursor lock state
+
+### Bug 18: OnGUI deadzone display mismatch (FIXED - Session 3)
+**Cause**: OnGUI checked `mag < 0.1f` for deadzone display but actual code used 0.02f after adjustment.
+**Fix**: Updated OnGUI threshold to match actual code.
+
+### Bug 19: Build resolution / UI cutoff (PARTIAL - Session 3)
+**Symptom**: Standalone build UI elements cut off at corners, not rendering at expected resolution.
+**Attempted fix**: Added `Screen.SetResolution(1920, 1080, FullScreenMode.FullScreenWindow)` in NetworkManager.StartGame(). Also tried Unity Project Settings. Did not fully resolve — user moved on since it wasn't the core issue. May need further investigation.
+
 ---
 
 ## CRITICAL DISCOVERIES
@@ -212,48 +305,70 @@ Physics (AddRelativeForce/Torque) moves the **child**. The root transform NEVER 
 
 **Rule**: Always use `GetComponentInChildren<Rigidbody>()` and read `rb.position`/`rb.rotation` for the actual ship position.
 
-### Fusion 2 Gotcha: FixedUpdateNetwork Doesn't Run on Proxies
+### SCK Gotcha #3: CursorLockMode.Locked (Session 3)
+SCK's `GameStateManager` sets `Cursor.lockState = CursorLockMode.Locked` during gameplay. This:
+- Hides and pins the cursor to screen center
+- Makes `Mouse.current.position.ReadValue()` useless (always returns center pixel)
+- Requires using `Mouse.current.delta.ReadValue()` (movement per frame) instead
+
+SCK's own input (in `PlayerInput_Base_SpaceshipControls`) uses mouse delta accumulated into a virtual reticle — NOT absolute mouse position. Any network input collection must match this approach.
+
+### SCK Gotcha #4: VehicleInput Reactivation (Session 3)
+SCK's `EnterVehicle()` and various callbacks can re-enable VehicleInput scripts after they've been disabled. This requires **continuous enforcement** — checking and re-disabling every tick in FixedUpdateNetwork, not just once in Spawned().
+
+### Fusion 2 Gotcha #1: FixedUpdateNetwork Doesn't Run on Proxies
 In Fusion 2 Host mode, `FixedUpdateNetwork()` only runs on:
 - **State Authority objects** (host has this for all objects)
 - **Input Authority objects** (client's own ship for prediction)
 
 It does NOT run on **proxy objects** (host's ship on client — no state or input authority). Use `Update()`, `LateUpdate()`, or `Render()` for proxy-side logic. `[Networked]` properties and `Render()` still work on proxies for reading synced state.
 
+### Fusion 2 Gotcha #2: GetInput() Returns Host's Input in Host Mode (Session 3)
+**Critical discovery.** In Fusion 2 Host Mode, `GetInput<PlayerInputData>()` returns the HOST's locally-collected input for ALL ships — including the client's ship. It does NOT return the InputAuthority player's actual input data. This caused client ships to mirror host's mouse movements.
+
+**Solution**: For the client's ship on the host, skip `GetInput()` entirely. Use RPC or raw data channel to receive the client's actual input.
+
 ### Fusion 2: Rebuild Prefab Table After Adding [Networked] Properties
 When adding new `[Networked]` properties to a NetworkBehaviour, you MUST go to **Fusion > Rebuild Prefab Table** in the Unity Editor. This rebakes the NetworkObject state layout to include the new properties. Without this, [Networked] properties may not sync properly.
 
+### Same-Machine Testing Artifacts (Session 3)
+When running both host (build) and client (editor) on the **same PC**, several artifacts appear that do NOT exist on separate machines:
+- **Shared mouse**: `Mouse.current` returns OS-level data visible to BOTH apps. Mouse position/delta from one app affects the other.
+- **Application.isFocused**: Only one app can have focus at a time. The unfocused app reads stale/other-app mouse data.
+- **These issues disappear on separate PCs**: Each machine has its own mouse, and `Application.isFocused` is always true.
+
+The `Application.isFocused` gate in NetworkedPlayerInput is essential for same-machine development testing but harmless on separate PCs.
+
 ---
 
-## CURRENT STATUS (End of Session 2)
+## CURRENT STATUS (End of Session 3)
 
 ### What's working:
 - Individual ship movement (input isolation per ship)
-- Client's ship moves on host screen (WASD + mouse steering synced over network)
-- Mouse steering works via network (screen-position mode, with bounds checking)
-- Host's ship position syncs to client via manual [Networked] property sync
+- Client's ship moves on host screen (WASD + mouse steering synced via RPC/raw data)
+- **Mouse steering works** — delta-based accumulated reticle matching SCK's approach
+- Host's ship position syncs to client via manual [Networked] property sync with interpolation (speed 15f)
 - Weapon firing on client side via networked input
 - Ship visibility on both host and client (GameAgent → EnterVehicle → Destroy pattern)
 - Rigidbody/NetworkTransform conflict resolved (kinematic on non-authority)
-- Camera follows local player on both host and client
+- Camera follows local player on both host and client (VehicleCamera.TargetVehicle + SetVehicle)
 - Engine activation on remote ships (force-activate in FixedUpdateNetwork)
 - ControlsDisabled fix — set to false every tick
 - Ships can be controlled individually and separately on host and client
+- **Client ship no longer mirrors host's steer** (GetInput bypass + Application.isFocused gate)
+- **Client screen no longer shakes** (DisableClientOwnShipScripts makes it a pure visual shell)
+- **Per-player magic number diagnostics** (1042=host, 2042=client) for input source tracking
 
 ### Known remaining issues (for next session):
-- User mentioned "other problems" after confirming individual ship control works — details TBD
-- Host ship position sync may be slightly jerky (no interpolation on [Networked] properties yet)
+- Build resolution/UI cutoff not fully resolved (Screen.SetResolution didn't fully work)
 - Connection timeout on first J press in editor (works on second attempt) — intermittent Photon issue
 - Debug logging is extensive — should be cleaned up once stable
 - Development build recommended for host-side debugging
+- Same-machine testing has inherent limitations — should test on separate PCs with teammate
 
-### Debug logs currently active:
-- `FIRST TICK` — one-time per ship on FUN start
-- `PROXY FIRST UPDATE` — one-time for proxy ships in Update()
-- `PROXY POS` — every 3s for proxy ships (pos, syncPos, syncTick)
-- `PROXY LATE UPDATE ACTIVE` — one-time confirming LateUpdate works on proxy
-- `HOST driving remote ship` — every 2s on host for client's ship
-- `Received Input from Client` — every 2s showing input data with steering
-- Various one-time logs in Spawned() and DisableLocalInput()
+### Debug displays currently active:
+- **OnGUI (non-editor builds)**: Application.isFocused, mouse delta/reticle, steer values, magic number, runner state, raw send diagnostics
+- **Console logs**: FIRST TICK, PROXY POS (3s), HOST driving remote ship (2s), mouse delta (1s), input source tracking
 
 ---
 
@@ -266,60 +381,69 @@ When adding new `[Networked]` properties to a NetworkBehaviour, you MUST go to *
 - **CRITICAL**: `SetEngineActivation(true)` has early return if `enginesActivated` is already true: `if (setActivated == enginesActivated) return;`
 - `GameAgent` — registers with GameAgentManager in Awake(), collects VehicleInput scripts, `EnterVehicle()`/`ExitAllVehicles()`, `startingVehicle` field (null on network prefab). `OnDestroy()` only unregisters from manager (does NOT exit vehicles — safe to Destroy).
 - `GameAgentManager` — SCENE-LEVEL SINGLETON (not on prefab), manages focused game agent, camera, HUD
+- `GameStateManager` — Sets `Cursor.lockState = CursorLockMode.Locked` during gameplay (lines 191/213)
 - `Vehicle` — `OnEntered()` activates ModuleManagers, `OnExited()` deactivates them
+- `VehicleCamera` — `TargetVehicle` property (public getter), `SetVehicle(Vehicle)` method
 - `GeneralInput` — namespace `VSX.Controls`
 - `VehicleInput` — namespace `VSX.Vehicles`, extends GeneralInput
 - SCK Input Hierarchy: `GeneralInput` → `VehicleInput` → `PlayerInput_Base_SpaceshipControls` → `PlayerInput_InputSystem_SpaceshipControls`
-- SCK Mouse Steering: `PlayerInput_Base_SpaceshipControls.MouseSteeringUpdate()` — ScreenPosition mode uses viewport coords, dead radius 0.1, max distance 0.475, animation curve mapping
+- SCK Mouse Steering: Uses mouse DELTA accumulated into `reticleViewportPosition`, NOT absolute mouse position. Works with CursorLockMode.Locked.
 
 ### Module System:
 ModuleManagers are children of the Vehicle that control subsystems (weapons, engines, visuals). They only activate when `Vehicle.OnEntered()` is called. This is why simply enabling renderers wasn't enough — the entire module system needs to be activated.
 
 ### Network Flow (How input gets from client to ship movement):
-1. Client: `NetworkedPlayerInput.CollectInput()` reads keyboard + mouse → fills `PlayerInputData` struct
-2. Client: `NetworkedPlayerInput.OnInput()` sends struct to Fusion
-3. Host: `NetworkedSpaceshipBridge.FixedUpdateNetwork()` calls `GetInput<PlayerInputData>()`
-4. Host: Writes `SyncPosition = rb.position` and `SyncRotation = rb.rotation` for ALL ships (manual sync)
-5. Host: If HasStateAuthority && !HasInputAuthority (remote ship):
-   a. Force-activate engines if needed
-   b. Set `ControlsDisabled = false` (EVERY TICK)
-   c. Apply steering/movement/boost to SCK engines
-6. Host: `VehicleEngines3D.FixedUpdate()` applies Rigidbody forces on CHILD object (IF enginesActivated AND controlsDisabled is false)
-7. Client: `LateUpdate()` reads [Networked] SyncPosition/SyncRotation and applies to child Rigidbody transform
-8. Client: Rigidbody is kinematic, so it accepts position updates without physics fighting
+1. Client: `NetworkedPlayerInput.CollectInput()` reads keyboard + mouse delta → fills `PlayerInputData` struct
+2. Client: `NetworkManager.OnInput()` reads `CurrentInputData` from NetworkedPlayerInput, calls `input.Set()`, then `NotifyInputConsumed()`
+3. Client: Also sends input via RPC and/or raw data channel (redundant paths for reliability)
+4. Host: `NetworkedSpaceshipBridge.FixedUpdateNetwork()` — for client's ship, **skips GetInput**, uses RPC/raw data instead
+5. Host: Writes `SyncPosition = rb.position` and `SyncRotation = rb.rotation` for ALL ships (manual sync)
+6. Host: If HasStateAuthority && !HasInputAuthority (remote ship):
+   a. Force-disable any reactivated VehicleInput (continuous enforcement)
+   b. Force-activate engines if needed
+   c. Set `ControlsDisabled = false` (EVERY TICK)
+   d. Apply steering/movement/boost to SCK engines
+7. Host: `VehicleEngines3D.FixedUpdate()` applies Rigidbody forces on CHILD object (IF enginesActivated AND controlsDisabled is false)
+8. Client: `LateUpdate()` reads [Networked] SyncPosition/SyncRotation and applies to child Rigidbody transform with interpolation (Lerp/Slerp at 15f)
+9. Client: Rigidbody is kinematic, so it accepts position updates without physics fighting
 
 ### SCK Lifecycle on Network-Spawned Objects:
 1. `Instantiate()` → `Awake()` (GameAgent registers with GameAgentManager)
 2. `Start()` → `SetStartAtCheckpoint` coroutine may teleport to checkpoint, `Engines.Start()` → `SetEngineActivation(true)` if `activateEnginesAtStart`
-3. `Fusion.Spawned()` → our code runs (DisableLocalInput, kinematic fix, camera setup, Destroy SetStartAtCheckpoint on remotes)
+3. `Fusion.Spawned()` → our code runs (DisableLocalInput for remote, DisableClientOwnShipScripts for client's own ship, kinematic fix, camera setup, Destroy SetStartAtCheckpoint on remotes)
 4. `FixedUpdateNetwork()` begins being called each network tick (NOT on proxies)
-5. `LateUpdate()` runs on proxies, applying synced position to child transform
+5. `LateUpdate()` runs on proxies, applying synced position to child transform with interpolation
 
 ---
 
 ## NEXT STEPS (Recommended)
 
-1. **Address remaining issues** reported by Veera (details TBD in next session)
-2. **Add interpolation** to manual position sync (currently snaps to latest server value, may be jerky)
-3. **Make a Development Build** for host-side debugging (currently blind to host logs)
-4. **Clean up debug logging** once networking is confirmed stable
-5. **Two-city test checklist**:
-   - Same Photon AppID on both machines
-   - Same session name "GV_Race"
-   - Same region "us"
-   - One person hosts (Start Host), other joins (Start Client)
-   - Photon Fusion 2 handles NAT traversal/relay automatically
-6. **Consider adding NetworkRigidbody3D** to the prefab as a proper long-term fix instead of manual [Networked] position sync
-7. **Investigate connection timeout** on first J press (intermittent)
+1. **Test on separate PCs** with teammate — most same-machine artifacts should disappear
+2. **Fix build resolution/UI cutoff** — may need to investigate Unity canvas scaler settings or build player settings more thoroughly
+3. **Add interpolation refinement** — current Lerp/Slerp at 15f may need tuning after separate-PC testing
+4. **Clean up debug logging** once networking is confirmed stable on separate PCs
+5. **Make a Development Build** for host-side debugging (currently blind to host logs)
+6. **Connection timeout** on first J press in editor (intermittent) — may need investigation
+7. **Consider adding NetworkRigidbody3D** to the prefab as a proper long-term fix instead of manual [Networked] position sync
+8. **Mouse sensitivity tuning** — `reticleSpeed = 1.0f`, `centerSpeed = 2.0f`, `maxReticleDistance = 0.4f`, `mouseDeadRadius = 0.02f` may need adjustment after playtesting
 
 ---
 
 ## TESTING SETUP
-- **Host**: Built game (non-development build, so no console logs visible)
-- **Client**: Unity Editor (can see logs in Console)
-- **How to test**: Host starts game first (auto-hosts in build), Client presses J in editor to join
-- **For better debugging**: Make a Development Build so host-side logs are visible too
-- **Note**: First J press may timeout; second attempt usually works
+
+### Same-Machine Testing (current):
+- **Host**: Built game (standalone, auto-hosts)
+- **Client**: Unity Editor (press J to join)
+- **Limitation**: Both apps share same mouse, causing artifacts that don't exist on separate PCs
+- **Workaround**: `Application.isFocused` gate ensures only the focused app reads mouse input
+
+### Separate-PC Testing (recommended):
+- Same Photon AppID on both machines
+- Same session name "GV_Race"
+- Same region "us"
+- One person hosts (Start Host), other joins (Start Client)
+- Photon Fusion 2 handles NAT traversal/relay automatically
+- Most same-machine artifacts (mouse sharing, focus issues) will not exist
 
 ---
 
@@ -339,3 +463,5 @@ ModuleManagers are children of the Vehicle that control subsystems (weapons, eng
 - `Assets/SpaceCombatKit/VSXPackageLibrary/Packages/VehiclesSystem/Vehicles/Vehicle.cs`
 - `Assets/SpaceCombatKit/SpaceCombatKit/Scripts/Input/InputSystem/PlayerInput_InputSystem_SpaceshipControls.cs`
 - `Assets/SpaceCombatKit/SpaceCombatKit/Scripts/Input/PlayerInput_Base_SpaceshipControls.cs`
+- `Assets/SpaceCombatKit/VSXPackageLibrary/Packages/GameStateSystem/GameStateManager.cs`
+- `Assets/SpaceCombatKit/VSXPackageLibrary/Packages/Cameras/VehicleCamera.cs`

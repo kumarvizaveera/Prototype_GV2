@@ -49,11 +49,53 @@ namespace GV.Network
         [SerializeField] private bool enableAutoForward = false;
         
         private PlayerInputData _inputData;
-        
+
+        // Virtual reticle position (viewport coords, 0.5 = center).
+        // SCK uses mouse DELTA to move a virtual reticle around the screen.
+        // The reticle's offset from center determines steer direction/amount.
+        // This works with CursorLockMode.Locked (cursor hidden at screen center).
+        private Vector2 _reticlePos = new Vector2(0.5f, 0.5f);
+
+        /// <summary>
+        /// Exposes the latest collected input data so NetworkManager.OnInput() can call
+        /// input.Set() directly. This is necessary because NetworkInput is a STRUCT —
+        /// delegating OnInput to another method passes a COPY, and Set() on the copy
+        /// is invisible to Fusion. The registered callback must call Set() itself.
+        /// </summary>
+        public PlayerInputData CurrentInputData => _inputData;
+
+        /// <summary>
+        /// Called by NetworkManager.OnInput() after reading CurrentInputData and calling input.Set().
+        /// Resets one-shot buttons and increments diagnostic counters.
+        /// </summary>
+        public void NotifyInputConsumed()
+        {
+            _onInputCalled = true;
+            _onInputCallCount++;
+            _inputData.buttons = default; // Reset one-shot buttons after they've been sent
+        }
+
+        // --- ON-SCREEN DIAGNOSTICS (visible in builds without dev console) ---
+        private bool _onInputCalled = false;
+        private int _onInputCallCount = 0;
+        private bool _collectInputCalled = false;
+        private string _debugStatus = "Waiting...";
+
         private void Update()
         {
             var networkManager = NetworkManager.Instance;
-            if (networkManager == null || !networkManager.IsConnected) return;
+            if (networkManager == null)
+            {
+                _debugStatus = "NetworkManager.Instance is NULL";
+                return;
+            }
+            if (!networkManager.IsConnected)
+            {
+                _debugStatus = "Not Connected";
+                return;
+            }
+            _debugStatus = $"Connected. OnInput called: {_onInputCalled} ({_onInputCallCount}x)";
+            _collectInputCalled = true;
             CollectInput();
         }
         
@@ -74,56 +116,81 @@ namespace GV.Network
             float roll = 0f;
             bool mouseProvidedSteering = false;
 
-            // Mouse screen-position steering (SCK ScreenPosition mode)
-            // Only use mouse when: window is focused, screen size is valid, mouse is inside game window
-            if (Mouse.current != null && Application.isFocused
-                && Screen.width > 100 && Screen.height > 100)
+            // Mouse steering using DELTA-BASED ACCUMULATED RETICLE.
+            // SCK locks the cursor (CursorLockMode.Locked) so Mouse.current.position is
+            // always screen center — reading absolute position gives zero steer forever.
+            //
+            // Instead, we match SCK's actual approach (PlayerInput_Base_SpaceshipControls):
+            // 1. Read mouse DELTA (movement) each frame
+            // 2. Accumulate into a virtual reticle position (viewport coords)
+            // 3. Reticle offset from center (0.5, 0.5) determines steer direction/amount
+            // 4. Reticle drifts back to center when not moving (auto-center)
+            //
+            // FOCUS GATE: Only read mouse delta when this window has focus.
+            // On the same machine, both editor and build receive the same mouse delta.
+            // On separate PCs this is irrelevant (each has its own mouse).
+            if (Application.isFocused && Mouse.current != null)
             {
-                Vector2 mousePos = Mouse.current.position.ReadValue();
+                // Read mouse delta (pixels moved this frame)
+                Vector2 mouseDelta = Mouse.current.delta.ReadValue();
 
-                // CRITICAL: Only process mouse if it's actually inside the game window.
-                // In the Unity Editor, Mouse.current.position can return coordinates outside
-                // the Game View (e.g., hovering over Console or Inspector), which would produce
-                // wild steering values and cause the ship to spin randomly.
-                bool mouseInsideWindow = mousePos.x >= 0 && mousePos.x <= Screen.width
-                                      && mousePos.y >= 0 && mousePos.y <= Screen.height;
+                // Convert pixel delta to viewport-space delta
+                // reticleMovementSpeed controls sensitivity (SCK default varies, 1.0 is a good start)
+                float reticleSpeed = 1.0f;
+                float deltaX = (mouseDelta.x / Screen.width) * reticleSpeed;
+                float deltaY = (mouseDelta.y / Screen.height) * reticleSpeed;
 
-                // Debug mouse diagnostics
-                if (Time.frameCount % 60 == 0) // Log once per second
+                // Accumulate into virtual reticle position
+                _reticlePos.x += deltaX;
+                _reticlePos.y += deltaY;
+
+                // Auto-center: drift reticle back to center when mouse isn't moving.
+                // This prevents the reticle from getting stuck at an edge.
+                float centerSpeed = 2.0f * Time.deltaTime;
+                _reticlePos.x = Mathf.Lerp(_reticlePos.x, 0.5f, centerSpeed);
+                _reticlePos.y = Mathf.Lerp(_reticlePos.y, 0.5f, centerSpeed);
+
+                // Clamp reticle to viewport bounds
+                float maxReticleDistance = 0.4f;
+                Vector2 centered = _reticlePos - new Vector2(0.5f, 0.5f);
+                // Correct for aspect ratio before clamping (matches SCK)
+                float aspect = (float)Screen.width / Screen.height;
+                centered.x *= aspect;
+                centered = Vector2.ClampMagnitude(centered, maxReticleDistance);
+                centered.x /= aspect;
+                _reticlePos = centered + new Vector2(0.5f, 0.5f);
+
+                // Compute steer from reticle offset
+                Vector2 steerOffset = _reticlePos - new Vector2(0.5f, 0.5f);
+                // Re-apply aspect correction for magnitude calculation
+                Vector2 corrected = new Vector2(steerOffset.x * aspect, steerOffset.y);
+                float magnitude = corrected.magnitude;
+
+                float mouseDeadRadius = 0.02f;
+                if (magnitude > mouseDeadRadius)
                 {
-                     Debug.Log($"[NetworkedPlayerInput] MousePos: {mousePos}, Screen: {Screen.width}x{Screen.height}, Inside: {mouseInsideWindow}, Focused: {Application.isFocused}");
+                    float amount = Mathf.Clamp01((magnitude - mouseDeadRadius) / (maxReticleDistance - mouseDeadRadius));
+
+                    // SCK convention: -Y = pitch (mouse up = pitch up), X = yaw
+                    pitch = -steerOffset.y / Mathf.Max(magnitude, 0.001f) * amount;
+                    yaw = steerOffset.x / Mathf.Max(magnitude, 0.001f) * amount;
+                    pitch = Mathf.Clamp(pitch, -1f, 1f);
+                    yaw = Mathf.Clamp(yaw, -1f, 1f);
+                    mouseProvidedSteering = true;
                 }
 
-                if (mouseInsideWindow)
+                // Debug every ~1 second
+                if (Time.frameCount % 60 == 0)
                 {
-                    // Convert to viewport-centered coords: -0.5 to +0.5
-                    float viewportX = (mousePos.x / Screen.width) - 0.5f;
-                    float viewportY = (mousePos.y / Screen.height) - 0.5f;
-
-                    // Dead zone and max distance (matches SCK defaults)
-                    float mouseDeadRadius = 0.1f;
-                    float maxDistance = 0.475f;
-
-                    float magnitude = new Vector2(viewportX, viewportY).magnitude;
-
-                    if (magnitude > mouseDeadRadius)
-                    {
-                        // Normalize the input from dead zone edge to max distance
-                        float amount = Mathf.Clamp01((magnitude - mouseDeadRadius) / (maxDistance - mouseDeadRadius));
-                        Vector2 direction = new Vector2(viewportX, viewportY).normalized;
-
-                        // SCK convention: -viewportY = pitch (mouse up = pitch up), viewportX = yaw
-                        pitch = -direction.y * amount;
-                        yaw = direction.x * amount;
-
-                        pitch = Mathf.Clamp(pitch, -1f, 1f);
-                        yaw = Mathf.Clamp(yaw, -1f, 1f);
-                        mouseProvidedSteering = true;
-                        
-                        // Debug active steering
-                        if (amount > 0) Debug.Log($"[NetworkedPlayerInput] Mouse Steering: Pitch={pitch:F2}, Yaw={yaw:F2}");
-                    }
+                    Debug.Log($"[NetworkedPlayerInput] MouseDelta: delta=({mouseDelta.x:F1},{mouseDelta.y:F1}), " +
+                              $"reticle=({_reticlePos.x:F3},{_reticlePos.y:F3}), mag={magnitude:F3}, " +
+                              $"steer=({pitch:F2},{yaw:F2}), focused={Application.isFocused}");
                 }
+            }
+            else
+            {
+                // Not focused: reset reticle to center (no steer)
+                _reticlePos = new Vector2(0.5f, 0.5f);
             }
 
             // Keyboard roll (Q/E) — always active
@@ -212,14 +279,69 @@ namespace GV.Network
         
         public void OnInput(NetworkRunner runner, NetworkInput input)
         {
-            // Debug frequency limiter for OnInput
-            if (Time.frameCount % 60 == 0 && Mathf.Abs(_inputData.moveZ) > 0)
-            {
-                Debug.Log($"[NetworkedPlayerInput] OnInput (Instance {this.GetInstanceID()}): Client {runner.LocalPlayer} Sending Throttle {_inputData.moveZ}");
-            }
+            // NOTE: This is no longer called by Fusion directly (NetworkedPlayerInput is not
+            // registered via AddCallbacks). It may still be called for diagnostic tracking.
+            // The actual input.Set() happens in NetworkManager.OnInput() using CurrentInputData.
+            _onInputCalled = true;
+            _onInputCallCount++;
+            _inputData.buttons = default; // Reset one-shot buttons after NetworkManager reads them
+        }
 
-            input.Set(_inputData);
-            _inputData.buttons = default; // Reset one-shot buttons
+        // On-screen debug display — visible in builds without dev console
+        private void OnGUI()
+        {
+            // Only show on non-editor builds (editor has console)
+            if (Application.isEditor) return;
+
+            GUILayout.BeginArea(new Rect(10, 260, 600, 420));
+            GUILayout.BeginVertical("box");
+            GUILayout.Label("[NetworkedPlayerInput Debug]");
+            GUILayout.Label($"Status: {_debugStatus}");
+            // FOCUS DIAGNOSTIC: Shows whether Application.isFocused is true (must be true for mouse input)
+            GUI.color = Application.isFocused ? Color.green : Color.red;
+            GUILayout.Label($"FOCUSED: {Application.isFocused}");
+            GUI.color = Color.white;
+            // Show mouse delta and reticle position
+            string mouseInfo = "N/A";
+            if (Mouse.current != null)
+            {
+                var delta = Mouse.current.delta.ReadValue();
+                Vector2 reticleOffset = _reticlePos - new Vector2(0.5f, 0.5f);
+                mouseInfo = $"delta=({delta.x:F1},{delta.y:F1}) reticle=({_reticlePos.x:F3},{_reticlePos.y:F3}) offset={reticleOffset.magnitude:F3}";
+            }
+            GUILayout.Label($"Mouse: {mouseInfo}");
+            // Steer values — these are what get sent via RPC
+            GUI.color = (_inputData.steerPitch != 0 || _inputData.steerYaw != 0) ? Color.green : Color.yellow;
+            GUILayout.Label($"Throttle: {_inputData.moveZ:F2}, Steer: ({_inputData.steerPitch:F2}, {_inputData.steerYaw:F2})");
+            GUI.color = Color.white;
+            GUILayout.Label($"Magic: {_inputData.magicNumber}");
+            var nm = NetworkManager.Instance;
+            if (nm != null && nm.Runner != null)
+            {
+                GUILayout.Label($"Runner.IsClient: {nm.Runner.IsClient}, IsServer: {nm.Runner.IsServer}");
+                GUILayout.Label($"LocalPlayer: {nm.Runner.LocalPlayer}");
+            }
+            // --- RAW SEND DIAGNOSTICS ---
+            if (nm != null)
+            {
+                GUI.color = nm.RawSendCount > 0 ? Color.green : Color.red;
+                GUILayout.Label($"RAW SEND: ok={nm.RawSendCount}, errs={nm.RawSendErrorCount}");
+                GUILayout.Label($"RAW BLOCK: {nm.RawSendBlockReason}");
+                if (!string.IsNullOrEmpty(nm.RawSendError))
+                {
+                    GUI.color = Color.red;
+                    GUILayout.Label($"RAW ERROR: {nm.RawSendError}");
+                    // Show first line of stack trace to identify WHERE the null ref happens
+                    if (!string.IsNullOrEmpty(nm.RawSendErrorStack))
+                    {
+                        string firstLine = nm.RawSendErrorStack.Split('\n')[0];
+                        GUILayout.Label($"STACK: {firstLine}");
+                    }
+                }
+                GUI.color = Color.white;
+            }
+            GUILayout.EndVertical();
+            GUILayout.EndArea();
         }
         
         // Required INetworkRunnerCallbacks implementations (empty stubs)

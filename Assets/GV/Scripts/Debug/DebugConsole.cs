@@ -320,7 +320,8 @@ namespace GV.DebugTools
             GameObject viewportGO = new GameObject("Viewport");
             viewportGO.transform.SetParent(scrollGO.transform, false);
             viewportGO.AddComponent<RectMask2D>();
-            RectTransform viewportRect = viewportGO.AddComponent<RectTransform>();
+            RectTransform viewportRect = viewportGO.GetComponent<RectTransform>();
+            if (viewportRect == null) viewportRect = viewportGO.AddComponent<RectTransform>();
             viewportRect.anchorMin = Vector2.zero;
             viewportRect.anchorMax = Vector2.one;
             viewportRect.sizeDelta = Vector2.zero;
