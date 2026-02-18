@@ -5,6 +5,7 @@ using VSX.CameraSystem;
 using VSX.Vehicles;
 using VSX.VehicleCombatKits;
 using VSX.Controls;
+using VSX.Utilities;
 
 namespace GV.Network
 {
@@ -73,6 +74,28 @@ namespace GV.Network
         // Local state for visual feedback (not networked for now)
         private bool _isBoosting;
         public bool IsBoosting => _isBoosting;
+
+        // --- HUD CURSOR (client's own ship) ---
+        // SCK's PlayerInput_Base_SpaceshipControls normally drives the CustomCursor via
+        // MouseSteeringUpdate(), but that script is disabled on the client (pure visual shell).
+        // We drive it from NetworkedPlayerInput's reticle position instead.
+        private CustomCursor _hudCursor;
+        private bool _hudCursorSearched = false;
+
+        // --- DOUBLE-BUFFERED INTERPOLATION (smooth position sync) ---
+        // Instead of Lerping toward the latest SyncPosition (which causes stutter when
+        // the target jumps on each network tick), we interpolate between the PREVIOUS
+        // and CURRENT sync snapshots over the estimated tick interval. This produces
+        // constant-speed motion between snapshots, eliminating the accelerate-decelerate pattern.
+        private Vector3 _syncPosFrom;
+        private Vector3 _syncPosTo;
+        private Quaternion _syncRotFrom;
+        private Quaternion _syncRotTo;
+        private int _prevSyncTick = -1;
+        private float _interpElapsed = 0f;
+        private float _interpDuration = 0.05f; // Estimated time between network ticks (auto-adjusts)
+        private float _lastTickTime = 0f;
+        private bool _interpInitialized = false;
 
         // Flag to track if we've done the initial authority check
         private bool _hasCheckedAuthority = false;
@@ -273,6 +296,30 @@ namespace GV.Network
                             Debug.Log($"[NetworkedSpaceshipBridge] CLIENT FIRST RPC SEND (from Update) on {gameObject.name}: " +
                                       $"throttle={clientData.moveZ:F2}, steer=({clientData.steerPitch:F2},{clientData.steerYaw:F2}), " +
                                       $"magic={playerMagic}, LocalPlayer={nm.Runner.LocalPlayer}");
+                        }
+
+                        // --- HUD CURSOR UPDATE (client's own ship) ---
+                        // SCK's PlayerInput_Base_SpaceshipControls.MouseSteeringUpdate() normally
+                        // calls hudCursor.SetViewportPosition(), but that script is disabled on the
+                        // client (pure visual shell). We drive the HUD cursor from NetworkedPlayerInput's
+                        // virtual reticle position instead.
+                        if (!_hudCursorSearched)
+                        {
+                            _hudCursorSearched = true;
+                            _hudCursor = GetComponentInChildren<CustomCursor>(true);
+                            if (_hudCursor != null)
+                            {
+                                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Found HUD cursor '{_hudCursor.name}' for reticle sync");
+                            }
+                            else
+                            {
+                                Debug.LogWarning($"[NetworkedSpaceshipBridge] CLIENT: No CustomCursor found on ship — HUD cursor won't move");
+                            }
+                        }
+                        if (_hudCursor != null)
+                        {
+                            Vector2 reticle = playerInput.ReticlePosition;
+                            _hudCursor.SetViewportPosition(new Vector3(reticle.x, reticle.y, 0f));
                         }
                     }
                 }
@@ -859,13 +906,15 @@ namespace GV.Network
         /// <summary>
         /// LateUpdate applies [Networked] position sync for ALL non-state-authority ships
         /// (both proxies and the client's own ship).
-        /// Uses smooth interpolation to prevent jitter from network snapshot timing.
+        /// Uses DOUBLE-BUFFERED interpolation: instead of chasing the latest SyncPosition
+        /// (which stutters because the target jumps on each network tick), we interpolate
+        /// between the PREVIOUS and CURRENT snapshots at a constant rate. This produces
+        /// smooth constant-speed motion between ticks, eliminating accelerate-decelerate jitter.
         /// </summary>
         private bool _lateUpdateProxyFirstLog = false;
         private bool _cameraVerified = false;
         private int _cameraVerifyCount = 0;
         private float _cameraVerifyTimer = 0f;
-        private int _lastSyncTick = 0;
 
         private void LateUpdate()
         {
@@ -906,44 +955,95 @@ namespace GV.Network
                 // GUARD: Don't apply until the host has written at least one sync update.
                 if (SyncTick <= 0) return;
 
+                var proxyRb = GetComponentInChildren<Rigidbody>();
+                Transform target = proxyRb != null ? proxyRb.transform : transform;
+
                 // One-time diagnostic
                 if (!_lateUpdateProxyFirstLog)
                 {
                     _lateUpdateProxyFirstLog = true;
-                    var rb = GetComponentInChildren<Rigidbody>();
                     string shipType = Object.HasInputAuthority ? "CLIENT OWN SHIP" : "PROXY";
                     Debug.Log($"[NetworkedSpaceshipBridge] {shipType} LATE UPDATE ACTIVE on {gameObject.name}: " +
                               $"SyncPosition={SyncPosition}, SyncTick={SyncTick}, " +
-                              $"rbChild={rb?.gameObject.name ?? "NULL"}, " +
-                              $"rootPos={transform.position}, rbPos={rb?.position}");
+                              $"rbChild={proxyRb?.gameObject.name ?? "NULL"}, " +
+                              $"rootPos={transform.position}, rbPos={proxyRb?.position}");
                 }
 
-                // Apply the [Networked] position to the CHILD that has the Rigidbody.
-                // Use SMOOTH INTERPOLATION to prevent jitter from network snapshot timing.
-                // Hard-snapping (transform.position = SyncPosition) causes violent shaking because
-                // snapshots arrive at irregular intervals, creating visible position jumps each frame.
-                var proxyRb = GetComponentInChildren<Rigidbody>();
-                Transform target = proxyRb != null ? proxyRb.transform : transform;
-
-                // Snap immediately on first sync or if too far away (teleport/respawn)
+                // Teleport if too far (respawn/initial placement)
                 float dist = Vector3.Distance(target.position, SyncPosition);
-                bool newTick = SyncTick != _lastSyncTick;
-                _lastSyncTick = SyncTick;
-
-                if (dist > 50f || !_lateUpdateProxyFirstLog)
+                if (dist > 50f)
                 {
-                    // Teleport — too far for interpolation
                     target.position = SyncPosition;
                     target.rotation = SyncRotation;
+                    _syncPosFrom = SyncPosition;
+                    _syncPosTo = SyncPosition;
+                    _syncRotFrom = SyncRotation;
+                    _syncRotTo = SyncRotation;
+                    _prevSyncTick = SyncTick;
+                    _interpInitialized = true;
+                    return;
+                }
+
+                // --- DOUBLE-BUFFERED INTERPOLATION ---
+                // When a NEW network tick arrives (SyncTick changes), shift the buffer:
+                //   from = previous target (where we were heading)
+                //   to   = new SyncPosition
+                // Then interpolate between from→to over the measured tick interval.
+                // This gives constant-speed motion instead of Lerp's accelerate-decelerate.
+                if (SyncTick != _prevSyncTick)
+                {
+                    if (!_interpInitialized)
+                    {
+                        // First tick ever — snap
+                        _syncPosFrom = SyncPosition;
+                        _syncPosTo = SyncPosition;
+                        _syncRotFrom = SyncRotation;
+                        _syncRotTo = SyncRotation;
+                        _lastTickTime = Time.time;
+                        _interpInitialized = true;
+                    }
+                    else
+                    {
+                        // Shift buffer: old target becomes new origin
+                        _syncPosFrom = _syncPosTo;
+                        _syncRotFrom = _syncRotTo;
+
+                        // Measure actual time between network ticks for adaptive timing
+                        float tickDelta = Time.time - _lastTickTime;
+                        if (tickDelta > 0.005f && tickDelta < 0.5f)
+                        {
+                            // Smooth the estimate to avoid jitter from irregular tick arrival
+                            _interpDuration = Mathf.Lerp(_interpDuration, tickDelta, 0.3f);
+                        }
+                        _lastTickTime = Time.time;
+                    }
+                    _syncPosTo = SyncPosition;
+                    _syncRotTo = SyncRotation;
+                    _prevSyncTick = SyncTick;
+                    _interpElapsed = 0f;
+                }
+
+                // Advance interpolation timer
+                _interpElapsed += Time.deltaTime;
+
+                // Compute interpolation factor (0 = from, 1 = to).
+                // Allow slight overshoot (up to 1.2) so ship can extrapolate briefly
+                // if the next tick is late, preventing a visible pause.
+                float t = Mathf.Clamp(_interpElapsed / Mathf.Max(_interpDuration, 0.01f), 0f, 1.2f);
+
+                if (t <= 1f)
+                {
+                    // Normal interpolation between snapshots
+                    target.position = Vector3.Lerp(_syncPosFrom, _syncPosTo, t);
+                    target.rotation = Quaternion.Slerp(_syncRotFrom, _syncRotTo, t);
                 }
                 else
                 {
-                    // Smooth interpolation — fast enough to track but eliminates jitter.
-                    // Higher speed = more responsive but more jittery.
-                    // 15f balances responsiveness and smoothness at 60fps.
-                    float interpSpeed = 15f;
-                    target.position = Vector3.Lerp(target.position, SyncPosition, Time.deltaTime * interpSpeed);
-                    target.rotation = Quaternion.Slerp(target.rotation, SyncRotation, Time.deltaTime * interpSpeed);
+                    // Mild extrapolation — continue at same velocity direction
+                    // to avoid stopping dead if next tick is slightly late
+                    Vector3 velocity = _syncPosTo - _syncPosFrom;
+                    target.position = _syncPosTo + velocity * (t - 1f);
+                    target.rotation = _syncRotTo; // Don't extrapolate rotation (can diverge)
                 }
             }
         }

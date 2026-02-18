@@ -53,9 +53,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/BR_Tests_ClaudeCoWork_3.unity
     guid: 7707f5094a993cc42978cfd29be9d841
-  - enabled: 1
+  - enabled: 0
     path: Assets/Sync Tests_1.unity
     guid: b4d79c234c4a4ef4591d3487533ff165
+  - enabled: 1
+    path: Assets/MP_Mechanics.unity
+    guid: efa8ae59d6c2ac542bf16e790d86bfda
   m_configObjects:
     com.unity.input.settings: {fileID: 11400000, guid: 15762e7d1852b174496d703157a471ea,
       type: 2}

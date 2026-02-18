@@ -65,6 +65,14 @@ namespace GV.Network
         public PlayerInputData CurrentInputData => _inputData;
 
         /// <summary>
+        /// Exposes the virtual reticle position (viewport coords, 0.5 = center) so the
+        /// NetworkedSpaceshipBridge can update the HUD cursor on the client's own ship.
+        /// SCK's PlayerInput_Base_SpaceshipControls normally drives the CustomCursor via
+        /// MouseSteeringUpdate(), but that script is disabled on the client (pure visual shell).
+        /// </summary>
+        public Vector2 ReticlePosition => _reticlePos;
+
+        /// <summary>
         /// Called by NetworkManager.OnInput() after reading CurrentInputData and calling input.Set().
         /// Resets one-shot buttons and increments diagnostic counters.
         /// </summary>
