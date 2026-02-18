@@ -149,17 +149,15 @@ namespace GV.Network
                 float deltaY = (mouseDelta.y / Screen.height) * reticleSpeed;
 
                 // Accumulate into virtual reticle position
+                // NO auto-centering — SCK's original MouseSteeringUpdate() does NOT drift the
+                // reticle back to center. The reticle stays where the mouse puts it, and its
+                // offset from center determines steer direction/amount. Auto-centering was
+                // causing the HUD cursor to constantly snap back to the middle of the screen.
                 _reticlePos.x += deltaX;
                 _reticlePos.y += deltaY;
 
-                // Auto-center: drift reticle back to center when mouse isn't moving.
-                // This prevents the reticle from getting stuck at an edge.
-                float centerSpeed = 2.0f * Time.deltaTime;
-                _reticlePos.x = Mathf.Lerp(_reticlePos.x, 0.5f, centerSpeed);
-                _reticlePos.y = Mathf.Lerp(_reticlePos.y, 0.5f, centerSpeed);
-
-                // Clamp reticle to viewport bounds
-                float maxReticleDistance = 0.4f;
+                // Clamp reticle to viewport bounds (matches SCK's maxReticleDistanceFromCenter)
+                float maxReticleDistance = 0.475f;
                 Vector2 centered = _reticlePos - new Vector2(0.5f, 0.5f);
                 // Correct for aspect ratio before clamping (matches SCK)
                 float aspect = (float)Screen.width / Screen.height;

@@ -6,7 +6,6 @@ using VSX.Vehicles;
 using VSX.VehicleCombatKits;
 using VSX.Controls;
 using VSX.Utilities;
-using VSX.CameraSystem;
 
 namespace GV.Network
 {
@@ -14,7 +13,13 @@ namespace GV.Network
     /// Bridge between Fusion network input and SpaceCombatKit's VehicleEngines3D.
     /// On host/server: reads networked input and applies to engines for remote players.
     /// On clients: disables local input on ALL ships, camera follows local player only.
+    ///
+    /// EXECUTION ORDER: -200 ensures our FixedUpdate runs BEFORE SCK's CameraEntity (default 0).
+    /// This is critical because CameraEntity follows the ship in FixedUpdate when
+    /// cameraTarget.Rigidbody != null. We must set the interpolated position BEFORE the
+    /// camera reads it, otherwise the camera sees stale position → visible jitter.
     /// </summary>
+    [DefaultExecutionOrder(-200)]
     [RequireComponent(typeof(NetworkObject))]
     public class NetworkedSpaceshipBridge : NetworkBehaviour
     {
@@ -89,14 +94,15 @@ namespace GV.Network
         // and CURRENT sync snapshots over the estimated tick interval. This produces
         // constant-speed motion between snapshots, eliminating the accelerate-decelerate pattern.
         //
-        // CRITICAL TIMING FIX: Position is applied in BOTH FixedUpdate (for the camera)
-        // AND LateUpdate (for frame-rate-smooth visuals). SCK's CameraEntity follows the
-        // ship in FixedUpdate when cameraTarget.Rigidbody != null. If we only update
-        // position in LateUpdate, the camera reads stale position from the previous frame,
-        // causing a one-step visual lag that appears as jitter/stuttering.
+        // CAMERA TIMING FIX: [DefaultExecutionOrder(-200)] on this class ensures our
+        // FixedUpdate runs BEFORE CameraController.FixedUpdate (default order 0).
+        // Position is applied ONLY in FixedUpdate — matching the host pattern where physics
+        // moves the ship in FixedUpdate and the camera follows in the same FixedUpdate step.
+        // NOT applied in LateUpdate because that would move the ship to a slightly different
+        // position than where the camera was positioned, causing ship-camera desync → jitter.
         //
         // We use absolute time (Time.time - _tickArrivalTime) instead of accumulated delta
-        // so the interpolation is correct regardless of which callback reads it.
+        // so the interpolation is correct regardless of callback timing.
         private Vector3 _syncPosFrom;
         private Vector3 _syncPosTo;
         private Quaternion _syncRotFrom;
@@ -107,6 +113,7 @@ namespace GV.Network
         private float _prevTickArrivalTime = 0f;
         private bool _interpInitialized = false;
         private Transform _cachedTarget = null; // Cached child Rigidbody transform for position sync
+        private Rigidbody _cachedRigidbody = null; // Cached Rigidbody for MovePosition/MoveRotation
 
         // Flag to track if we've done the initial authority check
         private bool _hasCheckedAuthority = false;
@@ -145,8 +152,13 @@ namespace GV.Network
                 if (rb != null)
                 {
                     rb.isKinematic = true;
-                    rb.interpolation = RigidbodyInterpolation.None;
-                    Debug.Log($"[NetworkedSpaceshipBridge] Made Rigidbody kinematic (no state authority)");
+                    // CRITICAL: Keep interpolation enabled! On the host, Rigidbody.Interpolate
+                    // smooths the visual position between FixedUpdate steps (50Hz → frame rate).
+                    // We use rb.MovePosition() in FixedUpdate, and Unity's built-in interpolation
+                    // smooths the rendered position between physics steps. Without this, the ship
+                    // only moves at FixedUpdate rate → visible stutter at high frame rates.
+                    rb.interpolation = RigidbodyInterpolation.Interpolate;
+                    Debug.Log($"[NetworkedSpaceshipBridge] Made Rigidbody kinematic with interpolation (no state authority)");
                 }
 
                 // DISABLE NetworkTransform on non-authority ships.
@@ -454,27 +466,17 @@ namespace GV.Network
                 ga.enabled = false;
             }
 
-            // 7. NULL OUT CameraTarget.Rigidbody — CRITICAL for smooth camera following.
-            // SCK's CameraEntity checks cameraTarget.Rigidbody to decide its update path:
-            //   - Rigidbody != null → camera follows in FixedUpdate (physics rate ~50Hz)
-            //   - Rigidbody == null → camera follows in Update (frame rate)
-            // On the client, we set ship position in LateUpdate from network sync.
-            // If the camera reads position in FixedUpdate, it sees STALE position from the
-            // previous frame → one-step visual lag → visible jitter/shaking.
-            // By nulling the Rigidbody reference, the camera switches to Update-based following
-            // which runs at frame rate and reads position set in LateUpdate of the previous frame
-            // at the same rate as rendering — eliminating the timing mismatch entirely.
-            // CameraTarget.m_Rigidbody is protected, so we use reflection to clear it.
-            var cameraTargets = GetComponentsInChildren<CameraTarget>(true);
-            foreach (var ct in cameraTargets)
+            // 7. Cache the child transform (where the Rigidbody lives) for position interpolation.
+            // We keep the Rigidbody alive (kinematic) because many SCK scripts depend on it.
+            // The camera timing mismatch (camera reads in FixedUpdate, we write in LateUpdate)
+            // is solved via [DefaultExecutionOrder(-200)] which makes our FixedUpdate run BEFORE
+            // CameraEntity's FixedUpdate, so we set the position before the camera reads it.
+            var clientRb = GetComponentInChildren<Rigidbody>();
+            if (clientRb != null)
             {
-                var rbField = typeof(CameraTarget).GetField("m_Rigidbody",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (rbField != null)
-                {
-                    rbField.SetValue(ct, null);
-                    Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Nulled CameraTarget.Rigidbody on '{ct.name}' — camera will follow in Update instead of FixedUpdate");
-                }
+                _cachedRigidbody = clientRb;
+                _cachedTarget = clientRb.transform;
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Cached Rigidbody '{_cachedTarget.name}' for MovePosition sync (interpolation={clientRb.interpolation})");
             }
 
             // SAFETY: Ensure THIS bridge component is still enabled
@@ -611,20 +613,16 @@ namespace GV.Network
             }
             Debug.Log($"[NetworkedSpaceshipBridge] Re-disabled {reactivatedInputs.Length} input scripts after vehicle activation");
 
-            // Null out CameraTarget.Rigidbody on proxy ships (same reason as client's own ship).
-            // Ensures the camera follows in Update instead of FixedUpdate for smooth position sync.
+            // Cache the child transform for position interpolation on proxy ships.
+            // Rigidbody is kept alive (kinematic) because SCK scripts depend on it.
             if (!Object.HasStateAuthority)
             {
-                var proxyCameraTargets = GetComponentsInChildren<CameraTarget>(true);
-                foreach (var ct in proxyCameraTargets)
+                var proxyRb = GetComponentInChildren<Rigidbody>();
+                if (proxyRb != null)
                 {
-                    var rbField = typeof(CameraTarget).GetField("m_Rigidbody",
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    if (rbField != null)
-                    {
-                        rbField.SetValue(ct, null);
-                        Debug.Log($"[NetworkedSpaceshipBridge] PROXY: Nulled CameraTarget.Rigidbody on '{ct.name}'");
-                    }
+                    _cachedRigidbody = proxyRb;
+                    _cachedTarget = proxyRb.transform;
+                    Debug.Log($"[NetworkedSpaceshipBridge] PROXY: Cached Rigidbody '{_cachedTarget.name}' for MovePosition sync (interpolation={proxyRb.interpolation})");
                 }
             }
 
@@ -954,11 +952,11 @@ namespace GV.Network
             // e.g., boost effects, engine sounds based on IsBoosting
         }
 
-        // --- SHARED INTERPOLATION METHOD ---
-        // Called from BOTH FixedUpdate and LateUpdate so the camera (FixedUpdate) and
-        // renderer (LateUpdate) always see the correct interpolated position.
-        // Uses absolute time (Time.time) for the interpolation factor, making it safe
-        // to call multiple times per frame without double-advancing.
+        // --- INTERPOLATION METHODS ---
+        // Position is applied ONLY in FixedUpdate (not LateUpdate) to match the host's behavior.
+        // On the host: physics moves ship in FixedUpdate → camera follows in FixedUpdate → in sync.
+        // On the client: we set position in FixedUpdate → camera follows in FixedUpdate → in sync.
+        // [DefaultExecutionOrder(-200)] guarantees our FixedUpdate runs before the camera's.
         private bool _lateUpdateProxyFirstLog = false;
         private bool _cameraVerified = false;
         private int _cameraVerifyCount = 0;
@@ -1004,19 +1002,28 @@ namespace GV.Network
         }
 
         /// <summary>
-        /// Computes and applies the interpolated position/rotation to the ship child.
-        /// Safe to call from ANY callback (FixedUpdate, Update, LateUpdate) because it
-        /// uses absolute time rather than accumulated deltas.
+        /// Computes and applies the interpolated position/rotation to the ship's Rigidbody.
+        /// Uses rb.MovePosition/MoveRotation instead of direct transform writes so that
+        /// Unity's built-in Rigidbody interpolation (set to Interpolate mode in Spawned)
+        /// smooths the visual position between FixedUpdate steps.
+        ///
+        /// On the host: physics moves ship in FixedUpdate → Rigidbody.Interpolate smooths
+        /// the rendered position between physics steps → smooth at any frame rate.
+        /// On the client: we call MovePosition in FixedUpdate → Rigidbody.Interpolate smooths
+        /// the rendered position between physics steps → same smoothness as host.
+        ///
+        /// Previously we wrote to transform.position directly with interpolation=None,
+        /// which meant the ship only visually moved at FixedUpdate rate (50Hz) → stutter.
         /// </summary>
         private void ApplyInterpolatedPosition()
         {
             if (!_interpInitialized) return;
 
-            // Cache the target transform (child Rigidbody) on first use
-            if (_cachedTarget == null)
+            // Cache the Rigidbody and its transform on first use
+            if (_cachedRigidbody == null)
             {
-                var proxyRb = GetComponentInChildren<Rigidbody>();
-                _cachedTarget = proxyRb != null ? proxyRb.transform : transform;
+                _cachedRigidbody = GetComponentInChildren<Rigidbody>();
+                _cachedTarget = _cachedRigidbody != null ? _cachedRigidbody.transform : transform;
             }
 
             // Teleport if too far (respawn/initial placement)
@@ -1034,31 +1041,55 @@ namespace GV.Network
 
             // Compute interpolation factor from absolute time.
             // t=0 at tick arrival, t=1 at estimated next tick arrival.
-            // Allow slight overshoot (up to 1.2) so ship can extrapolate briefly
-            // if the next tick is late, preventing a visible pause.
+            // CLAMPED to 1.0 — NO extrapolation. Extrapolation (t > 1) was causing
+            // forward/backward jitter: the ship overshoots past the target position,
+            // then snaps back when the next tick arrives. Holding at t=1 (the latest
+            // known position) is visually smoother — at worst the ship pauses briefly
+            // if the next tick is late, which is far less noticeable than oscillation.
             float elapsed = Time.time - _tickArrivalTime;
-            float t = Mathf.Clamp(elapsed / Mathf.Max(_interpDuration, 0.01f), 0f, 1.2f);
+            float t = Mathf.Clamp(elapsed / Mathf.Max(_interpDuration, 0.01f), 0f, 1f);
 
-            if (t <= 1f)
+            Vector3 targetPos = Vector3.Lerp(_syncPosFrom, _syncPosTo, t);
+            Quaternion targetRot = Quaternion.Slerp(_syncRotFrom, _syncRotTo, t);
+
+            // Use MovePosition/MoveRotation so Unity's Rigidbody interpolation can
+            // smooth the visual position between FixedUpdate steps (50Hz → frame rate).
+            // This is the standard Unity approach for smooth kinematic movement.
+            if (_cachedRigidbody != null)
             {
-                // Normal interpolation between snapshots
-                _cachedTarget.position = Vector3.Lerp(_syncPosFrom, _syncPosTo, t);
-                _cachedTarget.rotation = Quaternion.Slerp(_syncRotFrom, _syncRotTo, t);
+                _cachedRigidbody.MovePosition(targetPos);
+                _cachedRigidbody.MoveRotation(targetRot);
             }
             else
             {
-                // Mild extrapolation — continue at same velocity direction
-                // to avoid stopping dead if next tick is slightly late
-                Vector3 velocity = _syncPosTo - _syncPosFrom;
-                _cachedTarget.position = _syncPosTo + velocity * (t - 1f);
-                _cachedTarget.rotation = _syncRotTo; // Don't extrapolate rotation (can diverge)
+                // Fallback if no Rigidbody (shouldn't happen, but safe)
+                _cachedTarget.position = targetPos;
+                _cachedTarget.rotation = targetRot;
             }
         }
 
-        // NOTE: No FixedUpdate for position sync needed. We null out CameraTarget.m_Rigidbody
-        // on non-authority ships, which makes the camera follow in Update (frame rate) instead of
-        // FixedUpdate (physics rate). Our LateUpdate position writes are then in sync with the
-        // camera's Update reads — same frame, no timing mismatch, no jitter.
+        /// <summary>
+        /// FixedUpdate: Apply interpolated position at the SAME rate as the camera.
+        /// [DefaultExecutionOrder(-200)] on this class guarantees this runs BEFORE:
+        ///   - CameraController.FixedUpdate (0) → SpaceFighterCameraController.CameraControllerFixedUpdate
+        ///   - CameraEntity.FixedUpdate (0) → CameraControlFixedUpdate (if no controller override)
+        ///
+        /// Position is applied via rb.MovePosition() which works with Unity's Rigidbody
+        /// interpolation to smooth visual position between FixedUpdate steps. The camera
+        /// follows in FixedUpdate (reads Rigidbody.position), while Unity automatically
+        /// interpolates the rendered position for smooth visuals at any frame rate.
+        /// </summary>
+        private void FixedUpdate()
+        {
+            if (!Object.HasStateAuthority && SyncTick > 0)
+            {
+                // Detect new ticks and shift the interpolation buffer
+                UpdateInterpolationBuffer();
+
+                // Apply interpolated position BEFORE the camera reads it
+                ApplyInterpolatedPosition();
+            }
+        }
 
         private void LateUpdate()
         {
@@ -1088,30 +1119,23 @@ namespace GV.Network
                 }
             }
 
-            // --- POSITION SYNC for non-authority ships ---
-            if (!Object.HasStateAuthority)
+            // --- ONE-TIME DIAGNOSTIC for non-authority ships ---
+            if (!Object.HasStateAuthority && SyncTick > 0 && !_lateUpdateProxyFirstLog)
             {
-                if (SyncTick <= 0) return;
-
-                // One-time diagnostic
-                if (!_lateUpdateProxyFirstLog)
-                {
-                    _lateUpdateProxyFirstLog = true;
-                    var proxyRb = GetComponentInChildren<Rigidbody>();
-                    string shipType = Object.HasInputAuthority ? "CLIENT OWN SHIP" : "PROXY";
-                    Debug.Log($"[NetworkedSpaceshipBridge] {shipType} LATE UPDATE ACTIVE on {gameObject.name}: " +
-                              $"SyncPosition={SyncPosition}, SyncTick={SyncTick}, " +
-                              $"rbChild={proxyRb?.gameObject.name ?? "NULL"}, " +
-                              $"rootPos={transform.position}, rbPos={proxyRb?.position}");
-                }
-
-                // Detect new ticks and shift the interpolation buffer (once per frame)
-                UpdateInterpolationBuffer();
-
-                // Apply interpolated position (also called in FixedUpdate for camera sync,
-                // but LateUpdate gives the most up-to-date visual for the current frame)
-                ApplyInterpolatedPosition();
+                _lateUpdateProxyFirstLog = true;
+                var proxyRb = GetComponentInChildren<Rigidbody>();
+                string shipType = Object.HasInputAuthority ? "CLIENT OWN SHIP" : "PROXY";
+                Debug.Log($"[NetworkedSpaceshipBridge] {shipType} POSITION SYNC ACTIVE on {gameObject.name}: " +
+                          $"SyncPosition={SyncPosition}, SyncTick={SyncTick}, " +
+                          $"rbChild={proxyRb?.gameObject.name ?? "NULL"}, " +
+                          $"rootPos={transform.position}, rbPos={proxyRb?.position}, " +
+                          $"interpDuration={_interpDuration:F4}s");
             }
+
+            // NOTE: Position is NOT applied here. It's only applied in FixedUpdate to match
+            // the host's behavior (physics moves ship in FixedUpdate, camera follows in FixedUpdate).
+            // Applying here too would put the ship at a slightly different position than where
+            // the camera was positioned in FixedUpdate → visible jitter.
         }
     }
 }
