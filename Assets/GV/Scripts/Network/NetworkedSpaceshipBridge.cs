@@ -6,6 +6,7 @@ using VSX.Vehicles;
 using VSX.VehicleCombatKits;
 using VSX.Controls;
 using VSX.Utilities;
+using VSX.CameraSystem;
 
 namespace GV.Network
 {
@@ -453,6 +454,29 @@ namespace GV.Network
                 ga.enabled = false;
             }
 
+            // 7. NULL OUT CameraTarget.Rigidbody — CRITICAL for smooth camera following.
+            // SCK's CameraEntity checks cameraTarget.Rigidbody to decide its update path:
+            //   - Rigidbody != null → camera follows in FixedUpdate (physics rate ~50Hz)
+            //   - Rigidbody == null → camera follows in Update (frame rate)
+            // On the client, we set ship position in LateUpdate from network sync.
+            // If the camera reads position in FixedUpdate, it sees STALE position from the
+            // previous frame → one-step visual lag → visible jitter/shaking.
+            // By nulling the Rigidbody reference, the camera switches to Update-based following
+            // which runs at frame rate and reads position set in LateUpdate of the previous frame
+            // at the same rate as rendering — eliminating the timing mismatch entirely.
+            // CameraTarget.m_Rigidbody is protected, so we use reflection to clear it.
+            var cameraTargets = GetComponentsInChildren<CameraTarget>(true);
+            foreach (var ct in cameraTargets)
+            {
+                var rbField = typeof(CameraTarget).GetField("m_Rigidbody",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (rbField != null)
+                {
+                    rbField.SetValue(ct, null);
+                    Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Nulled CameraTarget.Rigidbody on '{ct.name}' — camera will follow in Update instead of FixedUpdate");
+                }
+            }
+
             // SAFETY: Ensure THIS bridge component is still enabled
             if (!this.enabled)
             {
@@ -586,6 +610,23 @@ namespace GV.Network
                 ((MonoBehaviour)gi).enabled = false;
             }
             Debug.Log($"[NetworkedSpaceshipBridge] Re-disabled {reactivatedInputs.Length} input scripts after vehicle activation");
+
+            // Null out CameraTarget.Rigidbody on proxy ships (same reason as client's own ship).
+            // Ensures the camera follows in Update instead of FixedUpdate for smooth position sync.
+            if (!Object.HasStateAuthority)
+            {
+                var proxyCameraTargets = GetComponentsInChildren<CameraTarget>(true);
+                foreach (var ct in proxyCameraTargets)
+                {
+                    var rbField = typeof(CameraTarget).GetField("m_Rigidbody",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (rbField != null)
+                    {
+                        rbField.SetValue(ct, null);
+                        Debug.Log($"[NetworkedSpaceshipBridge] PROXY: Nulled CameraTarget.Rigidbody on '{ct.name}'");
+                    }
+                }
+            }
 
             // CRITICAL SAFETY: Ensure THIS component (NetworkedSpaceshipBridge) is still enabled.
             // EnterVehicle() or other SCK cascades may have disabled us. FixedUpdateNetwork
@@ -1014,20 +1055,10 @@ namespace GV.Network
             }
         }
 
-        /// <summary>
-        /// FixedUpdate: Apply interpolated position BEFORE the camera reads it.
-        /// SCK's CameraEntity.CameraControlFixedUpdate() follows the ship in FixedUpdate
-        /// when cameraTarget.Rigidbody != null. If we only update position in LateUpdate,
-        /// the camera reads the PREVIOUS frame's position, causing a one-step visual lag.
-        /// By also updating here, the camera always sees the latest interpolated position.
-        /// </summary>
-        private void FixedUpdate()
-        {
-            if (!Object.HasStateAuthority && SyncTick > 0)
-            {
-                ApplyInterpolatedPosition();
-            }
-        }
+        // NOTE: No FixedUpdate for position sync needed. We null out CameraTarget.m_Rigidbody
+        // on non-authority ships, which makes the camera follow in Update (frame rate) instead of
+        // FixedUpdate (physics rate). Our LateUpdate position writes are then in sync with the
+        // camera's Update reads — same frame, no timing mismatch, no jitter.
 
         private void LateUpdate()
         {
