@@ -87,15 +87,25 @@ namespace GV.Network
         // the target jumps on each network tick), we interpolate between the PREVIOUS
         // and CURRENT sync snapshots over the estimated tick interval. This produces
         // constant-speed motion between snapshots, eliminating the accelerate-decelerate pattern.
+        //
+        // CRITICAL TIMING FIX: Position is applied in BOTH FixedUpdate (for the camera)
+        // AND LateUpdate (for frame-rate-smooth visuals). SCK's CameraEntity follows the
+        // ship in FixedUpdate when cameraTarget.Rigidbody != null. If we only update
+        // position in LateUpdate, the camera reads stale position from the previous frame,
+        // causing a one-step visual lag that appears as jitter/stuttering.
+        //
+        // We use absolute time (Time.time - _tickArrivalTime) instead of accumulated delta
+        // so the interpolation is correct regardless of which callback reads it.
         private Vector3 _syncPosFrom;
         private Vector3 _syncPosTo;
         private Quaternion _syncRotFrom;
         private Quaternion _syncRotTo;
         private int _prevSyncTick = -1;
-        private float _interpElapsed = 0f;
         private float _interpDuration = 0.05f; // Estimated time between network ticks (auto-adjusts)
-        private float _lastTickTime = 0f;
+        private float _tickArrivalTime = 0f;   // Time.time when the current tick arrived
+        private float _prevTickArrivalTime = 0f;
         private bool _interpInitialized = false;
+        private Transform _cachedTarget = null; // Cached child Rigidbody transform for position sync
 
         // Flag to track if we've done the initial authority check
         private bool _hasCheckedAuthority = false;
@@ -903,30 +913,128 @@ namespace GV.Network
             // e.g., boost effects, engine sounds based on IsBoosting
         }
 
-        /// <summary>
-        /// LateUpdate applies [Networked] position sync for ALL non-state-authority ships
-        /// (both proxies and the client's own ship).
-        /// Uses DOUBLE-BUFFERED interpolation: instead of chasing the latest SyncPosition
-        /// (which stutters because the target jumps on each network tick), we interpolate
-        /// between the PREVIOUS and CURRENT snapshots at a constant rate. This produces
-        /// smooth constant-speed motion between ticks, eliminating accelerate-decelerate jitter.
-        /// </summary>
+        // --- SHARED INTERPOLATION METHOD ---
+        // Called from BOTH FixedUpdate and LateUpdate so the camera (FixedUpdate) and
+        // renderer (LateUpdate) always see the correct interpolated position.
+        // Uses absolute time (Time.time) for the interpolation factor, making it safe
+        // to call multiple times per frame without double-advancing.
         private bool _lateUpdateProxyFirstLog = false;
         private bool _cameraVerified = false;
         private int _cameraVerifyCount = 0;
         private float _cameraVerifyTimer = 0f;
 
+        /// <summary>
+        /// Detects new network tick arrivals and shifts the interpolation buffer.
+        /// Must be called once per frame (we call it from LateUpdate).
+        /// </summary>
+        private void UpdateInterpolationBuffer()
+        {
+            if (SyncTick == _prevSyncTick) return;
+
+            if (!_interpInitialized)
+            {
+                // First tick ever — snap
+                _syncPosFrom = SyncPosition;
+                _syncPosTo = SyncPosition;
+                _syncRotFrom = SyncRotation;
+                _syncRotTo = SyncRotation;
+                _tickArrivalTime = Time.time;
+                _interpInitialized = true;
+            }
+            else
+            {
+                // Shift buffer: old target becomes new origin
+                _syncPosFrom = _syncPosTo;
+                _syncRotFrom = _syncRotTo;
+
+                // Measure actual time between network ticks for adaptive timing
+                float tickDelta = Time.time - _tickArrivalTime;
+                if (tickDelta > 0.005f && tickDelta < 0.5f)
+                {
+                    // Smooth the estimate to avoid jitter from irregular tick arrival
+                    _interpDuration = Mathf.Lerp(_interpDuration, tickDelta, 0.3f);
+                }
+                _prevTickArrivalTime = _tickArrivalTime;
+                _tickArrivalTime = Time.time;
+            }
+            _syncPosTo = SyncPosition;
+            _syncRotTo = SyncRotation;
+            _prevSyncTick = SyncTick;
+        }
+
+        /// <summary>
+        /// Computes and applies the interpolated position/rotation to the ship child.
+        /// Safe to call from ANY callback (FixedUpdate, Update, LateUpdate) because it
+        /// uses absolute time rather than accumulated deltas.
+        /// </summary>
+        private void ApplyInterpolatedPosition()
+        {
+            if (!_interpInitialized) return;
+
+            // Cache the target transform (child Rigidbody) on first use
+            if (_cachedTarget == null)
+            {
+                var proxyRb = GetComponentInChildren<Rigidbody>();
+                _cachedTarget = proxyRb != null ? proxyRb.transform : transform;
+            }
+
+            // Teleport if too far (respawn/initial placement)
+            float dist = Vector3.Distance(_cachedTarget.position, SyncPosition);
+            if (dist > 50f)
+            {
+                _cachedTarget.position = SyncPosition;
+                _cachedTarget.rotation = SyncRotation;
+                _syncPosFrom = SyncPosition;
+                _syncPosTo = SyncPosition;
+                _syncRotFrom = SyncRotation;
+                _syncRotTo = SyncRotation;
+                return;
+            }
+
+            // Compute interpolation factor from absolute time.
+            // t=0 at tick arrival, t=1 at estimated next tick arrival.
+            // Allow slight overshoot (up to 1.2) so ship can extrapolate briefly
+            // if the next tick is late, preventing a visible pause.
+            float elapsed = Time.time - _tickArrivalTime;
+            float t = Mathf.Clamp(elapsed / Mathf.Max(_interpDuration, 0.01f), 0f, 1.2f);
+
+            if (t <= 1f)
+            {
+                // Normal interpolation between snapshots
+                _cachedTarget.position = Vector3.Lerp(_syncPosFrom, _syncPosTo, t);
+                _cachedTarget.rotation = Quaternion.Slerp(_syncRotFrom, _syncRotTo, t);
+            }
+            else
+            {
+                // Mild extrapolation — continue at same velocity direction
+                // to avoid stopping dead if next tick is slightly late
+                Vector3 velocity = _syncPosTo - _syncPosFrom;
+                _cachedTarget.position = _syncPosTo + velocity * (t - 1f);
+                _cachedTarget.rotation = _syncRotTo; // Don't extrapolate rotation (can diverge)
+            }
+        }
+
+        /// <summary>
+        /// FixedUpdate: Apply interpolated position BEFORE the camera reads it.
+        /// SCK's CameraEntity.CameraControlFixedUpdate() follows the ship in FixedUpdate
+        /// when cameraTarget.Rigidbody != null. If we only update position in LateUpdate,
+        /// the camera reads the PREVIOUS frame's position, causing a one-step visual lag.
+        /// By also updating here, the camera always sees the latest interpolated position.
+        /// </summary>
+        private void FixedUpdate()
+        {
+            if (!Object.HasStateAuthority && SyncTick > 0)
+            {
+                ApplyInterpolatedPosition();
+            }
+        }
+
         private void LateUpdate()
         {
             // --- CAMERA VERIFICATION (client's own ship only) ---
-            // Ensure the camera follows THIS ship, not a proxy.
-            // DisableLocalInput() on the HOST's proxy calls EnterVehicle which can hijack VehicleCamera.
-            // Since proxy Spawned() may run AFTER our Spawned(), we must keep re-asserting
-            // camera ownership for several seconds to override any late hijacking.
             if (Object.HasInputAuthority && !Object.HasStateAuthority)
             {
                 _cameraVerifyTimer += Time.deltaTime;
-                // Keep verifying for 5 seconds (proxy ships may spawn late and hijack camera)
                 if (_cameraVerifyCount < 30 && _cameraVerifyTimer > 0.2f)
                 {
                     _cameraVerifyTimer = 0f;
@@ -952,16 +1060,13 @@ namespace GV.Network
             // --- POSITION SYNC for non-authority ships ---
             if (!Object.HasStateAuthority)
             {
-                // GUARD: Don't apply until the host has written at least one sync update.
                 if (SyncTick <= 0) return;
-
-                var proxyRb = GetComponentInChildren<Rigidbody>();
-                Transform target = proxyRb != null ? proxyRb.transform : transform;
 
                 // One-time diagnostic
                 if (!_lateUpdateProxyFirstLog)
                 {
                     _lateUpdateProxyFirstLog = true;
+                    var proxyRb = GetComponentInChildren<Rigidbody>();
                     string shipType = Object.HasInputAuthority ? "CLIENT OWN SHIP" : "PROXY";
                     Debug.Log($"[NetworkedSpaceshipBridge] {shipType} LATE UPDATE ACTIVE on {gameObject.name}: " +
                               $"SyncPosition={SyncPosition}, SyncTick={SyncTick}, " +
@@ -969,82 +1074,12 @@ namespace GV.Network
                               $"rootPos={transform.position}, rbPos={proxyRb?.position}");
                 }
 
-                // Teleport if too far (respawn/initial placement)
-                float dist = Vector3.Distance(target.position, SyncPosition);
-                if (dist > 50f)
-                {
-                    target.position = SyncPosition;
-                    target.rotation = SyncRotation;
-                    _syncPosFrom = SyncPosition;
-                    _syncPosTo = SyncPosition;
-                    _syncRotFrom = SyncRotation;
-                    _syncRotTo = SyncRotation;
-                    _prevSyncTick = SyncTick;
-                    _interpInitialized = true;
-                    return;
-                }
+                // Detect new ticks and shift the interpolation buffer (once per frame)
+                UpdateInterpolationBuffer();
 
-                // --- DOUBLE-BUFFERED INTERPOLATION ---
-                // When a NEW network tick arrives (SyncTick changes), shift the buffer:
-                //   from = previous target (where we were heading)
-                //   to   = new SyncPosition
-                // Then interpolate between from→to over the measured tick interval.
-                // This gives constant-speed motion instead of Lerp's accelerate-decelerate.
-                if (SyncTick != _prevSyncTick)
-                {
-                    if (!_interpInitialized)
-                    {
-                        // First tick ever — snap
-                        _syncPosFrom = SyncPosition;
-                        _syncPosTo = SyncPosition;
-                        _syncRotFrom = SyncRotation;
-                        _syncRotTo = SyncRotation;
-                        _lastTickTime = Time.time;
-                        _interpInitialized = true;
-                    }
-                    else
-                    {
-                        // Shift buffer: old target becomes new origin
-                        _syncPosFrom = _syncPosTo;
-                        _syncRotFrom = _syncRotTo;
-
-                        // Measure actual time between network ticks for adaptive timing
-                        float tickDelta = Time.time - _lastTickTime;
-                        if (tickDelta > 0.005f && tickDelta < 0.5f)
-                        {
-                            // Smooth the estimate to avoid jitter from irregular tick arrival
-                            _interpDuration = Mathf.Lerp(_interpDuration, tickDelta, 0.3f);
-                        }
-                        _lastTickTime = Time.time;
-                    }
-                    _syncPosTo = SyncPosition;
-                    _syncRotTo = SyncRotation;
-                    _prevSyncTick = SyncTick;
-                    _interpElapsed = 0f;
-                }
-
-                // Advance interpolation timer
-                _interpElapsed += Time.deltaTime;
-
-                // Compute interpolation factor (0 = from, 1 = to).
-                // Allow slight overshoot (up to 1.2) so ship can extrapolate briefly
-                // if the next tick is late, preventing a visible pause.
-                float t = Mathf.Clamp(_interpElapsed / Mathf.Max(_interpDuration, 0.01f), 0f, 1.2f);
-
-                if (t <= 1f)
-                {
-                    // Normal interpolation between snapshots
-                    target.position = Vector3.Lerp(_syncPosFrom, _syncPosTo, t);
-                    target.rotation = Quaternion.Slerp(_syncRotFrom, _syncRotTo, t);
-                }
-                else
-                {
-                    // Mild extrapolation — continue at same velocity direction
-                    // to avoid stopping dead if next tick is slightly late
-                    Vector3 velocity = _syncPosTo - _syncPosFrom;
-                    target.position = _syncPosTo + velocity * (t - 1f);
-                    target.rotation = _syncRotTo; // Don't extrapolate rotation (can diverge)
-                }
+                // Apply interpolated position (also called in FixedUpdate for camera sync,
+                // but LateUpdate gives the most up-to-date visual for the current frame)
+                ApplyInterpolatedPosition();
             }
         }
     }
