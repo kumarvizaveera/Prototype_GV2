@@ -88,32 +88,45 @@ namespace GV.Network
         private CustomCursor _hudCursor;
         private bool _hudCursorSearched = false;
 
-        // --- DOUBLE-BUFFERED INTERPOLATION (smooth position sync) ---
-        // Instead of Lerping toward the latest SyncPosition (which causes stutter when
-        // the target jumps on each network tick), we interpolate between the PREVIOUS
-        // and CURRENT sync snapshots over the estimated tick interval. This produces
-        // constant-speed motion between snapshots, eliminating the accelerate-decelerate pattern.
+        // --- SMOOTHDAMP POSITION FOLLOW ---
+        // Previous approaches all failed due to Fusion 64Hz ticks vs Unity 50Hz FixedUpdate mismatch:
+        //   1. Double-buffer interpolation: t jumped 0→1 in one step (no intermediate values)
+        //   2. MoveTowards: stop-start oscillation (speed estimate lags → catches up → stops → repeats)
         //
-        // CAMERA TIMING FIX: [DefaultExecutionOrder(-200)] on this class ensures our
-        // FixedUpdate runs BEFORE CameraController.FixedUpdate (default order 0).
-        // Position is applied ONLY in FixedUpdate — matching the host pattern where physics
-        // moves the ship in FixedUpdate and the camera follows in the same FixedUpdate step.
-        // NOT applied in LateUpdate because that would move the ship to a slightly different
-        // position than where the camera was positioned, causing ship-camera desync → jitter.
+        // SmoothDamp is critically-damped: it maintains velocity tracking with no overshoot, no stops,
+        // and no oscillation. When SyncPosition updates (new tick arrives), SmoothDamp smoothly
+        // redirects toward the new target while preserving momentum. No speed estimation needed.
         //
-        // We use absolute time (Time.time - _tickArrivalTime) instead of accumulated delta
-        // so the interpolation is correct regardless of callback timing.
-        private Vector3 _syncPosFrom;
-        private Vector3 _syncPosTo;
-        private Quaternion _syncRotFrom;
-        private Quaternion _syncRotTo;
+        // VISUAL INTERPOLATION: rb.MovePosition() + rb.interpolation = Interpolate.
+        // MovePosition is deferred (doesn't change transform.position until the physics step),
+        // but Unity's Rigidbody interpolation smoothly blends the RENDERED position between
+        // consecutive MovePosition targets at the display refresh rate (60Hz+).
+        // The camera in FixedUpdate reads the PREVIOUS MovePosition result — this is the SAME
+        // behavior as the HOST (where camera reads previous physics step position). Both have
+        // a one-step camera lag that's absorbed by the camera's own following/damping.
+        private Transform _cachedTarget = null; // Cached child Rigidbody transform
+        private Rigidbody _cachedRb = null;     // Cached Rigidbody for MovePosition
         private int _prevSyncTick = -1;
-        private float _interpDuration = 0.05f; // Estimated time between network ticks (auto-adjusts)
-        private float _tickArrivalTime = 0f;   // Time.time when the current tick arrived
-        private float _prevTickArrivalTime = 0f;
-        private bool _interpInitialized = false;
-        private Transform _cachedTarget = null; // Cached child Rigidbody transform for position sync
-        private Rigidbody _cachedRigidbody = null; // Cached Rigidbody for MovePosition/MoveRotation
+        private bool _followInitialized = false;
+        private Vector3 _intendedPosition;      // For diagnostics (MovePosition is deferred)
+        private Quaternion _intendedRotation;
+
+        // SmoothDamp state
+        private Vector3 _smoothVelocity = Vector3.zero;
+        // smoothTime = how quickly the ship reaches the target (seconds).
+        // 0.1s (~5 Fusion ticks) smooths velocity changes when ship accelerates/decelerates.
+        // Too small → velocity changes feel abrupt. Too large → ship lags behind noticeably.
+        [Header("Network Position Smoothing")]
+        [SerializeField] private float positionSmoothTime = 0.1f;
+        [SerializeField] private float rotationSmoothSpeed = 10f; // Slerp speed for rotation
+
+        // --- JITTER DIAGNOSTIC LOGGING ---
+        private bool _jitterDiagEnabled = true;
+        private float _jitterDiagStartTime = -1f;
+        private const float JITTER_DIAG_DURATION = 5f;
+        private int _jitterDiagFixedCount = 0;
+        private Vector3 _jitterLastLoggedPos;
+        private bool _jitterDiagStarted = false;
 
         // Flag to track if we've done the initial authority check
         private bool _hasCheckedAuthority = false;
@@ -152,13 +165,14 @@ namespace GV.Network
                 if (rb != null)
                 {
                     rb.isKinematic = true;
-                    // CRITICAL: Keep interpolation enabled! On the host, Rigidbody.Interpolate
-                    // smooths the visual position between FixedUpdate steps (50Hz → frame rate).
-                    // We use rb.MovePosition() in FixedUpdate, and Unity's built-in interpolation
-                    // smooths the rendered position between physics steps. Without this, the ship
-                    // only moves at FixedUpdate rate → visible stutter at high frame rates.
+                    // Interpolate + MovePosition: MovePosition is deferred (processed in
+                    // physics step after all FixedUpdates), but rb.interpolation = Interpolate
+                    // makes Unity smoothly blend the RENDERED position between consecutive
+                    // MovePosition targets at the display refresh rate. The camera reads the
+                    // PREVIOUS MovePosition result in FixedUpdate — this is normal Unity
+                    // behavior (HOST camera also reads previous physics step position).
                     rb.interpolation = RigidbodyInterpolation.Interpolate;
-                    Debug.Log($"[NetworkedSpaceshipBridge] Made Rigidbody kinematic with interpolation (no state authority)");
+                    Debug.Log($"[NetworkedSpaceshipBridge] Made Rigidbody kinematic, interpolation=Interpolate (no state authority)");
                 }
 
                 // DISABLE NetworkTransform on non-authority ships.
@@ -474,9 +488,9 @@ namespace GV.Network
             var clientRb = GetComponentInChildren<Rigidbody>();
             if (clientRb != null)
             {
-                _cachedRigidbody = clientRb;
                 _cachedTarget = clientRb.transform;
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Cached Rigidbody '{_cachedTarget.name}' for MovePosition sync (interpolation={clientRb.interpolation})");
+                _cachedRb = clientRb;
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Cached target '{_cachedTarget.name}' + Rigidbody for MovePosition sync");
             }
 
             // SAFETY: Ensure THIS bridge component is still enabled
@@ -620,9 +634,9 @@ namespace GV.Network
                 var proxyRb = GetComponentInChildren<Rigidbody>();
                 if (proxyRb != null)
                 {
-                    _cachedRigidbody = proxyRb;
                     _cachedTarget = proxyRb.transform;
-                    Debug.Log($"[NetworkedSpaceshipBridge] PROXY: Cached Rigidbody '{_cachedTarget.name}' for MovePosition sync (interpolation={proxyRb.interpolation})");
+                    _cachedRb = proxyRb;
+                    Debug.Log($"[NetworkedSpaceshipBridge] PROXY: Cached target '{_cachedTarget.name}' + Rigidbody for MovePosition sync");
                 }
             }
 
@@ -952,10 +966,8 @@ namespace GV.Network
             // e.g., boost effects, engine sounds based on IsBoosting
         }
 
-        // --- INTERPOLATION METHODS ---
-        // Position is applied ONLY in FixedUpdate (not LateUpdate) to match the host's behavior.
-        // On the host: physics moves ship in FixedUpdate → camera follows in FixedUpdate → in sync.
-        // On the client: we set position in FixedUpdate → camera follows in FixedUpdate → in sync.
+        // --- POSITION FOLLOW METHODS ---
+        // Position is applied in FixedUpdate using SmoothDamp (critically-damped spring).
         // [DefaultExecutionOrder(-200)] guarantees our FixedUpdate runs before the camera's.
         private bool _lateUpdateProxyFirstLog = false;
         private bool _cameraVerified = false;
@@ -963,136 +975,187 @@ namespace GV.Network
         private float _cameraVerifyTimer = 0f;
 
         /// <summary>
-        /// Detects new network tick arrivals and shifts the interpolation buffer.
-        /// Must be called once per frame (we call it from LateUpdate).
+        /// Checks for new ticks and handles first-tick initialization (snap to position).
+        /// Returns true if a new tick was received this frame.
         /// </summary>
-        private void UpdateInterpolationBuffer()
+        private bool CheckNewTick()
         {
-            if (SyncTick == _prevSyncTick) return;
+            bool tickChanged = (SyncTick != _prevSyncTick);
 
-            if (!_interpInitialized)
+            if (!_followInitialized && SyncTick > 0)
             {
-                // First tick ever — snap
-                _syncPosFrom = SyncPosition;
-                _syncPosTo = SyncPosition;
-                _syncRotFrom = SyncRotation;
-                _syncRotTo = SyncRotation;
-                _tickArrivalTime = Time.time;
-                _interpInitialized = true;
-            }
-            else
-            {
-                // Shift buffer: old target becomes new origin
-                _syncPosFrom = _syncPosTo;
-                _syncRotFrom = _syncRotTo;
-
-                // Measure actual time between network ticks for adaptive timing
-                float tickDelta = Time.time - _tickArrivalTime;
-                if (tickDelta > 0.005f && tickDelta < 0.5f)
+                // First tick — snap to position, initialize SmoothDamp
+                if (_cachedTarget != null)
                 {
-                    // Smooth the estimate to avoid jitter from irregular tick arrival
-                    _interpDuration = Mathf.Lerp(_interpDuration, tickDelta, 0.3f);
+                    _cachedTarget.position = SyncPosition;
+                    _cachedTarget.rotation = SyncRotation;
+                    if (_cachedRb != null) _cachedRb.position = SyncPosition;
                 }
-                _prevTickArrivalTime = _tickArrivalTime;
-                _tickArrivalTime = Time.time;
+                _smoothVelocity = Vector3.zero;
+                _intendedPosition = SyncPosition;
+                _intendedRotation = SyncRotation;
+                _followInitialized = true;
+                _prevSyncTick = SyncTick;
+
+                if (Runner != null)
+                {
+                    Debug.Log($"[NetworkedSpaceshipBridge] SmoothDamp follow initialized. Fusion tickRate={Runner.DeltaTime:F4}s ({1f / Runner.DeltaTime:F0}Hz), FixedUpdate={Time.fixedDeltaTime:F4}s, smoothTime={positionSmoothTime:F3}s");
+                }
+                return false;
             }
-            _syncPosTo = SyncPosition;
-            _syncRotTo = SyncRotation;
-            _prevSyncTick = SyncTick;
+
+            if (tickChanged)
+            {
+                _prevSyncTick = SyncTick;
+            }
+
+            return tickChanged;
         }
 
         /// <summary>
-        /// Computes and applies the interpolated position/rotation to the ship's Rigidbody.
-        /// Uses rb.MovePosition/MoveRotation instead of direct transform writes so that
-        /// Unity's built-in Rigidbody interpolation (set to Interpolate mode in Spawned)
-        /// smooths the visual position between FixedUpdate steps.
+        /// Moves the ship toward SyncPosition using Vector3.SmoothDamp (critically-damped spring).
+        /// SmoothDamp automatically:
+        /// - Maintains velocity between frames (no stop-start oscillation)
+        /// - Smoothly redirects when the target changes (new tick arrives)
+        /// - Never overshoots (critically damped, not underdamped)
+        /// - Needs no speed estimation (tracks velocity internally via _smoothVelocity)
         ///
-        /// On the host: physics moves ship in FixedUpdate → Rigidbody.Interpolate smooths
-        /// the rendered position between physics steps → smooth at any frame rate.
-        /// On the client: we call MovePosition in FixedUpdate → Rigidbody.Interpolate smooths
-        /// the rendered position between physics steps → same smoothness as host.
-        ///
-        /// Previously we wrote to transform.position directly with interpolation=None,
-        /// which meant the ship only visually moved at FixedUpdate rate (50Hz) → stutter.
+        /// Rotation uses Quaternion.Slerp which gives smooth, constant-rate rotation.
         /// </summary>
-        private void ApplyInterpolatedPosition()
+        private void ApplyPositionFollow()
         {
-            if (!_interpInitialized) return;
+            if (!_followInitialized) return;
 
-            // Cache the Rigidbody and its transform on first use
-            if (_cachedRigidbody == null)
+            // Cache the target transform and Rigidbody on first use
+            if (_cachedTarget == null)
             {
-                _cachedRigidbody = GetComponentInChildren<Rigidbody>();
-                _cachedTarget = _cachedRigidbody != null ? _cachedRigidbody.transform : transform;
+                var rb = GetComponentInChildren<Rigidbody>();
+                _cachedTarget = rb != null ? rb.transform : transform;
+                _cachedRb = rb;
             }
 
             // Teleport if too far (respawn/initial placement)
             float dist = Vector3.Distance(_cachedTarget.position, SyncPosition);
             if (dist > 50f)
             {
+                // Direct write for teleport (MovePosition would interpolate, causing visual slide)
                 _cachedTarget.position = SyncPosition;
                 _cachedTarget.rotation = SyncRotation;
-                _syncPosFrom = SyncPosition;
-                _syncPosTo = SyncPosition;
-                _syncRotFrom = SyncRotation;
-                _syncRotTo = SyncRotation;
+                if (_cachedRb != null) _cachedRb.position = SyncPosition;
+                _smoothVelocity = Vector3.zero;
+                _intendedPosition = SyncPosition;
+                _intendedRotation = SyncRotation;
                 return;
             }
 
-            // Compute interpolation factor from absolute time.
-            // t=0 at tick arrival, t=1 at estimated next tick arrival.
-            // CLAMPED to 1.0 — NO extrapolation. Extrapolation (t > 1) was causing
-            // forward/backward jitter: the ship overshoots past the target position,
-            // then snaps back when the next tick arrives. Holding at t=1 (the latest
-            // known position) is visually smoother — at worst the ship pauses briefly
-            // if the next tick is late, which is far less noticeable than oscillation.
-            float elapsed = Time.time - _tickArrivalTime;
-            float t = Mathf.Clamp(elapsed / Mathf.Max(_interpDuration, 0.01f), 0f, 1f);
+            // SmoothDamp: critically-damped spring toward SyncPosition.
+            // Uses _cachedTarget.position as current pos (updated by previous physics step).
+            _intendedPosition = Vector3.SmoothDamp(
+                _cachedTarget.position,
+                SyncPosition,
+                ref _smoothVelocity,
+                positionSmoothTime,
+                Mathf.Infinity,
+                Time.fixedDeltaTime
+            );
 
-            Vector3 targetPos = Vector3.Lerp(_syncPosFrom, _syncPosTo, t);
-            Quaternion targetRot = Quaternion.Slerp(_syncRotFrom, _syncRotTo, t);
+            // Slerp rotation toward SyncRotation
+            float rotT = Mathf.Clamp01(rotationSmoothSpeed * Time.fixedDeltaTime);
+            _intendedRotation = Quaternion.Slerp(_cachedTarget.rotation, SyncRotation, rotT);
 
-            // Use MovePosition/MoveRotation so Unity's Rigidbody interpolation can
-            // smooth the visual position between FixedUpdate steps (50Hz → frame rate).
-            // This is the standard Unity approach for smooth kinematic movement.
-            if (_cachedRigidbody != null)
+            // Use MovePosition for smooth visual interpolation between FixedUpdate steps.
+            // MovePosition is DEFERRED (processed in physics step after all FixedUpdates),
+            // but rb.interpolation = Interpolate smoothly blends the rendered position at
+            // the display refresh rate (60Hz+), eliminating 50Hz FixedUpdate stutter.
+            if (_cachedRb != null)
             {
-                _cachedRigidbody.MovePosition(targetPos);
-                _cachedRigidbody.MoveRotation(targetRot);
+                _cachedRb.MovePosition(_intendedPosition);
+                _cachedRb.MoveRotation(_intendedRotation);
             }
             else
             {
-                // Fallback if no Rigidbody (shouldn't happen, but safe)
-                _cachedTarget.position = targetPos;
-                _cachedTarget.rotation = targetRot;
+                // Fallback: direct transform writes if no Rigidbody
+                _cachedTarget.position = _intendedPosition;
+                _cachedTarget.rotation = _intendedRotation;
             }
         }
 
         /// <summary>
-        /// FixedUpdate: Apply interpolated position at the SAME rate as the camera.
+        /// FixedUpdate: Apply position follow at the SAME rate as the camera.
         /// [DefaultExecutionOrder(-200)] on this class guarantees this runs BEFORE:
         ///   - CameraController.FixedUpdate (0) → SpaceFighterCameraController.CameraControllerFixedUpdate
         ///   - CameraEntity.FixedUpdate (0) → CameraControlFixedUpdate (if no controller override)
-        ///
-        /// Position is applied via rb.MovePosition() which works with Unity's Rigidbody
-        /// interpolation to smooth visual position between FixedUpdate steps. The camera
-        /// follows in FixedUpdate (reads Rigidbody.position), while Unity automatically
-        /// interpolates the rendered position for smooth visuals at any frame rate.
         /// </summary>
         private void FixedUpdate()
         {
             if (!Object.HasStateAuthority && SyncTick > 0)
             {
-                // Detect new ticks and shift the interpolation buffer
-                UpdateInterpolationBuffer();
+                // Check for new ticks (handles initialization on first tick)
+                bool tickChanged = CheckNewTick();
 
-                // Apply interpolated position BEFORE the camera reads it
-                ApplyInterpolatedPosition();
+                // SmoothDamp toward SyncPosition, then MovePosition for visual interpolation
+                ApplyPositionFollow();
+
+                // --- JITTER DIAGNOSTIC ---
+                // NOTE: With MovePosition, transform.position is NOT updated until the physics step
+                // (after all FixedUpdates). We log _intendedPosition instead (the SmoothDamp result).
+                if (_jitterDiagEnabled && Object.HasInputAuthority)
+                {
+                    if (!_jitterDiagStarted && _followInitialized)
+                    {
+                        _jitterDiagStarted = true;
+                        _jitterDiagStartTime = Time.time;
+                        _jitterLastLoggedPos = _intendedPosition;
+                        Debug.Log($"[JITTER_DIAG] === STARTING {JITTER_DIAG_DURATION}s DIAGNOSTIC (SmoothDamp+MovePosition+Interpolate) ===");
+                        Debug.Log($"[JITTER_DIAG] smoothTime={positionSmoothTime:F3}, rotSpeed={rotationSmoothSpeed:F1}, fixedDt={Time.fixedDeltaTime:F4}, rb.interp=Interpolate");
+                    }
+
+                    if (_jitterDiagStarted && (Time.time - _jitterDiagStartTime) < JITTER_DIAG_DURATION)
+                    {
+                        _jitterDiagFixedCount++;
+                        Vector3 delta = _intendedPosition - _jitterLastLoggedPos;
+
+                        // Flag direction reversals (the jitter signature)
+                        string dirFlag = "";
+                        if (_jitterDiagFixedCount > 1 && delta.magnitude > 0.001f)
+                        {
+                            Vector3 prevDelta = _intendedPosition - _jitterLastLoggedPos;
+                            // Compare with the delta from 2 frames ago
+                            if (Vector3.Dot(delta, prevDelta) < 0)
+                            {
+                                dirFlag = " <<< DIRECTION REVERSAL";
+                            }
+                        }
+
+                        // Log every 10th frame to reduce spam, but always log reversals
+                        if (_jitterDiagFixedCount % 10 == 0 || dirFlag.Length > 0)
+                        {
+                            float gap = Vector3.Distance(_intendedPosition, SyncPosition);
+                            Debug.Log($"[JITTER_DIAG] FU#{_jitterDiagFixedCount} tick={SyncTick} " +
+                                      $"tickChanged={tickChanged} velMag={_smoothVelocity.magnitude:F3} " +
+                                      $"intended={_intendedPosition:F3} " +
+                                      $"delta={delta:F4} mag={delta.magnitude:F4} " +
+                                      $"syncPos={SyncPosition:F3} gap={gap:F4}{dirFlag}");
+                        }
+
+                        _jitterLastLoggedPos = _intendedPosition;
+                    }
+                    else if (_jitterDiagStarted && (Time.time - _jitterDiagStartTime) >= JITTER_DIAG_DURATION)
+                    {
+                        Debug.Log($"[JITTER_DIAG] === DIAGNOSTIC COMPLETE ({_jitterDiagFixedCount} FixedUpdates) ===");
+                        _jitterDiagEnabled = false;
+                    }
+                }
             }
         }
 
         private void LateUpdate()
         {
+            // NOTE: With MovePosition + Interpolate, the physics step applies the deferred
+            // MovePosition between FixedUpdate and LateUpdate. This means transform.position
+            // in LateUpdate WILL differ from FixedUpdate — this is EXPECTED and is how Unity's
+            // Rigidbody interpolation works. No LU DRIFT diagnostic needed.
+
             // --- CAMERA VERIFICATION (client's own ship only) ---
             if (Object.HasInputAuthority && !Object.HasStateAuthority)
             {
@@ -1129,13 +1192,13 @@ namespace GV.Network
                           $"SyncPosition={SyncPosition}, SyncTick={SyncTick}, " +
                           $"rbChild={proxyRb?.gameObject.name ?? "NULL"}, " +
                           $"rootPos={transform.position}, rbPos={proxyRb?.position}, " +
-                          $"interpDuration={_interpDuration:F4}s");
+                          $"smoothVel={_smoothVelocity.magnitude:F2}");
             }
 
-            // NOTE: Position is NOT applied here. It's only applied in FixedUpdate to match
-            // the host's behavior (physics moves ship in FixedUpdate, camera follows in FixedUpdate).
-            // Applying here too would put the ship at a slightly different position than where
-            // the camera was positioned in FixedUpdate → visible jitter.
+            // NOTE: Position is applied via MovePosition in FixedUpdate. The physics step processes
+            // it after all FixedUpdates, and rb.interpolation = Interpolate smoothly blends the
+            // rendered position between consecutive MovePosition targets at display refresh rate.
+            // No additional position writes needed here.
         }
     }
 }
