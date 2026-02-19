@@ -108,20 +108,20 @@ namespace GV.Network
         // Input is applied locally every FixedUpdate for instant response.
         // The host's authoritative SyncPosition/SyncRotation gently corrects the client to prevent drift.
         [Header("Client-Side Prediction")]
-        [Tooltip("How fast position corrects toward server (per second). Higher = more accurate, lower = smoother.")]
-        [SerializeField] private float positionCorrectionRate = 8f;
-        [Tooltip("How fast rotation corrects toward server (per second).")]
-        [SerializeField] private float rotationCorrectionRate = 8f;
-        [Tooltip("Snap to server position if gap exceeds this (meters). Handles respawn/teleport.")]
-        [SerializeField] private float positionSnapThreshold = 5f;
-        [Tooltip("Snap to server rotation if gap exceeds this (degrees).")]
-        [SerializeField] private float rotationSnapThreshold = 45f;
+        [Tooltip("Snap to server rotation if gap exceeds this (degrees). Only for extreme desync.")]
+        [SerializeField] private float rotationSnapThreshold = 90f;
         [Tooltip("Auto-bank into turns: roll = -yaw * yawRollRatio (re-implements SCK's linkYawAndRoll)")]
         [SerializeField] private bool enableLinkYawAndRoll = true;
         [SerializeField] private float yawRollRatio = 0.5f;
 
         private bool _clientPredictionActive = false;
         private bool _loggedPredictionActive = false;
+
+        // --- PREDICTION JITTER DIAGNOSTIC ---
+        private int _predDiagCount = 0;
+        private Vector3 _predLastRbPos;
+        private Vector3 _predLastRootPos;
+        private float _predLastSpeed;
 
         // --- JITTER DIAGNOSTIC LOGGING ---
         private bool _jitterDiagEnabled = true;
@@ -512,7 +512,7 @@ namespace GV.Network
 
             Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Setup complete. " +
                       $"Engines={engines != null && engines.enabled}, Rigidbody=DYNAMIC, " +
-                      $"linkYawRoll={enableLinkYawAndRoll}, correctionRate=pos:{positionCorrectionRate}/rot:{rotationCorrectionRate}");
+                      $"linkYawRoll={enableLinkYawAndRoll}, rotSnapThreshold={rotationSnapThreshold}°, posCorrection=NONE");
         }
 
         /// <summary>
@@ -1141,55 +1141,45 @@ namespace GV.Network
                 Debug.Log($"[NetworkedSpaceshipBridge] CLIENT-SIDE PREDICTION ACTIVE: " +
                           $"engines={engines.name}, enginesActivated={engines.EnginesActivated}, " +
                           $"linkYawRoll={enableLinkYawAndRoll}, yawRollRatio={yawRollRatio}, " +
-                          $"correctionRate=pos:{positionCorrectionRate}/rot:{rotationCorrectionRate}");
+                          $"rotSnapThreshold={rotationSnapThreshold}°, posCorrection=NONE");
             }
         }
 
         /// <summary>
-        /// Gently corrects the client's physics state toward the host's authoritative
-        /// SyncPosition/SyncRotation. This prevents drift while keeping local physics responsive.
+        /// Corrects the client's physics state toward the host's authoritative state.
         ///
-        /// The correction is applied directly to the Rigidbody before VehicleEngines3D
-        /// adds its forces, so the physics step integrates everything together.
+        /// SNAP-ONLY for both position AND rotation. No continuous correction of any kind.
+        ///
+        /// WHY NO CONTINUOUS CORRECTION:
+        /// Both client and host run identical physics (VehicleEngines3D) with identical inputs (via RPC).
+        /// The client is always ~RTT/2 ahead of the server's SyncPosition/SyncRotation.
+        /// ANY continuous correction (position Lerp, velocity nudge, rotation Slerp) fights the
+        /// local physics engine because it constantly pulls toward the lagged server state:
+        ///   - Position correction → forward/backward jitter (fights thrust)
+        ///   - Rotation correction → rotation oscillation → thrust direction oscillation
+        ///     (because AddRelativeForce is relative to rotation) → speed/position jitter
+        ///
+        /// The physics naturally stays in sync because inputs are identical. Small floating-point
+        /// drift accumulates very slowly and is acceptable. Snap thresholds handle teleport/respawn.
         /// </summary>
         private void ApplyServerCorrection()
         {
             if (_cachedRb == null || SyncTick <= 0) return;
 
-            float dt = Time.fixedDeltaTime;
+            // --- POSITION: NO CORRECTION ---
+            // Both client and host run identical physics with identical inputs.
+            // The client is naturally ahead by ~RTT/2 * speed. At 30 m/s with 100ms RTT,
+            // the client is ~3m ahead — this is expected and harmless.
+            // Any snap or correction causes jitter because it resets velocity.
+            // Server handles authoritative hit detection, so position offset doesn't matter.
 
-            // --- POSITION CORRECTION ---
-            float posDist = Vector3.Distance(_cachedRb.position, SyncPosition);
-
-            if (posDist > positionSnapThreshold)
-            {
-                // Snap — too far away (respawn, teleport, or severe desync)
-                _cachedRb.position = SyncPosition;
-                _cachedRb.linearVelocity = Vector3.zero;
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Position SNAP (gap={posDist:F1}m)");
-            }
-            else if (posDist > 0.01f)
-            {
-                // Gentle Lerp toward server position
-                float correctionT = Mathf.Clamp01(positionCorrectionRate * dt);
-                _cachedRb.position = Vector3.Lerp(_cachedRb.position, SyncPosition, correctionT);
-            }
-
-            // --- ROTATION CORRECTION ---
+            // --- ROTATION: SNAP ONLY (extreme desync, e.g. respawn) ---
             float rotAngle = Quaternion.Angle(_cachedRb.rotation, SyncRotation);
-
             if (rotAngle > rotationSnapThreshold)
             {
-                // Snap
                 _cachedRb.rotation = SyncRotation;
                 _cachedRb.angularVelocity = Vector3.zero;
                 Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Rotation SNAP (gap={rotAngle:F1}°)");
-            }
-            else if (rotAngle > 0.1f)
-            {
-                // Gentle Slerp toward server rotation
-                float correctionT = Mathf.Clamp01(rotationCorrectionRate * dt);
-                _cachedRb.rotation = Quaternion.Slerp(_cachedRb.rotation, SyncRotation, correctionT);
             }
         }
 
@@ -1207,10 +1197,45 @@ namespace GV.Network
             // === CLIENT'S OWN SHIP: Client-Side Prediction ===
             if (_clientPredictionActive && Object.HasInputAuthority)
             {
+                // --- DIAGNOSTIC: Log what's happening to the rigidbody ---
+                _predDiagCount++;
+                if (_cachedRb != null && _predDiagCount <= 300) // Log for first 6 seconds (50Hz)
+                {
+                    Vector3 rbPos = _cachedRb.position;
+                    Vector3 rootPos = transform.position;
+                    float speed = _cachedRb.linearVelocity.magnitude;
+                    bool isKin = _cachedRb.isKinematic;
+
+                    // Check for unexpected changes between frames
+                    if (_predDiagCount > 1)
+                    {
+                        float rbPosDelta = Vector3.Distance(rbPos, _predLastRbPos);
+                        float rootPosDelta = Vector3.Distance(rootPos, _predLastRootPos);
+                        float speedDelta = Mathf.Abs(speed - _predLastSpeed);
+
+                        // Log every 10th frame OR if speed changes dramatically
+                        if (_predDiagCount % 10 == 0 || speedDelta > 5f)
+                        {
+                            Debug.Log($"[PREDICT_DIAG] FU#{_predDiagCount} " +
+                                      $"speed={speed:F1} speedDelta={speedDelta:F1} " +
+                                      $"rbPos={rbPos:F2} rbDelta={rbPosDelta:F3} " +
+                                      $"rootPos={rootPos:F2} rootDelta={rootPosDelta:F3} " +
+                                      $"isKin={isKin} " +
+                                      $"rbVel={_cachedRb.linearVelocity:F2} " +
+                                      $"angVel={_cachedRb.angularVelocity:F2}" +
+                                      (speedDelta > 5f ? " <<< SPEED JUMP" : ""));
+                        }
+                    }
+
+                    _predLastRbPos = rbPos;
+                    _predLastRootPos = rootPos;
+                    _predLastSpeed = speed;
+                }
+
                 // Feed local input to engines (VehicleEngines3D.FixedUpdate at order 0 applies forces)
                 ApplyLocalInput();
 
-                // Gentle correction toward host's authoritative state
+                // Snap-only correction toward host's authoritative state
                 ApplyServerCorrection();
 
                 // Update HUD cursor from reticle position
