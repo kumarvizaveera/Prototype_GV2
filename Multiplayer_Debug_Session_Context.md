@@ -1,6 +1,6 @@
 # Multiplayer Debug Session - Full Context Transfer
 ## Unity Space Combat Kit + Photon Fusion 2
-### Date: February 15-17, 2026
+### Date: February 15-19, 2026
 
 ---
 
@@ -109,13 +109,23 @@ public override void FixedUpdateNetwork()
     //   - ApplyWeaponInput(data) - handles primary, secondary, missile fire
 }
 
+private void FixedUpdate()  // Session 5 — position follow for non-authority ships
+{
+    // Runs at [DefaultExecutionOrder(-200)] — BEFORE camera's FixedUpdate(0)
+    // For !HasStateAuthority ships with SyncTick > 0:
+    //   1. CheckNewTick() — detects new Fusion ticks, handles first-tick snap
+    //   2. ApplyPositionFollow() — SmoothDamp toward SyncPosition + direct transform writes
+    //   3. Jitter diagnostic logging (first 5 seconds)
+    // CRITICAL: Uses direct transform writes (NOT MovePosition) with rb.interpolation = None
+    //   - Camera reads transform.position in FixedUpdate — must match rendered position
+    //   - MovePosition + rb.Interpolate caused camera-ship desync (see Bug 20)
+}
+
 private void LateUpdate()
 {
-    // PROXY POSITION APPLY: For proxy ships (host's ship on client)
-    //   - Reads [Networked] SyncPosition/SyncRotation
-    //   - Applies to the CHILD Rigidbody transform (not root)
-    //   - Uses Lerp/Slerp interpolation at speed 15f (Session 3 adjustment)
-    //   - Matches host's physics hierarchy where child moves, root stays at spawn
+    // Camera verification (client's own ship): re-locks VehicleCamera every 0.2s for 30 checks
+    // One-time diagnostic for non-authority ships
+    // NO position writes here — all position follow is in FixedUpdate
 }
 
 public override void Render()
@@ -289,6 +299,36 @@ public override void Render()
 **Symptom**: Standalone build UI elements cut off at corners, not rendering at expected resolution.
 **Attempted fix**: Added `Screen.SetResolution(1920, 1080, FullScreenMode.FullScreenWindow)` in NetworkManager.StartGame(). Also tried Unity Project Settings. Did not fully resolve — user moved on since it wasn't the core issue. May need further investigation.
 
+### Bug 20: Client ship jitter/wobble/shake — ship shakes against smooth background (IN PROGRESS - Sessions 4-5)
+**Symptom**: On the client screen, the client's own ship visibly shakes/wobbles/jitters. The background and camera are SMOOTH — only the ship model itself shakes relative to the camera. The host's ship is smooth. This started after Fix 1 (mouse steering) and Fix 2 (position sync for client's own ship) from Session 4.
+
+**Root cause analysis**: The SCK camera reads `currentViewTarget.transform.position` in its FixedUpdate (confirmed by reading SpaceFighterCameraController source). With `rb.interpolation = Interpolate`, Unity overrides the ship's RENDERED `transform.position` to an interpolated value between consecutive physics positions. But the camera reads the NON-interpolated physics position. This creates a VARYING offset between where the camera positions itself and where the ship actually renders. The offset varies because SmoothDamp produces varying step sizes (Fusion 64Hz ticks vs Unity 50Hz FixedUpdate — some FixedUpdates see 0 ticks, some 1, some 2). Result: ship shakes against smooth camera background.
+
+**Approaches tried (chronological):**
+1. **Double-buffer interpolation** (Session 4): Failed — Fusion 64Hz > Unity 50Hz meant t jumped 0→1 in one step
+2. **MoveTowards** (Session 4): Failed — stop-start oscillation (speed estimate lags → catches up → stops → repeats)
+3. **SmoothDamp + direct transform writes** (Session 5): SmoothDamp data was smooth but 50Hz FixedUpdate rate caused visual stutter
+4. **SmoothDamp + MovePosition + rb.Interpolate** (Session 5): Fixed 50Hz stutter but introduced camera-ship desync — the root cause of the visible shake
+5. **SmoothDamp + direct transform writes + rb.interpolation = None** (Session 5 — CURRENT): Eliminates camera-ship desync. Camera and rendered ship agree on exact same position. Some residual jitter still reported.
+
+**Current fix (in code):**
+- `rb.interpolation = RigidbodyInterpolation.None` (was Interpolate) in Spawned()
+- Direct `_cachedTarget.position = _intendedPosition` writes (was `_cachedRb.MovePosition()`)
+- SmoothDamp still used for smoothing (positionSmoothTime=0.1, rotationSmoothSpeed=10)
+- `[DefaultExecutionOrder(-200)]` ensures our FixedUpdate runs before camera's
+
+**Still has some residual jitter — needs further investigation. Possible causes:**
+- SmoothDamp itself producing variable velocities from 64Hz/50Hz tick mismatch
+- May need to move position following to Render() (display rate) instead of FixedUpdate (50Hz)
+- May need to investigate if any other SCK script is modifying the ship transform
+- The client ship also feels "not responsive" — may be related to SmoothDamp lag (0.1s smoothTime)
+
+### Bug 20 sub-fixes applied in Session 4 (before Session 5 continued):
+- **Fix 1 — Mouse steering** (`NetworkedPlayerInput.cs`): Switched to `Mouse.current.position.ReadValue()` (same API as SCK's native `GetMouseViewportPosition()`). The previous `Input.mousePosition` (legacy API) returns `Vector3.zero` when only New Input System is active. Also removed strict `mouseInsideWindow` bounds check, replaced with simple clamping.
+- **Fix 2 — Position mismatch** (`NetworkedSpaceshipBridge.cs`): Changed LateUpdate from `!HasStateAuthority && !HasInputAuthority` (proxies only) to `!HasStateAuthority` (all non-host ships). This enabled the client's own ship to receive SyncPosition updates.
+- **Fix 3 — HUD cursor auto-centering removed** (`NetworkedPlayerInput.cs`): Removed `Lerp` auto-centering that was pulling cursor back to center. Updated `maxReticleDistance` from 0.4 to 0.475.
+- **19 additional bug fixes** applied in Session 4 (various networking, input, camera issues).
+
 ---
 
 ## CRITICAL DISCOVERIES
@@ -331,6 +371,25 @@ It does NOT run on **proxy objects** (host's ship on client — no state or inpu
 ### Fusion 2: Rebuild Prefab Table After Adding [Networked] Properties
 When adding new `[Networked]` properties to a NetworkBehaviour, you MUST go to **Fusion > Rebuild Prefab Table** in the Unity Editor. This rebakes the NetworkObject state layout to include the new properties. Without this, [Networked] properties may not sync properly.
 
+### SCK Gotcha #5: Camera Reads transform.position, NOT rb.position (Session 5)
+The SCK camera system (`SpaceFighterCameraController.CameraControllerFixedUpdate()` and `CameraEntity.CameraControlFixedUpdate()`) reads `currentViewTarget.transform.position` — NOT `rb.position`. This is critical because `rb.interpolation = Interpolate` causes `transform.position` during rendering to differ from `transform.position` during FixedUpdate. The camera positions itself based on the FixedUpdate value, but the ship renders at the interpolated value → varying offset → visible shake. The fix is `rb.interpolation = None` on kinematic client ships so camera and rendered positions always agree.
+
+**SpaceFighterCameraController key code:**
+```csharp
+// Uses transform.TransformPoint for position (NOT rb.position)
+Vector3 targetPosition = cameraEntity.CurrentViewTarget.transform.TransformPoint(offset);
+// Lerp with PositionFollowStrength (camera has its own smoothing)
+cameraEntity.transform.position = (1 - PositionFollowStrength) * cameraEntity.transform.position + PositionFollowStrength * targetPosition;
+// Slerp for rotation with RotationFollowStrength
+cameraEntity.transform.rotation = Quaternion.Slerp(transform.rotation, target.transform.rotation, RotationFollowStrength);
+```
+
+### SCK Gotcha #6: PlayerInput_Base_SpaceshipControls has linkYawAndRoll (Session 5)
+SCK's `PlayerInput_Base_SpaceshipControls` has two features that are DISABLED on remote/client ships:
+- `linkYawAndRoll` — auto-banks the ship into turns (roll proportional to yaw input, `yawRollRatio = 0.5`)
+- `auto-level` — returns ship to level flight when no steer input (`autoLevelStrength = 0.04`, `maxAutoLevelInput = 0.2`)
+These are part of SCK's native input processing, not VehicleEngines3D. Since the client ship disables all VehicleInput/PlayerInput scripts, these features are lost. If banking is needed, it must be re-implemented in the bridge.
+
 ### Same-Machine Testing Artifacts (Session 3)
 When running both host (build) and client (editor) on the **same PC**, several artifacts appear that do NOT exist on separate machines:
 - **Shared mouse**: `Mouse.current` returns OS-level data visible to BOTH apps. Mouse position/delta from one app affects the other.
@@ -341,13 +400,16 @@ The `Application.isFocused` gate in NetworkedPlayerInput is essential for same-m
 
 ---
 
-## CURRENT STATUS (End of Session 3)
+## CURRENT STATUS (End of Session 5)
 
 ### What's working:
 - Individual ship movement (input isolation per ship)
 - Client's ship moves on host screen (WASD + mouse steering synced via RPC/raw data)
 - **Mouse steering works** — delta-based accumulated reticle matching SCK's approach
-- Host's ship position syncs to client via manual [Networked] property sync with interpolation (speed 15f)
+- Host's ship position syncs to client via manual [Networked] property sync
+- **Client's own ship receives position sync** (Fix 2 from Session 4)
+- **Position following via SmoothDamp in FixedUpdate** with direct transform writes
+- **rb.interpolation = None** to prevent camera-ship desync
 - Weapon firing on client side via networked input
 - Ship visibility on both host and client (GameAgent → EnterVehicle → Destroy pattern)
 - Rigidbody/NetworkTransform conflict resolved (kinematic on non-authority)
@@ -356,19 +418,27 @@ The `Application.isFocused` gate in NetworkedPlayerInput is essential for same-m
 - ControlsDisabled fix — set to false every tick
 - Ships can be controlled individually and separately on host and client
 - **Client ship no longer mirrors host's steer** (GetInput bypass + Application.isFocused gate)
-- **Client screen no longer shakes** (DisableClientOwnShipScripts makes it a pure visual shell)
 - **Per-player magic number diagnostics** (1042=host, 2042=client) for input source tracking
+- **[DefaultExecutionOrder(-200)]** ensures bridge FixedUpdate runs before camera
 
-### Known remaining issues (for next session):
-- Build resolution/UI cutoff not fully resolved (Screen.SetResolution didn't fully work)
+### Known remaining issues (for next session — Bug 20 still active):
+- **Client ship still has some residual jitter/shake** — reduced but not eliminated by rb.interpolation=None fix
+- **Client ship feels "not responsive"** — may be SmoothDamp lag (0.1s smoothTime) or Slerp rotation dampening
+- **SCK banking features missing on client** — linkYawAndRoll and auto-level are disabled with VehicleInput scripts. Ship doesn't bank into turns.
+- Build resolution/UI cutoff not fully resolved
 - Connection timeout on first J press in editor (works on second attempt) — intermittent Photon issue
 - Debug logging is extensive — should be cleaned up once stable
-- Development build recommended for host-side debugging
-- Same-machine testing has inherent limitations — should test on separate PCs with teammate
+
+### Approaches to try next for jitter:
+1. **Move position follow to Render()** (Fusion callback, runs every displayed frame at 60Hz+) instead of FixedUpdate (50Hz) — eliminates FixedUpdate rate mismatch entirely
+2. **Reduce positionSmoothTime** (currently 0.1) for more responsiveness, or **remove SmoothDamp entirely** and use simple exponential lerp
+3. **Check for other scripts modifying the transform** — any active SCK component on the client ship that writes to transform would fight with our bridge
+4. **Use Fusion's built-in snapshot interpolation** for [Networked] properties via InterpolationDataSource / GetInterpolationData()
+5. **Dead reckoning with correction** — estimate velocity from network data, extrapolate between ticks, blend corrections
 
 ### Debug displays currently active:
 - **OnGUI (non-editor builds)**: Application.isFocused, mouse delta/reticle, steer values, magic number, runner state, raw send diagnostics
-- **Console logs**: FIRST TICK, PROXY POS (3s), HOST driving remote ship (2s), mouse delta (1s), input source tracking
+- **Console logs**: FIRST TICK, PROXY POS (3s), HOST driving remote ship (2s), JITTER_DIAG (first 5s, every 10th FixedUpdate)
 
 ---
 
@@ -404,28 +474,39 @@ ModuleManagers are children of the Vehicle that control subsystems (weapons, eng
    c. Set `ControlsDisabled = false` (EVERY TICK)
    d. Apply steering/movement/boost to SCK engines
 7. Host: `VehicleEngines3D.FixedUpdate()` applies Rigidbody forces on CHILD object (IF enginesActivated AND controlsDisabled is false)
-8. Client: `LateUpdate()` reads [Networked] SyncPosition/SyncRotation and applies to child Rigidbody transform with interpolation (Lerp/Slerp at 15f)
-9. Client: Rigidbody is kinematic, so it accepts position updates without physics fighting
+8. Client: `FixedUpdate()` [execution order -200] reads [Networked] SyncPosition/SyncRotation:
+   a. `CheckNewTick()` — detects new Fusion ticks, first-tick initialization snap
+   b. `ApplyPositionFollow()` — SmoothDamp toward SyncPosition (smoothTime=0.1), Slerp rotation (speed=10)
+   c. Direct `_cachedTarget.position = _intendedPosition` writes (NOT MovePosition)
+   d. `rb.interpolation = None` — camera and rendered position always agree
+9. Camera FixedUpdate(0): SCK camera reads `transform.position` (same value we just set), positions camera with own PositionFollowStrength lerp
+10. Client: Rigidbody is kinematic, accepts position updates without physics fighting
 
 ### SCK Lifecycle on Network-Spawned Objects:
 1. `Instantiate()` → `Awake()` (GameAgent registers with GameAgentManager)
 2. `Start()` → `SetStartAtCheckpoint` coroutine may teleport to checkpoint, `Engines.Start()` → `SetEngineActivation(true)` if `activateEnginesAtStart`
 3. `Fusion.Spawned()` → our code runs (DisableLocalInput for remote, DisableClientOwnShipScripts for client's own ship, kinematic fix, camera setup, Destroy SetStartAtCheckpoint on remotes)
 4. `FixedUpdateNetwork()` begins being called each network tick (NOT on proxies)
-5. `LateUpdate()` runs on proxies, applying synced position to child transform with interpolation
+5. `FixedUpdate()` [order -200] runs on non-authority ships, applying SmoothDamp position follow via direct transform writes
+6. Camera `FixedUpdate()` [order 0] reads the position we just set, applies its own follow damping
 
 ---
 
-## NEXT STEPS (Recommended)
+## NEXT STEPS (Recommended — Priority Order)
 
-1. **Test on separate PCs** with teammate — most same-machine artifacts should disappear
-2. **Fix build resolution/UI cutoff** — may need to investigate Unity canvas scaler settings or build player settings more thoroughly
-3. **Add interpolation refinement** — current Lerp/Slerp at 15f may need tuning after separate-PC testing
-4. **Clean up debug logging** once networking is confirmed stable on separate PCs
-5. **Make a Development Build** for host-side debugging (currently blind to host logs)
-6. **Connection timeout** on first J press in editor (intermittent) — may need investigation
-7. **Consider adding NetworkRigidbody3D** to the prefab as a proper long-term fix instead of manual [Networked] position sync
-8. **Mouse sensitivity tuning** — `reticleSpeed = 1.0f`, `centerSpeed = 2.0f`, `maxReticleDistance = 0.4f`, `mouseDeadRadius = 0.02f` may need adjustment after playtesting
+1. **FIX CLIENT SHIP JITTER (Bug 20)** — the PRIMARY remaining issue:
+   - Try moving position follow from FixedUpdate to Render() (display-rate updates)
+   - Or try removing SmoothDamp entirely and using simple exponential lerp
+   - Or try reducing positionSmoothTime from 0.1 to 0.05 for more responsiveness
+   - Check if any SCK component is still modifying the client ship's transform
+   - Consider Fusion's built-in snapshot interpolation (InterpolationDataSource)
+2. **Fix client ship responsiveness** — ship feels sluggish, possibly due to SmoothDamp lag
+3. **Re-implement SCK banking** — linkYawAndRoll and auto-level features are lost when VehicleInput is disabled on client. May need manual implementation in the bridge's FixedUpdateNetwork.
+4. **Test on separate PCs** with teammate — some jitter may be same-machine testing artifact
+5. **Fix build resolution/UI cutoff** — may need canvas scaler investigation
+6. **Clean up debug logging** once networking is confirmed stable
+7. **Make a Development Build** for host-side debugging
+8. **Mouse sensitivity tuning** — `reticleSpeed = 1.0f`, `maxReticleDistance = 0.475f`, `mouseDeadRadius = 0.02f`
 
 ---
 
@@ -462,6 +543,37 @@ ModuleManagers are children of the Vehicle that control subsystems (weapons, eng
 - `Assets/SpaceCombatKit/VSXPackageLibrary/Packages/VehiclesSystem/GameAgents/GameAgentManager.cs`
 - `Assets/SpaceCombatKit/VSXPackageLibrary/Packages/VehiclesSystem/Vehicles/Vehicle.cs`
 - `Assets/SpaceCombatKit/SpaceCombatKit/Scripts/Input/InputSystem/PlayerInput_InputSystem_SpaceshipControls.cs`
-- `Assets/SpaceCombatKit/SpaceCombatKit/Scripts/Input/PlayerInput_Base_SpaceshipControls.cs`
+- `Assets/SpaceCombatKit/SpaceCombatKit/Scripts/Input/PlayerInput_Base_SpaceshipControls.cs` — has linkYawAndRoll, auto-level
 - `Assets/SpaceCombatKit/VSXPackageLibrary/Packages/GameStateSystem/GameStateManager.cs`
 - `Assets/SpaceCombatKit/VSXPackageLibrary/Packages/Cameras/VehicleCamera.cs`
+- `Assets/SpaceCombatKit/SpaceCombatKit/Scripts/CameraControllers/SpaceFighterCameraController.cs` — camera follow logic (Session 5)
+- `Assets/SpaceCombatKit/VSXPackageLibrary/Packages/CameraSystem/Runtime/Core/CameraEntity.cs` — base camera entity (Session 5)
+
+## CURRENT STATE OF KEY FILES (Session 5)
+
+### NetworkedSpaceshipBridge.cs — Key position follow parameters:
+```csharp
+// Position smoothing
+[SerializeField] private float positionSmoothTime = 0.1f;  // SmoothDamp time (seconds)
+[SerializeField] private float rotationSmoothSpeed = 10f;   // Slerp speed for rotation
+
+// In Spawned() for non-authority:
+rb.isKinematic = true;
+rb.interpolation = RigidbodyInterpolation.None;  // CRITICAL — prevents camera-ship desync
+
+// In ApplyPositionFollow():
+_intendedPosition = Vector3.SmoothDamp(_cachedTarget.position, SyncPosition, ref _smoothVelocity, positionSmoothTime, Mathf.Infinity, Time.fixedDeltaTime);
+float rotT = Mathf.Clamp01(rotationSmoothSpeed * Time.fixedDeltaTime);
+_intendedRotation = Quaternion.Slerp(_cachedTarget.rotation, SyncRotation, rotT);
+_cachedTarget.position = _intendedPosition;  // Direct write, NOT MovePosition
+_cachedTarget.rotation = _intendedRotation;
+```
+
+### NetworkedPlayerInput.cs — Key input parameters:
+```csharp
+private float reticleSpeed = 1.0f;           // Mouse delta sensitivity
+private float maxReticleDistance = 0.475f;    // Max reticle offset from center (viewport coords)
+private float mouseDeadRadius = 0.02f;       // Dead zone radius
+// No auto-centering (removed in Session 4)
+// Uses Mouse.current.delta.ReadValue() for locked cursor compatibility
+```
