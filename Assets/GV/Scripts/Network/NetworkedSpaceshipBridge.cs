@@ -88,35 +88,40 @@ namespace GV.Network
         private CustomCursor _hudCursor;
         private bool _hudCursorSearched = false;
 
-        // --- SMOOTHDAMP POSITION FOLLOW ---
-        // SmoothDamp is critically-damped: it maintains velocity tracking with no overshoot,
-        // no stops, and no oscillation. When SyncPosition updates (new tick arrives), SmoothDamp
-        // smoothly redirects toward the new target while preserving momentum.
-        //
-        // DIRECT TRANSFORM WRITES + rb.interpolation = None:
-        // The SCK camera reads currentViewTarget.transform.position in FixedUpdate.
-        // With rb.interpolation = Interpolate, Unity overrides the RENDERED transform.position
-        // to an interpolated value between consecutive physics positions, but the camera still
-        // reads the non-interpolated physics position. This creates a VARYING offset between
-        // camera and rendered ship (because SmoothDamp step sizes vary due to 64Hz/50Hz tick
-        // mismatch), causing the ship to visibly shake against the smooth camera background.
-        // With rb.interpolation = None and direct transform writes, camera and rendering both
-        // use the exact same position — no offset, no shake.
-        private Transform _cachedTarget = null; // Cached child Rigidbody transform
-        private Rigidbody _cachedRb = null;     // Cached Rigidbody for MovePosition
+        // --- PROXY SHIP POSITION FOLLOW (SmoothDamp) ---
+        // Used for proxy ships (host's ship on client) which are kinematic.
+        // Client's OWN ship uses real physics instead (client-side prediction).
+        private Transform _cachedTarget = null;
+        private Rigidbody _cachedRb = null;
         private int _prevSyncTick = -1;
         private bool _followInitialized = false;
-        private Vector3 _intendedPosition;      // For diagnostics (MovePosition is deferred)
+        private Vector3 _intendedPosition;
         private Quaternion _intendedRotation;
-
-        // SmoothDamp state
         private Vector3 _smoothVelocity = Vector3.zero;
-        // smoothTime = how quickly the ship reaches the target (seconds).
-        // 0.1s (~5 Fusion ticks) smooths velocity changes when ship accelerates/decelerates.
-        // Too small → velocity changes feel abrupt. Too large → ship lags behind noticeably.
-        [Header("Network Position Smoothing")]
+
+        [Header("Proxy Ship Smoothing (host's ship on client)")]
         [SerializeField] private float positionSmoothTime = 0.1f;
-        [SerializeField] private float rotationSmoothSpeed = 10f; // Slerp speed for rotation
+        [SerializeField] private float rotationSmoothSpeed = 10f;
+
+        // --- CLIENT-SIDE PREDICTION ---
+        // The client's own ship runs REAL physics locally (VehicleEngines3D + dynamic Rigidbody).
+        // Input is applied locally every FixedUpdate for instant response.
+        // The host's authoritative SyncPosition/SyncRotation gently corrects the client to prevent drift.
+        [Header("Client-Side Prediction")]
+        [Tooltip("How fast position corrects toward server (per second). Higher = more accurate, lower = smoother.")]
+        [SerializeField] private float positionCorrectionRate = 8f;
+        [Tooltip("How fast rotation corrects toward server (per second).")]
+        [SerializeField] private float rotationCorrectionRate = 8f;
+        [Tooltip("Snap to server position if gap exceeds this (meters). Handles respawn/teleport.")]
+        [SerializeField] private float positionSnapThreshold = 5f;
+        [Tooltip("Snap to server rotation if gap exceeds this (degrees).")]
+        [SerializeField] private float rotationSnapThreshold = 45f;
+        [Tooltip("Auto-bank into turns: roll = -yaw * yawRollRatio (re-implements SCK's linkYawAndRoll)")]
+        [SerializeField] private bool enableLinkYawAndRoll = true;
+        [SerializeField] private float yawRollRatio = 0.5f;
+
+        private bool _clientPredictionActive = false;
+        private bool _loggedPredictionActive = false;
 
         // --- JITTER DIAGNOSTIC LOGGING ---
         private bool _jitterDiagEnabled = true;
@@ -153,42 +158,48 @@ namespace GV.Network
                       $"HasStateAuthority: {Object.HasStateAuthority}, " +
                       $"InputAuthority: {Object.InputAuthority}");
 
-            // --- CRITICAL: Make Rigidbody kinematic on non-authority instances ---
-            // The prefab uses Rigidbody for physics movement but only has NetworkTransform (not NetworkRigidbody3D).
-            // Without this, the local Rigidbody fights NetworkTransform and the ship stays stuck at spawn.
-            // Only the state authority (host) should run physics; everyone else lets NetworkTransform drive position.
+            // --- RIGIDBODY SETUP FOR NON-AUTHORITY SHIPS ---
+            // Two cases:
+            // 1. CLIENT'S OWN SHIP (HasInputAuthority): Keep Rigidbody DYNAMIC for client-side prediction.
+            //    The client runs its own physics locally for instant response.
+            // 2. PROXY SHIPS (no authority): Make Rigidbody kinematic. Position comes from SmoothDamp.
             if (!Object.HasStateAuthority)
             {
+                bool isOwnShip = Object.HasInputAuthority;
+                // Also check via runner in case HasInputAuthority isn't set yet
+                if (Runner != null && Object.InputAuthority != PlayerRef.None)
+                {
+                    isOwnShip = Object.InputAuthority == Runner.LocalPlayer;
+                }
+
                 var rb = GetComponentInChildren<Rigidbody>(true);
                 if (rb != null)
                 {
-                    rb.isKinematic = true;
-                    // CRITICAL: rb.interpolation must be NONE for kinematic client ships.
-                    // With Interpolate, Unity overrides the ship's rendered transform.position
-                    // to an interpolated value between consecutive MovePosition targets.
-                    // But the SCK camera reads transform.position in FixedUpdate (the PHYSICS
-                    // position, not the interpolated rendering position). This creates a varying
-                    // offset between where the camera thinks the ship is and where it renders,
-                    // causing the ship to visibly shake against the smooth camera background.
-                    // With None: camera and ship agree on exact same position → no shake.
-                    rb.interpolation = RigidbodyInterpolation.None;
-                    Debug.Log($"[NetworkedSpaceshipBridge] Made Rigidbody kinematic, interpolation=None (camera reads same pos as rendered)");
+                    if (isOwnShip)
+                    {
+                        // CLIENT'S OWN SHIP: Keep dynamic for client-side prediction.
+                        // VehicleEngines3D will apply real forces in its FixedUpdate.
+                        // rb.interpolation stays as prefab default (None / m_Interpolate=0).
+                        Debug.Log($"[NetworkedSpaceshipBridge] CLIENT OWN SHIP: Rigidbody stays DYNAMIC for client-side prediction. " +
+                                  $"isKinematic={rb.isKinematic}, interpolation={rb.interpolation}");
+                    }
+                    else
+                    {
+                        // PROXY SHIP: Make kinematic — position from SmoothDamp.
+                        rb.isKinematic = true;
+                        rb.interpolation = RigidbodyInterpolation.None;
+                        Debug.Log($"[NetworkedSpaceshipBridge] PROXY: Made Rigidbody kinematic, interpolation=None");
+                    }
                 }
 
-                // DISABLE NetworkTransform on non-authority ships.
-                // NetworkTransform syncs the ROOT transform position from the host, but in SCK the ROOT
-                // is stuck at spawn (physics moves the CHILD). NetworkTransform constantly writes the
-                // spawn position to the root, which causes violent shaking when our LateUpdate also
-                // moves the child to SyncPosition — the camera oscillates between both positions.
-                //
-                // [Networked] properties (SyncPosition, SyncRotation, SyncTick) are synced via
-                // NetworkObject/NetworkBehaviour's internal state replication, NOT via NetworkTransform.
-                // Disabling NetworkTransform does NOT affect [Networked] property sync.
+                // Disable NetworkTransform on ALL non-authority ships.
+                // Our [Networked] properties handle sync. NetworkTransform syncs the ROOT
+                // transform (stuck at spawn in SCK), not the CHILD where physics lives.
                 var nt = GetComponent<Fusion.NetworkTransform>();
                 if (nt != null)
                 {
                     nt.enabled = false;
-                    Debug.Log($"[NetworkedSpaceshipBridge] Disabled NetworkTransform on non-authority ship (prevents shaking)");
+                    Debug.Log($"[NetworkedSpaceshipBridge] Disabled NetworkTransform on non-authority ship");
                 }
             }
 
@@ -215,17 +226,12 @@ namespace GV.Network
             }
             else
             {
-                // CLIENT's own ship: Disable ALL SCK input/engine scripts safely.
-                // The client's ship is a pure visual shell — its position and rotation come
-                // ONLY from the HOST via [Networked] SyncPosition/SyncRotation in LateUpdate.
-                // Any SCK script that processes local mouse/keyboard or modifies the transform
-                // will FIGHT with our network sync and cause violent shaking.
-                //
-                // We use DisableClientOwnShipScripts() instead of DisableLocalInput() because
-                // DisableLocalInput() calls EnterVehicle() and destroys GameAgent, which can
-                // cascade and disable THIS component (killing Update() and RPC sending).
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT local player ship - disabling SCK scripts, position from HOST sync only");
-                DisableClientOwnShipScripts();
+                // CLIENT's own ship: Set up CLIENT-SIDE PREDICTION.
+                // The client runs REAL physics locally (VehicleEngines3D + dynamic Rigidbody).
+                // Only SCK input scripts are disabled — our bridge feeds the engines directly.
+                // The host's authoritative state gently corrects the client to prevent drift.
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT local player ship - setting up CLIENT-SIDE PREDICTION");
+                SetupClientOwnShip();
                 _hasCheckedAuthority = true;
                 SetupCamera();
             }
@@ -413,32 +419,30 @@ namespace GV.Network
         }
 
         /// <summary>
-        /// Safely disables SCK scripts on the CLIENT's own ship without the dangerous
-        /// cascading side-effects of DisableLocalInput() (which calls EnterVehicle, destroys
-        /// GameAgent, etc. and can disable this bridge component).
-        ///
-        /// The client's own ship is purely visual — position/rotation come from the HOST
-        /// via [Networked] SyncPosition/SyncRotation. We just need to stop SCK from:
-        /// 1. Processing local mouse/keyboard input (VehicleInput, GeneralInput)
-        /// 2. Applying forces or modifying the transform (VehicleEngines3D)
-        /// 3. Resetting position to spawn (SetStartAtCheckpoint)
+        /// Sets up the CLIENT's own ship for CLIENT-SIDE PREDICTION.
+        /// Unlike the old "visual shell" approach, the client now runs REAL physics:
+        /// - VehicleEngines3D stays ENABLED (local physics simulation)
+        /// - Rigidbody stays DYNAMIC (not kinematic — real forces apply)
+        /// - Only SCK INPUT scripts are disabled (our bridge feeds engines directly)
+        /// - The host's authoritative state gently corrects the client via server reconciliation
         /// </summary>
-        private void DisableClientOwnShipScripts()
+        private void SetupClientOwnShip()
         {
-            // 1. Disable ALL VehicleInput-derived components (SCK mouse/keyboard input)
+            // 1. Disable SCK's VehicleInput scripts (mouse/keyboard input)
+            // Our bridge reads from NetworkedPlayerInput and feeds the engines directly.
             var vehicleInputs = GetComponentsInChildren<VehicleInput>(true);
             foreach (var vi in vehicleInputs)
             {
                 ((MonoBehaviour)vi).enabled = false;
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Disabled VehicleInput: {vi.GetType().Name}");
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Disabled VehicleInput: {vi.GetType().Name}");
             }
 
-            // 2. Disable ALL GeneralInput components
+            // 2. Disable GeneralInput components
             var generalInputs = GetComponentsInChildren<VSX.Controls.GeneralInput>(true);
             foreach (var gi in generalInputs)
             {
                 ((MonoBehaviour)gi).enabled = false;
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Disabled GeneralInput: {gi.GetType().Name}");
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Disabled GeneralInput: {gi.GetType().Name}");
             }
 
             // 3. Disable Unity PlayerInput (New Input System)
@@ -446,61 +450,69 @@ namespace GV.Network
             foreach (var upi in unityPlayerInputs)
             {
                 upi.enabled = false;
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Disabled Unity PlayerInput on: {upi.gameObject.name}");
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Disabled Unity PlayerInput: {upi.gameObject.name}");
             }
 
-            // 4. Disable VehicleEngines3D — no physics forces needed on client
-            // (position comes from SyncPosition, Rigidbody is already kinematic)
+            // 4. KEEP VehicleEngines3D ENABLED — this is the core of client-side prediction!
+            // The engines will process our inputs in their FixedUpdate and apply forces/torques.
             if (engines != null)
             {
-                engines.enabled = false;
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Disabled VehicleEngines3D: {engines.name}");
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: KEEPING VehicleEngines3D ENABLED: {engines.name}");
             }
 
-            // 5. Destroy SetStartAtCheckpoint — prevents position resets fighting with sync
+            // 5. Destroy SetStartAtCheckpoint — fights with network position sync
             var checkpointScripts = GetComponentsInChildren<SetStartAtCheckpoint>(true);
             foreach (var cs in checkpointScripts)
             {
                 cs.StopAllCoroutines();
                 Destroy(cs);
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Destroyed SetStartAtCheckpoint on own ship");
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Destroyed SetStartAtCheckpoint");
             }
 
-            // 6. Unregister GameAgent from manager (prevent focus/input routing)
-            // but do NOT destroy it or call EnterVehicle (those cause cascading disables)
+            // 6. Unregister GameAgent (prevent focus/input routing interference)
             var gameAgents = GetComponentsInChildren<GameAgent>(true);
             foreach (var ga in gameAgents)
             {
                 if (GameAgentManager.Instance != null)
                 {
                     GameAgentManager.Instance.Unregister(ga);
-                    Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Unregistered GameAgent: {ga.name}");
+                    Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Unregistered GameAgent: {ga.name}");
                 }
-                // Disable but don't destroy — destroying can trigger cascading callbacks
                 ga.enabled = false;
             }
 
-            // 7. Cache the child transform (where the Rigidbody lives) for position interpolation.
-            // We keep the Rigidbody alive (kinematic) because many SCK scripts depend on it.
-            // The camera timing mismatch (camera reads in FixedUpdate, we write in LateUpdate)
-            // is solved via [DefaultExecutionOrder(-200)] which makes our FixedUpdate run BEFORE
-            // CameraEntity's FixedUpdate, so we set the position before the camera reads it.
+            // 7. Cache the Rigidbody (stays DYNAMIC for real physics)
             var clientRb = GetComponentInChildren<Rigidbody>();
             if (clientRb != null)
             {
                 _cachedTarget = clientRb.transform;
                 _cachedRb = clientRb;
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: Cached target '{_cachedTarget.name}' + Rigidbody for MovePosition sync");
+                // Rigidbody stays dynamic — real forces will be applied by VehicleEngines3D
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Rigidbody DYNAMIC on '{_cachedTarget.name}', " +
+                          $"isKinematic={clientRb.isKinematic}, mass={clientRb.mass}, " +
+                          $"linearDamping={clientRb.linearDamping}, angularDamping={clientRb.angularDamping}");
             }
+
+            // 8. Disable NetworkTransform (our [Networked] properties handle sync)
+            var nt = GetComponent<Fusion.NetworkTransform>();
+            if (nt != null)
+            {
+                nt.enabled = false;
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Disabled NetworkTransform");
+            }
+
+            _clientPredictionActive = true;
 
             // SAFETY: Ensure THIS bridge component is still enabled
             if (!this.enabled)
             {
                 this.enabled = true;
-                Debug.LogWarning($"[NetworkedSpaceshipBridge] CLIENT: RE-ENABLED self after disabling SCK scripts!");
+                Debug.LogWarning($"[NetworkedSpaceshipBridge] CLIENT PREDICT: RE-ENABLED self!");
             }
 
-            Debug.Log($"[NetworkedSpaceshipBridge] CLIENT: All SCK scripts disabled. Ship is now a pure visual shell.");
+            Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Setup complete. " +
+                      $"Engines={engines != null && engines.enabled}, Rigidbody=DYNAMIC, " +
+                      $"linkYawRoll={enableLinkYawAndRoll}, correctionRate=pos:{positionCorrectionRate}/rot:{rotationCorrectionRate}");
         }
 
         /// <summary>
@@ -1072,6 +1084,115 @@ namespace GV.Network
             _cachedTarget.rotation = _intendedRotation;
         }
 
+        // =======================================================================
+        // CLIENT-SIDE PREDICTION METHODS
+        // =======================================================================
+
+        /// <summary>
+        /// Reads local input and feeds it to VehicleEngines3D on the CLIENT's own ship.
+        /// This runs at Unity FixedUpdate rate (50Hz) at order -200, BEFORE VehicleEngines3D's
+        /// FixedUpdate (order 0). The flow matches the host exactly:
+        ///   Bridge sets inputs → VehicleEngines3D.FixedUpdate applies forces → Physics step
+        /// </summary>
+        private void ApplyLocalInput()
+        {
+            if (engines == null) return;
+
+            // Ensure engines are active
+            if (!engines.EnginesActivated)
+            {
+                engines.SetEngineActivation(true);
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Force-activated engines");
+            }
+            engines.ControlsDisabled = false;
+
+            // Read local input (same data being sent to host via RPC)
+            var nm = NetworkManager.Instance;
+            if (nm == null) return;
+            var playerInput = nm.GetComponent<NetworkedPlayerInput>();
+            if (playerInput == null) return;
+
+            var data = playerInput.CurrentInputData;
+
+            // Build steering vector with linkYawAndRoll
+            Vector3 steering = new Vector3(data.steerPitch, data.steerYaw, data.steerRoll);
+            if (enableLinkYawAndRoll)
+            {
+                float linkedRoll = Mathf.Clamp(-steering.y * yawRollRatio, -1f, 1f);
+                if (Mathf.Abs(linkedRoll) > Mathf.Abs(steering.z))
+                {
+                    steering.z = linkedRoll;
+                }
+            }
+
+            Vector3 movement = new Vector3(data.moveX, data.moveY, data.moveZ);
+
+            // Feed engines — VehicleEngines3D.FixedUpdate (order 0) will apply the forces
+            engines.SetSteeringInputs(steering);
+            engines.SetMovementInputs(movement);
+            engines.SetBoostInputs(data.boost ? new Vector3(0f, 0f, 1f) : Vector3.zero);
+
+            _isBoosting = data.boost;
+
+            // One-time log
+            if (!_loggedPredictionActive)
+            {
+                _loggedPredictionActive = true;
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT-SIDE PREDICTION ACTIVE: " +
+                          $"engines={engines.name}, enginesActivated={engines.EnginesActivated}, " +
+                          $"linkYawRoll={enableLinkYawAndRoll}, yawRollRatio={yawRollRatio}, " +
+                          $"correctionRate=pos:{positionCorrectionRate}/rot:{rotationCorrectionRate}");
+            }
+        }
+
+        /// <summary>
+        /// Gently corrects the client's physics state toward the host's authoritative
+        /// SyncPosition/SyncRotation. This prevents drift while keeping local physics responsive.
+        ///
+        /// The correction is applied directly to the Rigidbody before VehicleEngines3D
+        /// adds its forces, so the physics step integrates everything together.
+        /// </summary>
+        private void ApplyServerCorrection()
+        {
+            if (_cachedRb == null || SyncTick <= 0) return;
+
+            float dt = Time.fixedDeltaTime;
+
+            // --- POSITION CORRECTION ---
+            float posDist = Vector3.Distance(_cachedRb.position, SyncPosition);
+
+            if (posDist > positionSnapThreshold)
+            {
+                // Snap — too far away (respawn, teleport, or severe desync)
+                _cachedRb.position = SyncPosition;
+                _cachedRb.linearVelocity = Vector3.zero;
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Position SNAP (gap={posDist:F1}m)");
+            }
+            else if (posDist > 0.01f)
+            {
+                // Gentle Lerp toward server position
+                float correctionT = Mathf.Clamp01(positionCorrectionRate * dt);
+                _cachedRb.position = Vector3.Lerp(_cachedRb.position, SyncPosition, correctionT);
+            }
+
+            // --- ROTATION CORRECTION ---
+            float rotAngle = Quaternion.Angle(_cachedRb.rotation, SyncRotation);
+
+            if (rotAngle > rotationSnapThreshold)
+            {
+                // Snap
+                _cachedRb.rotation = SyncRotation;
+                _cachedRb.angularVelocity = Vector3.zero;
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Rotation SNAP (gap={rotAngle:F1}°)");
+            }
+            else if (rotAngle > 0.1f)
+            {
+                // Gentle Slerp toward server rotation
+                float correctionT = Mathf.Clamp01(rotationCorrectionRate * dt);
+                _cachedRb.rotation = Quaternion.Slerp(_cachedRb.rotation, SyncRotation, correctionT);
+            }
+        }
+
         /// <summary>
         /// FixedUpdate: Apply position follow at the SAME rate as the camera.
         /// [DefaultExecutionOrder(-200)] on this class guarantees this runs BEFORE:
@@ -1080,7 +1201,26 @@ namespace GV.Network
         /// </summary>
         private void FixedUpdate()
         {
-            if (!Object.HasStateAuthority && SyncTick > 0)
+            // Skip if we ARE the host (host physics handled by FUN)
+            if (Object.HasStateAuthority) return;
+
+            // === CLIENT'S OWN SHIP: Client-Side Prediction ===
+            if (_clientPredictionActive && Object.HasInputAuthority)
+            {
+                // Feed local input to engines (VehicleEngines3D.FixedUpdate at order 0 applies forces)
+                ApplyLocalInput();
+
+                // Gentle correction toward host's authoritative state
+                ApplyServerCorrection();
+
+                // Update HUD cursor from reticle position
+                UpdateHUDCursorFromReticle();
+
+                return; // Don't run proxy SmoothDamp logic
+            }
+
+            // === PROXY SHIPS: SmoothDamp position follow (kinematic) ===
+            if (SyncTick > 0)
             {
                 // Check for new ticks (handles initialization on first tick)
                 bool tickChanged = CheckNewTick();
@@ -1089,7 +1229,6 @@ namespace GV.Network
                 ApplyPositionFollow();
 
                 // --- JITTER DIAGNOSTIC ---
-                // Log _intendedPosition (the SmoothDamp result applied via direct transform write).
                 if (_jitterDiagEnabled && Object.HasInputAuthority)
                 {
                     if (!_jitterDiagStarted && _followInitialized)
@@ -1106,19 +1245,16 @@ namespace GV.Network
                         _jitterDiagFixedCount++;
                         Vector3 delta = _intendedPosition - _jitterLastLoggedPos;
 
-                        // Flag direction reversals (the jitter signature)
                         string dirFlag = "";
                         if (_jitterDiagFixedCount > 1 && delta.magnitude > 0.001f)
                         {
                             Vector3 prevDelta = _intendedPosition - _jitterLastLoggedPos;
-                            // Compare with the delta from 2 frames ago
                             if (Vector3.Dot(delta, prevDelta) < 0)
                             {
                                 dirFlag = " <<< DIRECTION REVERSAL";
                             }
                         }
 
-                        // Log every 10th frame to reduce spam, but always log reversals
                         if (_jitterDiagFixedCount % 10 == 0 || dirFlag.Length > 0)
                         {
                             float gap = Vector3.Distance(_intendedPosition, SyncPosition);
@@ -1137,6 +1273,26 @@ namespace GV.Network
                         _jitterDiagEnabled = false;
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Updates the HUD cursor on the client's own ship to match the reticle position
+        /// from NetworkedPlayerInput. SCK's PlayerInput normally drives this, but that script
+        /// is disabled on the client (our bridge feeds the engines instead).
+        /// </summary>
+        private void UpdateHUDCursorFromReticle()
+        {
+            var nm = NetworkManager.Instance;
+            if (nm == null) return;
+            var playerInput = nm.GetComponent<NetworkedPlayerInput>();
+            if (playerInput == null) return;
+
+            var hudCursor = GetComponentInChildren<VSX.Utilities.CustomCursor>(true);
+            if (hudCursor != null)
+            {
+                Vector2 reticle = playerInput.ReticlePosition;
+                hudCursor.SetViewportPosition(new Vector3(reticle.x, reticle.y, 0));
             }
         }
 
