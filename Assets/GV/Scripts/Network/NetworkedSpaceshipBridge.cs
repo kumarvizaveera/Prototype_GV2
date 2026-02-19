@@ -89,21 +89,19 @@ namespace GV.Network
         private bool _hudCursorSearched = false;
 
         // --- SMOOTHDAMP POSITION FOLLOW ---
-        // Previous approaches all failed due to Fusion 64Hz ticks vs Unity 50Hz FixedUpdate mismatch:
-        //   1. Double-buffer interpolation: t jumped 0→1 in one step (no intermediate values)
-        //   2. MoveTowards: stop-start oscillation (speed estimate lags → catches up → stops → repeats)
+        // SmoothDamp is critically-damped: it maintains velocity tracking with no overshoot,
+        // no stops, and no oscillation. When SyncPosition updates (new tick arrives), SmoothDamp
+        // smoothly redirects toward the new target while preserving momentum.
         //
-        // SmoothDamp is critically-damped: it maintains velocity tracking with no overshoot, no stops,
-        // and no oscillation. When SyncPosition updates (new tick arrives), SmoothDamp smoothly
-        // redirects toward the new target while preserving momentum. No speed estimation needed.
-        //
-        // VISUAL INTERPOLATION: rb.MovePosition() + rb.interpolation = Interpolate.
-        // MovePosition is deferred (doesn't change transform.position until the physics step),
-        // but Unity's Rigidbody interpolation smoothly blends the RENDERED position between
-        // consecutive MovePosition targets at the display refresh rate (60Hz+).
-        // The camera in FixedUpdate reads the PREVIOUS MovePosition result — this is the SAME
-        // behavior as the HOST (where camera reads previous physics step position). Both have
-        // a one-step camera lag that's absorbed by the camera's own following/damping.
+        // DIRECT TRANSFORM WRITES + rb.interpolation = None:
+        // The SCK camera reads currentViewTarget.transform.position in FixedUpdate.
+        // With rb.interpolation = Interpolate, Unity overrides the RENDERED transform.position
+        // to an interpolated value between consecutive physics positions, but the camera still
+        // reads the non-interpolated physics position. This creates a VARYING offset between
+        // camera and rendered ship (because SmoothDamp step sizes vary due to 64Hz/50Hz tick
+        // mismatch), causing the ship to visibly shake against the smooth camera background.
+        // With rb.interpolation = None and direct transform writes, camera and rendering both
+        // use the exact same position — no offset, no shake.
         private Transform _cachedTarget = null; // Cached child Rigidbody transform
         private Rigidbody _cachedRb = null;     // Cached Rigidbody for MovePosition
         private int _prevSyncTick = -1;
@@ -165,14 +163,16 @@ namespace GV.Network
                 if (rb != null)
                 {
                     rb.isKinematic = true;
-                    // Interpolate + MovePosition: MovePosition is deferred (processed in
-                    // physics step after all FixedUpdates), but rb.interpolation = Interpolate
-                    // makes Unity smoothly blend the RENDERED position between consecutive
-                    // MovePosition targets at the display refresh rate. The camera reads the
-                    // PREVIOUS MovePosition result in FixedUpdate — this is normal Unity
-                    // behavior (HOST camera also reads previous physics step position).
-                    rb.interpolation = RigidbodyInterpolation.Interpolate;
-                    Debug.Log($"[NetworkedSpaceshipBridge] Made Rigidbody kinematic, interpolation=Interpolate (no state authority)");
+                    // CRITICAL: rb.interpolation must be NONE for kinematic client ships.
+                    // With Interpolate, Unity overrides the ship's rendered transform.position
+                    // to an interpolated value between consecutive MovePosition targets.
+                    // But the SCK camera reads transform.position in FixedUpdate (the PHYSICS
+                    // position, not the interpolated rendering position). This creates a varying
+                    // offset between where the camera thinks the ship is and where it renders,
+                    // causing the ship to visibly shake against the smooth camera background.
+                    // With None: camera and ship agree on exact same position → no shake.
+                    rb.interpolation = RigidbodyInterpolation.None;
+                    Debug.Log($"[NetworkedSpaceshipBridge] Made Rigidbody kinematic, interpolation=None (camera reads same pos as rendered)");
                 }
 
                 // DISABLE NetworkTransform on non-authority ships.
@@ -1063,21 +1063,13 @@ namespace GV.Network
             float rotT = Mathf.Clamp01(rotationSmoothSpeed * Time.fixedDeltaTime);
             _intendedRotation = Quaternion.Slerp(_cachedTarget.rotation, SyncRotation, rotT);
 
-            // Use MovePosition for smooth visual interpolation between FixedUpdate steps.
-            // MovePosition is DEFERRED (processed in physics step after all FixedUpdates),
-            // but rb.interpolation = Interpolate smoothly blends the rendered position at
-            // the display refresh rate (60Hz+), eliminating 50Hz FixedUpdate stutter.
-            if (_cachedRb != null)
-            {
-                _cachedRb.MovePosition(_intendedPosition);
-                _cachedRb.MoveRotation(_intendedRotation);
-            }
-            else
-            {
-                // Fallback: direct transform writes if no Rigidbody
-                _cachedTarget.position = _intendedPosition;
-                _cachedTarget.rotation = _intendedRotation;
-            }
+            // Direct transform writes — NOT MovePosition.
+            // MovePosition + rb.interpolation caused ship-camera desync: the camera reads
+            // transform.position in FixedUpdate (physics pos), but rb.interpolation overrides
+            // the rendered position to an interpolated value. With rb.interpolation = None
+            // and direct writes, camera and rendering agree on the exact same position.
+            _cachedTarget.position = _intendedPosition;
+            _cachedTarget.rotation = _intendedRotation;
         }
 
         /// <summary>
@@ -1093,12 +1085,11 @@ namespace GV.Network
                 // Check for new ticks (handles initialization on first tick)
                 bool tickChanged = CheckNewTick();
 
-                // SmoothDamp toward SyncPosition, then MovePosition for visual interpolation
+                // SmoothDamp toward SyncPosition, direct transform writes for camera sync
                 ApplyPositionFollow();
 
                 // --- JITTER DIAGNOSTIC ---
-                // NOTE: With MovePosition, transform.position is NOT updated until the physics step
-                // (after all FixedUpdates). We log _intendedPosition instead (the SmoothDamp result).
+                // Log _intendedPosition (the SmoothDamp result applied via direct transform write).
                 if (_jitterDiagEnabled && Object.HasInputAuthority)
                 {
                     if (!_jitterDiagStarted && _followInitialized)
@@ -1106,7 +1097,7 @@ namespace GV.Network
                         _jitterDiagStarted = true;
                         _jitterDiagStartTime = Time.time;
                         _jitterLastLoggedPos = _intendedPosition;
-                        Debug.Log($"[JITTER_DIAG] === STARTING {JITTER_DIAG_DURATION}s DIAGNOSTIC (SmoothDamp+MovePosition+Interpolate) ===");
+                        Debug.Log($"[JITTER_DIAG] === STARTING {JITTER_DIAG_DURATION}s DIAGNOSTIC (SmoothDamp+DirectWrite+NoInterp) ===");
                         Debug.Log($"[JITTER_DIAG] smoothTime={positionSmoothTime:F3}, rotSpeed={rotationSmoothSpeed:F1}, fixedDt={Time.fixedDeltaTime:F4}, rb.interp=Interpolate");
                     }
 
@@ -1151,10 +1142,8 @@ namespace GV.Network
 
         private void LateUpdate()
         {
-            // NOTE: With MovePosition + Interpolate, the physics step applies the deferred
-            // MovePosition between FixedUpdate and LateUpdate. This means transform.position
-            // in LateUpdate WILL differ from FixedUpdate — this is EXPECTED and is how Unity's
-            // Rigidbody interpolation works. No LU DRIFT diagnostic needed.
+            // With direct transform writes and rb.interpolation = None, transform.position
+            // in LateUpdate is the same as in FixedUpdate — no deferred physics step involved.
 
             // --- CAMERA VERIFICATION (client's own ship only) ---
             if (Object.HasInputAuthority && !Object.HasStateAuthority)
@@ -1195,10 +1184,8 @@ namespace GV.Network
                           $"smoothVel={_smoothVelocity.magnitude:F2}");
             }
 
-            // NOTE: Position is applied via MovePosition in FixedUpdate. The physics step processes
-            // it after all FixedUpdates, and rb.interpolation = Interpolate smoothly blends the
-            // rendered position between consecutive MovePosition targets at display refresh rate.
-            // No additional position writes needed here.
+            // NOTE: Position is applied via direct transform writes in FixedUpdate (not MovePosition).
+            // rb.interpolation = None ensures the rendered position matches what the camera reads.
         }
     }
 }
