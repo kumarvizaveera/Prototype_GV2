@@ -77,6 +77,22 @@ namespace GV.Network
             _rpcInputAge = 0;
         }
 
+        private Vector3 _rpcPos;
+        private Quaternion _rpcRot;
+        private bool _hasRpcTransform = false;
+
+        /// <summary>
+        /// RPC: Client (InputAuthority) explicitly tells Host (StateAuthority) where it is.
+        /// Client Authority Movement to prevent divergence since we lack rollback.
+        /// </summary>
+        [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+        public void RPC_SendTransform(Vector3 pos, Quaternion rot)
+        {
+            _rpcPos = pos;
+            _rpcRot = rot;
+            _hasRpcTransform = true;
+        }
+
         // Local state for visual feedback (not networked for now)
         private bool _isBoosting;
         public bool IsBoosting => _isBoosting;
@@ -339,6 +355,21 @@ namespace GV.Network
                             Debug.Log($"[NetworkedSpaceshipBridge] CLIENT FIRST RPC SEND (from Update) on {gameObject.name}: " +
                                       $"throttle={clientData.moveZ:F2}, steer=({clientData.steerPitch:F2},{clientData.steerYaw:F2}), " +
                                       $"magic={playerMagic}, LocalPlayer={nm.Runner.LocalPlayer}");
+                        }
+
+                        // --- NEW: Client Authority Transform Send ---
+                        // Send the locally simulated transform to the host.
+                        if (_cachedTarget != null)
+                        {
+                            RPC_SendTransform(_cachedTarget.position, _cachedTarget.rotation);
+                        }
+                        else if (_cachedRb != null)
+                        {
+                             RPC_SendTransform(_cachedRb.position, _cachedRb.rotation);
+                        }
+                        else
+                        {
+                             RPC_SendTransform(transform.position, transform.rotation);
                         }
 
                         // --- HUD CURSOR UPDATE (client's own ship) ---
@@ -729,16 +760,42 @@ namespace GV.Network
             if (Object.HasStateAuthority)
             {
                 SyncTick++;
-                var rb = GetComponentInChildren<Rigidbody>();
-                if (rb != null)
+                
+                // If it's a remote client (Client Authority Mode), use the RPC pos instead of physics.
+                if (!Object.HasInputAuthority && _hasRpcTransform)
                 {
-                    SyncPosition = rb.position;
-                    SyncRotation = rb.rotation;
+                    SyncPosition = _rpcPos;
+                    SyncRotation = _rpcRot;
+
+                    var rb = GetComponentInChildren<Rigidbody>();
+                    if (rb != null)
+                    {
+                        // Snap the host's representation directly to the client's authority
+                        rb.position = _rpcPos;
+                        rb.rotation = _rpcRot;
+                        
+                        // Prevent the host from applying its own physics on top
+                        if (!rb.isKinematic)
+                        {
+                            rb.isKinematic = true;
+                            Debug.LogWarning($"[NetworkedSpaceshipBridge] Host disabled kinematic on {gameObject.name} for Client Authority");
+                        }
+                    }
                 }
-                else
+                else 
                 {
-                    SyncPosition = transform.position;
-                    SyncRotation = transform.rotation;
+                    // Host's own ship
+                    var rb = GetComponentInChildren<Rigidbody>();
+                    if (rb != null)
+                    {
+                        SyncPosition = rb.position;
+                        SyncRotation = rb.rotation;
+                    }
+                    else
+                    {
+                        SyncPosition = transform.position;
+                        SyncRotation = transform.rotation;
+                    }
                 }
             }
 
@@ -865,55 +922,23 @@ namespace GV.Network
             // The client's own ship movement is synced via NetworkTransform from the host.
             if (Object.HasStateAuthority && !Object.HasInputAuthority)
             {
-                // Ensure engines are activated (SCK's Engines.Start() may activate via activateEnginesAtStart,
-                // but we force it here as a safety net for network-spawned objects)
-                if (!engines.EnginesActivated)
+                // **CLIENT AUTHORITY MODE**: We DO NOT apply inputs to engines anymore for movement since the client is natively driving the ship and sending exact coordinates via RPC. 
+                // We keep applying boost visually right now if wanted, but `SetMovementInputs` and `SetSteeringInputs` are NO-OP to stop the Host from fighting.
+                
+                if (engines.EnginesActivated)
                 {
-                    engines.SetEngineActivation(true);
-                    Debug.Log($"[NetworkedSpaceshipBridge] Force-activated engines on remote ship {gameObject.name}");
+                    engines.SetEngineActivation(false); // Stop local host eval of client's ship
                 }
-
-                // CRITICAL: Always ensure ControlsDisabled is false BEFORE setting inputs.
-                // SCK's SetMovementInputs/SetSteeringInputs/SetBoostInputs all silently return
-                // if controlsDisabled is true. This must be set EVERY tick, not just on first activation,
-                // because Engines.Start() may activate engines before our first FixedUpdateNetwork,
-                // and other SCK systems could re-enable controlsDisabled at any time.
-                engines.ControlsDisabled = false;
-
-                // Reconstruct Vector3s from floats
-                Vector3 steering = new Vector3(data.steerPitch, data.steerYaw, data.steerRoll);
-                Vector3 movement = new Vector3(data.moveX, data.moveY, data.moveZ);
-
-                // Host processing REMOTE player's movement
-                engines.SetSteeringInputs(steering);
-                engines.SetMovementInputs(movement);
 
                 _isBoosting = data.boost;
-                engines.SetBoostInputs(data.boost ? new Vector3(0f, 0f, 1f) : Vector3.zero);
-
-                // Ensure Rigidbody is dynamic (physics-driven) on the Host
-                var rb = GetComponentInChildren<Rigidbody>();
-                if (rb != null)
-                {
-                    if (rb.isKinematic)
-                    {
-                        rb.isKinematic = false;
-                        Debug.LogWarning($"[NetworkedSpaceshipBridge] Forced Rigidbody.isKinematic = false on Host for {gameObject.name}");
-                    }
-                    
-                    // Optional: Check constraints if needed, usually default is fine but just in case
-                    // rb.constraints = RigidbodyConstraints.None; 
-                }
 
                 // Debug: log every 2 seconds
                 if (Time.time - _lastMovementDebugTime > 2f)
                 {
                     _lastMovementDebugTime = Time.time;
-                    Debug.Log($"[NetworkedSpaceshipBridge] HOST driving remote ship {gameObject.name} (via {inputSource}): " +
-                              $"movement={movement}, steering={steering}, boost={data.boost}, " +
-                              $"enginesID={engines.GetInstanceID()}, enginesActive={engines.EnginesActivated}, " +
-                              $"pos={transform.position}, rb.isKinematic={rb?.isKinematic}, rb.velocity={rb?.linearVelocity}, " +
-                              $"magic={data.magicNumber}");
+                    Debug.Log($"[NetworkedSpaceshipBridge] HOST accepting exact CLIENT AUTHORITY {gameObject.name}: " +
+                              $"rpcPos={_rpcPos}, rpcRot={_rpcRot.eulerAngles}, boost={data.boost}, " +
+                              $"enginesActive={engines.EnginesActivated}");
                 }
             }
 
