@@ -245,6 +245,10 @@ namespace GV.Network
                 // Strafe
                 if (Keyboard.current.aKey.isPressed) strafeX = -1f;
                 else if (Keyboard.current.dKey.isPressed) strafeX = 1f;
+
+                // Vertical Strafe (Up/Down)
+                if (Keyboard.current.leftCtrlKey.isPressed) strafeY = -1f;
+                else if (Keyboard.current.spaceKey.isPressed) strafeY = 1f;
             }
             
             _inputData.moveX = strafeX;
@@ -269,11 +273,10 @@ namespace GV.Network
             if (Mouse.current != null)
             {
                 _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_PRIMARY, Mouse.current.leftButton.isPressed);
-                _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_SECONDARY, Mouse.current.rightButton.isPressed);
+                _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_MISSILE, Mouse.current.rightButton.wasPressedThisFrame);
             }
             if (Keyboard.current != null)
             {
-                _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_MISSILE, Keyboard.current.spaceKey.wasPressedThisFrame);
                 _inputData.buttons.Set(PlayerInputData.BUTTON_CYCLE_WEAPON, Keyboard.current.tabKey.wasPressedThisFrame);
                 _inputData.buttons.Set(PlayerInputData.BUTTON_CYCLE_CHARACTER, Keyboard.current.cKey.wasPressedThisFrame);
                 _inputData.buttons.Set(PlayerInputData.BUTTON_SWAP_AIRCRAFT, Keyboard.current.vKey.wasPressedThisFrame);
