@@ -60,8 +60,13 @@ namespace GV.Network
         [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
         public void RPC_SendInput(float moveX, float moveY, float moveZ,
                                    float steerPitch, float steerYaw, float steerRoll,
-                                   NetworkBool boost, int magic)
+                                   NetworkBool boost, NetworkBool priFire, NetworkBool secFire, NetworkBool misFire, int magic)
         {
+            NetworkButtons buttons = default;
+            buttons.Set(PlayerInputData.BUTTON_FIRE_PRIMARY, priFire);
+            buttons.Set(PlayerInputData.BUTTON_FIRE_SECONDARY, secFire);
+            buttons.Set(PlayerInputData.BUTTON_FIRE_MISSILE, misFire);
+
             _rpcInput = new PlayerInputData
             {
                 moveX = moveX,
@@ -71,6 +76,7 @@ namespace GV.Network
                 steerYaw = steerYaw,
                 steerRoll = steerRoll,
                 boost = boost,
+                buttons = buttons,
                 magicNumber = magic
             };
             _hasRpcInput = true;
@@ -344,9 +350,13 @@ namespace GV.Network
                         var clientData = playerInput.CurrentInputData;
                         // Encode player ID in magic: Player:2 → magic=2042
                         int playerMagic = nm.Runner.LocalPlayer.PlayerId * 1000 + 42;
+                        bool pFire = clientData.buttons.IsSet(PlayerInputData.BUTTON_FIRE_PRIMARY);
+                        bool sFire = clientData.buttons.IsSet(PlayerInputData.BUTTON_FIRE_SECONDARY);
+                        bool mFire = clientData.buttons.IsSet(PlayerInputData.BUTTON_FIRE_MISSILE);
+
                         RPC_SendInput(clientData.moveX, clientData.moveY, clientData.moveZ,
                                       clientData.steerPitch, clientData.steerYaw, clientData.steerRoll,
-                                      clientData.boost, playerMagic);
+                                      clientData.boost, pFire, sFire, mFire, playerMagic);
 
                         // One-time log to confirm RPC sending is active
                         if (!_loggedFirstRpcSend)
@@ -356,6 +366,10 @@ namespace GV.Network
                                       $"throttle={clientData.moveZ:F2}, steer=({clientData.steerPitch:F2},{clientData.steerYaw:F2}), " +
                                       $"magic={playerMagic}, LocalPlayer={nm.Runner.LocalPlayer}");
                         }
+
+                        // Apply weapon input locally on the Client so muzzle flashes and audio can play
+                        // (FixedUpdateNetwork does not run on the client in Host mode)
+                        ApplyWeaponInput(clientData);
 
                         // --- NEW: Client Authority Transform Send ---
                         // Send the locally simulated transform to the host.
@@ -501,6 +515,7 @@ namespace GV.Network
             }
 
             // 6. Unregister GameAgent (prevent focus/input routing interference)
+            var vehicle = GetComponentInChildren<Vehicle>(true);
             var gameAgents = GetComponentsInChildren<GameAgent>(true);
             foreach (var ga in gameAgents)
             {
@@ -509,7 +524,37 @@ namespace GV.Network
                     GameAgentManager.Instance.Unregister(ga);
                     Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Unregistered GameAgent: {ga.name}");
                 }
+
+                // Manually enter the vehicle to activate SCK's ModuleManagers
+                // This makes weapons, effects, and visual modules functional.
+                if (vehicle != null && !ga.IsInVehicle)
+                {
+                    ga.EnterVehicle(vehicle);
+                    Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Entered vehicle for module activation: {vehicle.name}");
+                }
+
                 ga.enabled = false;
+            }
+
+            // FORCE activate all modules (weapons/triggerables) because disabling GameAgent
+            // sometimes cascades and deactivates them, or they start dormant.
+            var modules = GetComponentsInChildren<Module>(true);
+            foreach (var mod in modules)
+            {
+                mod.SetActivated(true);
+            }
+            Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Force-activated {modules.Length} modules for local weapons.");
+
+            // Re-disable any VehicleInput scripts that EnterVehicle() may have re-initialized
+            var reactivatedInputs = GetComponentsInChildren<VehicleInput>(true);
+            foreach (var vi in reactivatedInputs)
+            {
+                ((MonoBehaviour)vi).enabled = false;
+            }
+            var reactivatedGeneralInputs = GetComponentsInChildren<VSX.Controls.GeneralInput>(true);
+            foreach (var gi in reactivatedGeneralInputs)
+            {
+                ((MonoBehaviour)gi).enabled = false;
             }
 
             // 7. Cache the Rigidbody (stays DYNAMIC for real physics)
@@ -657,6 +702,16 @@ namespace GV.Network
                 Debug.Log($"[NetworkedSpaceshipBridge] Destroyed GameAgent on remote ship: {ga.gameObject.name}");
             }
 
+            // FORCE activate all modules (weapons/triggerables) because GameAgent destruction
+            // cascades and natively disables them, causing Triggerable.StartTriggering() to abort
+            // during remote Host execution.
+            var modules = GetComponentsInChildren<Module>(true);
+            foreach (var mod in modules)
+            {
+                mod.SetActivated(true);
+            }
+            Debug.Log($"[NetworkedSpaceshipBridge] PROXY: Force-activated {modules.Length} modules for remote weapons.");
+
             // Re-disable any VehicleInput scripts that EnterVehicle() may have re-initialized
             var reactivatedInputs = GetComponentsInChildren<VehicleInput>(true);
             foreach (var vi in reactivatedInputs)
@@ -803,14 +858,55 @@ namespace GV.Network
             // FixedUpdateNetwork does NOT run on InputAuthority-only objects in Host Mode
             // (no client-side prediction). Only the State Authority (host) executes FUN.
 
-            if (engines == null)
+            // --- INPUT ACQUISITION ---
+            PlayerInputData inputData = default;
+            bool hasInput = false;
+            string inputSource = "none";
+
+            if (Object.HasStateAuthority && !Object.HasInputAuthority)
             {
-                if (Time.time - _lastMovementDebugTime > 2f)
+                if (_hasRpcInput)
                 {
-                    _lastMovementDebugTime = Time.time;
-                    Debug.LogWarning($"[NetworkedSpaceshipBridge] engines is NULL on {gameObject.name}!");
+                    inputData = _rpcInput;
+                    hasInput = true;
+                    inputSource = "RPC";
                 }
+                if (!hasInput)
+                {
+                    var nm = NetworkManager.Instance;
+                    if (nm != null && nm.TryGetClientInput(Object.InputAuthority, out var rawInput))
+                    {
+                        inputData = rawInput;
+                        hasInput = true;
+                        inputSource = "RAW_DATA";
+                    }
+                }
+            }
+            else
+            {
+                hasInput = GetInput(out inputData);
+                inputSource = "GetInput";
+            }
+
+            if (!hasInput && _hasRpcInput)
+            {
+                inputData = _rpcInput;
+                hasInput = true;
+                inputSource = "RPC_fallback";
+            }
+
+            if (!hasInput)
+            {
                 return;
+            }
+
+            var data = inputData;
+
+            // === WEAPONS ===
+            bool isHostLocalShip = Object.HasStateAuthority && Object.HasInputAuthority;
+            if (!isHostLocalShip && (Object.HasStateAuthority || Object.HasInputAuthority))
+            {
+                ApplyWeaponInput(data);
             }
 
             // --- HOST: Enforce VehicleInput stays disabled on remote ships ---
@@ -831,132 +927,10 @@ namespace GV.Network
                 }
             }
 
-            // --- INPUT ACQUISITION ---
-            // CRITICAL: For the client's ship on the HOST, DO NOT use GetInput().
-            // In Fusion 2 Host Mode, GetInput() returns the HOST's locally-collected input
-            // for ALL ships, not the InputAuthority player's input. This means the host's
-            // mouse steer gets applied to the client's ship, causing mirroring.
-            //
-            // Evidence: When host's mouse is active, client ship mirrors host steer.
-            // When host's mouse is stale/centered, client ship stays still.
-            // Both players have magicNumber=42, so the earlier "GOT INPUT" was a false positive.
-            //
-            // For host's OWN ship: GetInput works correctly (host IS the input authority).
-            // For client's ship: Use RPC or raw data which carry the ACTUAL client's input.
-            PlayerInputData inputData = default;
-            bool hasInput = false;
-            string inputSource = "none";
-
-            if (Object.HasStateAuthority && !Object.HasInputAuthority)
-            {
-                // CLIENT'S SHIP ON HOST: Skip GetInput, use RPC/raw data only.
-                // Layer 1: RPC-delivered input (sent by client's Update every frame)
-                if (_hasRpcInput)
-                {
-                    inputData = _rpcInput;
-                    hasInput = true;
-                    inputSource = "RPC";
-                }
-
-                // Layer 2: Raw data transport via NetworkManager
-                if (!hasInput)
-                {
-                    var nm = NetworkManager.Instance;
-                    if (nm != null && nm.TryGetClientInput(Object.InputAuthority, out var rawInput))
-                    {
-                        inputData = rawInput;
-                        hasInput = true;
-                        inputSource = "RAW_DATA";
-                    }
-                }
-            }
-            else
-            {
-                // HOST'S OWN SHIP: GetInput works correctly (host is the input authority)
-                hasInput = GetInput(out inputData);
-                inputSource = "GetInput";
-            }
-
-            // Fallback: host's own ship can also use RPC if GetInput fails
-            if (!hasInput && _hasRpcInput)
-            {
-                inputData = _rpcInput;
-                hasInput = true;
-                inputSource = "RPC_fallback";
-            }
-
-            // Debug input status occasionally
-            if (Object.HasStateAuthority && !Object.HasInputAuthority)
-            {
-                 if (Time.time - _lastInputDebugTime > 2f)
-                 {
-                     _lastInputDebugTime = Time.time;
-                     if (!hasInput)
-                     {
-                        var nmDiag = NetworkManager.Instance;
-                        Debug.LogWarning($"[NetworkedSpaceshipBridge] NO INPUT on {gameObject.name} " +
-                                         $"(GetInput=false, RPC={_hasRpcInput}, RAW={nmDiag?.TryGetClientInput(Object.InputAuthority, out _)}), " +
-                                         $"InputAuthority={Object.InputAuthority}, frame={Time.frameCount}, " +
-                                         $"HOST_RECV: callbacks={NetworkManager.RawRecvAnyCallback}, valid={NetworkManager.RawRecvCount}, " +
-                                         $"dictSize={nmDiag?.ClientInputDictSize}");
-                     }
-                     else
-                        Debug.LogWarning($"[NetworkedSpaceshipBridge] *** GOT INPUT *** on {gameObject.name} " +
-                                  $"(via {inputSource}), frame={Time.frameCount}: " +
-                                  $"Move=({inputData.moveX:F2}, {inputData.moveY:F2}, {inputData.moveZ:F2}), " +
-                                  $"Steer=({inputData.steerPitch:F2}, {inputData.steerYaw:F2}, {inputData.steerRoll:F2}), " +
-                                  $"Boost={inputData.boost}, Magic={inputData.magicNumber}");
-                 }
-            }
-
-            if (!hasInput)
-            {
-                return;
-            }
-
-            var data = inputData;
-
-            // === MOVEMENT ===
-            // Only the state authority (host) drives physics for remote players.
-            // The local player on host uses native SCK input scripts for movement.
-            // The client's own ship movement is synced via NetworkTransform from the host.
-            if (Object.HasStateAuthority && !Object.HasInputAuthority)
-            {
-                // **CLIENT AUTHORITY MODE**: We DO NOT apply inputs to engines anymore for movement since the client is natively driving the ship and sending exact coordinates via RPC. 
-                // We keep applying boost visually right now if wanted, but `SetMovementInputs` and `SetSteeringInputs` are NO-OP to stop the Host from fighting.
-                
-                if (engines.EnginesActivated)
-                {
-                    engines.SetEngineActivation(false); // Stop local host eval of client's ship
-                }
-
-                _isBoosting = data.boost;
-
-                // Debug: log every 2 seconds
-                if (Time.time - _lastMovementDebugTime > 2f)
-                {
-                    _lastMovementDebugTime = Time.time;
-                    Debug.Log($"[NetworkedSpaceshipBridge] HOST accepting exact CLIENT AUTHORITY {gameObject.name}: " +
-                              $"rpcPos={_rpcPos}, rpcRot={_rpcRot.eulerAngles}, boost={data.boost}, " +
-                              $"enginesActive={engines.EnginesActivated}");
-                }
-            }
-
-            // === WEAPONS ===
-            // Three cases for weapon firing:
-            // 1. HOST's own ship: HasStateAuthority=true, HasInputAuthority=true
-            //    → Native SCK scripts handle weapons. Skip here to avoid double-firing.
-            // 2. HOST processing REMOTE player: HasStateAuthority=true, HasInputAuthority=false
-            //    → We trigger weapons here (authoritative fire).
-            // 3. CLIENT's own ship: HasStateAuthority=false, HasInputAuthority=true
-            //    → Native SCK weapon scripts can't fire properly on network-spawned ships.
-            //    → We trigger weapons here for local visual/audio feedback.
-            bool isHostLocalShip = Object.HasStateAuthority && Object.HasInputAuthority;
-            if (!isHostLocalShip && (Object.HasStateAuthority || Object.HasInputAuthority))
-            {
-                ApplyWeaponInput(data);
-            }
+            // === END WEAPONS ===
         }
+
+        private float _lastWeaponLogTime = 0f;
 
         /// <summary>
         /// Applies weapon input from networked data to the TriggerablesManager.
@@ -966,8 +940,23 @@ namespace GV.Network
         {
             if (triggerablesManager == null) return;
 
+            bool priFire = data.buttons.IsSet(PlayerInputData.BUTTON_FIRE_PRIMARY);
+            bool secFire = data.buttons.IsSet(PlayerInputData.BUTTON_FIRE_SECONDARY);
+            bool misFire = data.buttons.IsSet(PlayerInputData.BUTTON_FIRE_MISSILE);
+
+            if (priFire || secFire || misFire)
+            {
+                if (Time.time - _lastWeaponLogTime > 0.5f)
+                {
+                    _lastWeaponLogTime = Time.time;
+                    Debug.Log($"[NetworkedSpaceshipBridge] ApplyWeaponInput ({gameObject.name}): " +
+                              $"pri:{priFire} sec:{secFire} mis:{misFire} " +
+                              $"Auth(State:{Object.HasStateAuthority}, Input:{Object.HasInputAuthority})");
+                }
+            }
+
             // Primary Fire (Button 0)
-            if (data.buttons.IsSet(PlayerInputData.BUTTON_FIRE_PRIMARY))
+            if (priFire)
             {
                 triggerablesManager.StartTriggeringAtIndex(0);
             }
@@ -977,7 +966,7 @@ namespace GV.Network
             }
 
             // Secondary Fire (Button 1)
-            if (data.buttons.IsSet(PlayerInputData.BUTTON_FIRE_SECONDARY))
+            if (secFire)
             {
                 triggerablesManager.StartTriggeringAtIndex(1);
             }
@@ -987,7 +976,7 @@ namespace GV.Network
             }
 
             // Missile Fire (Button 2)
-            if (data.buttons.IsSet(PlayerInputData.BUTTON_FIRE_MISSILE))
+            if (misFire)
             {
                 triggerablesManager.StartTriggeringAtIndex(2);
             }
@@ -1158,6 +1147,9 @@ namespace GV.Network
             engines.SetBoostInputs(data.boost ? new Vector3(0f, 0f, 1f) : Vector3.zero);
 
             _isBoosting = data.boost;
+
+            // Apply weapon input locally so the client gets immediate visual/audio feedback
+            ApplyWeaponInput(data);
 
             // One-time log
             if (!_loggedPredictionActive)

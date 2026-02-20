@@ -137,7 +137,13 @@ namespace VSX.Weapons
             if (triggering) return;
 
             // Don't trigger if disabled
-            if (!gameObject.activeInHierarchy) return;
+            if (!gameObject.activeInHierarchy)
+            {
+                Debug.Log($"[Triggerable] ({gameObject.name}) StartTriggering FAILED: GameObject not active in hierarchy.");
+                return;
+            }
+
+            Debug.Log($"[Triggerable] ({gameObject.name}) StartTriggering SUCCESS: triggering=true");
 
             // Start triggering
             triggering = true;

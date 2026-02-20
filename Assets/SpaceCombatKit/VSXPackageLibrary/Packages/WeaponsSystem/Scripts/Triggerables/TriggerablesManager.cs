@@ -202,20 +202,29 @@ namespace VSX.Weapons
         /// </summary>
         /// <param name="triggerIndex">The trigger index that is being triggered.</param>
         public void StartTriggeringAtIndex(int triggerIndex)
-		{
+        {
 
-            if (!triggeringEnabled) return;
+            if (!triggeringEnabled)
+            {
+                Debug.Log($"[TriggerablesManager] ({gameObject.name}) StartTriggeringAtIndex({triggerIndex}) FAILED: triggeringEnabled is false");
+                return;
+            }
 
             for(int i = 0; i < triggeringConditions.Count; ++i)
             {
                 if (!triggeringConditions[i].Value())
                 {
+                    Debug.Log($"[TriggerablesManager] ({gameObject.name}) StartTriggeringAtIndex({triggerIndex}) FAILED: Condition {i} failed");
                     return;
                 }
             }
 
             // If no trigger group is selected, exit
-            if (selectedTriggerGroupIndex == -1) return;
+            if (selectedTriggerGroupIndex == -1)
+            {
+                Debug.Log($"[TriggerablesManager] ({gameObject.name}) StartTriggeringAtIndex({triggerIndex}) FAILED: selectedTriggerGroupIndex is -1");
+                return;
+            }
 
             bool fireSequentially = false;
             for (int i = 0; i < triggers.Count; ++i)
@@ -229,15 +238,21 @@ namespace VSX.Weapons
 
             if (!fireSequentially)
             {
+                int triggeredCount = 0;
                 // Start triggering all triggerables at the specified trigger index.
                 for (int i = 0; i < mountedTriggerables.Count; ++i)
                 {
-                    if (mountedTriggerables[i].weapon != null && mountedTriggerables[i].weapon.WeaponController != null) continue;
                     if (mountedTriggerables[i].triggerValuesByGroup[selectedTriggerGroupIndex] == triggerIndex)
                     {
                         mountedTriggerables[i].triggerable.StartTriggering();
+                        triggeredCount++;
                     }
                 }
+                Debug.Log($"[TriggerablesManager] ({gameObject.name}) StartTriggeringAtIndex({triggerIndex}) SUCCESS - Triggered {triggeredCount} weapons (Simultaneous)");
+            }
+            else
+            {
+                Debug.Log($"[TriggerablesManager] ({gameObject.name}) StartTriggeringAtIndex({triggerIndex}) SUCCESS - Setup Sequential Firing");
             }
 
             // Add the trigger index to the list of triggered indexes
@@ -245,7 +260,7 @@ namespace VSX.Weapons
             {
                 triggeredIndexes.Add(triggerIndex);
             }
-		}
+        }
 
 
 		/// <summary>
@@ -261,7 +276,6 @@ namespace VSX.Weapons
             // Stop triggering all triggerables at the specified trigger index.
             for (int i = 0; i < mountedTriggerables.Count; ++i)
 			{
-                if (mountedTriggerables[i].weapon != null && mountedTriggerables[i].weapon.WeaponController != null) continue;
                 if (mountedTriggerables[i].triggerValuesByGroup[selectedTriggerGroupIndex] == triggerIndex) mountedTriggerables[i].triggerable.StopTriggering();
 			}
 
@@ -291,7 +305,6 @@ namespace VSX.Weapons
             // Stop triggering all triggerables
             for (int i = 0; i < mountedTriggerables.Count; ++i)
             {
-                if (mountedTriggerables[i].weapon != null && mountedTriggerables[i].weapon.WeaponController != null) continue;
                 mountedTriggerables[i].triggerable.StopTriggering();
             }
 

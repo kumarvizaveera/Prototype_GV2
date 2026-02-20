@@ -76,6 +76,7 @@ namespace VSX.Weapons
         /// <param name="missileObject">The missile gameobject</param>
         public void OnMissileLaunched(Projectile missileProjectile)
         {
+            if (missileProjectile == null) return;
             Missile missile = missileProjectile.GetComponent<Missile>();
             if (missile == null)
             {

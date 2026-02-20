@@ -451,27 +451,47 @@ namespace VSX.Weapons
         // Whether the weapon can be triggered
         protected virtual bool CanTriggerWeapon()
         {
-            if (module != null && !module.IsActivated) return false;
+            if (module != null && !module.IsActivated)
+            {
+                Debug.Log($"[Weapon] ({gameObject.name}) CanTriggerWeapon FAILED: Module is not activated.");
+                return false;
+            }
 
-            if (!FiringConditionsMet()) return false;
+            if (!FiringConditionsMet())
+            {
+                Debug.Log($"[Weapon] ({gameObject.name}) CanTriggerWeapon FAILED: Firing conditions not met.");
+                return false;
+            }
 
             // Check if weapon units can be triggered
             if (multiWeaponFiringMode == MultiWeaponFiringMode.Simultaneous)
             {
                 for (int i = 0; i < weaponUnits.Count; ++i)
                 {
-                    if (!weaponUnits[i].CanTrigger) return false;
+                    if (!weaponUnits[i].CanTrigger)
+                    {
+                        Debug.Log($"[Weapon] ({gameObject.name}) CanTriggerWeapon FAILED: WeaponUnit {i} cannot trigger.");
+                        return false;
+                    }
                 }
             }
             else
             {
-                if (nextTriggerIndex != -1 && !weaponUnits[nextTriggerIndex].CanTrigger) return false;
+                if (nextTriggerIndex != -1 && !weaponUnits[nextTriggerIndex].CanTrigger)
+                {
+                    Debug.Log($"[Weapon] ({gameObject.name}) CanTriggerWeapon FAILED: Seq WeaponUnit {nextTriggerIndex} cannot trigger.");
+                    return false;
+                }
             }
 
             // Check if required resources are available
             for (int i = 0; i < resourceHandlers.Count; ++i)
             {
-                if (!resourceHandlers[i].Ready((multiWeaponFiringMode == MultiWeaponFiringMode.Simultaneous && applyResourceUsagePerWeaponUnit) ? weaponUnits.Count : 1)) return false;
+                if (!resourceHandlers[i].Ready((multiWeaponFiringMode == MultiWeaponFiringMode.Simultaneous && applyResourceUsagePerWeaponUnit) ? weaponUnits.Count : 1))
+                {
+                    Debug.Log($"[Weapon] ({gameObject.name}) CanTriggerWeapon FAILED: Resources not ready.");
+                    return false;
+                }
             }
 
             return true;

@@ -273,7 +273,7 @@ namespace GV.Network
             if (Mouse.current != null)
             {
                 _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_PRIMARY, Mouse.current.leftButton.isPressed);
-                _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_MISSILE, Mouse.current.rightButton.wasPressedThisFrame);
+                _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_SECONDARY, Mouse.current.rightButton.isPressed);
             }
             if (Keyboard.current != null)
             {
@@ -293,7 +293,6 @@ namespace GV.Network
             // The actual input.Set() happens in NetworkManager.OnInput() using CurrentInputData.
             _onInputCalled = true;
             _onInputCallCount++;
-            _inputData.buttons = default; // Reset one-shot buttons after NetworkManager reads them
         }
 
         // On-screen debug display — visible in builds without dev console

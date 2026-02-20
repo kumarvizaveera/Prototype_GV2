@@ -234,8 +234,8 @@ namespace GV.Network
         // Simple serialization: pack floats into byte array
         private static byte[] SerializeInput(PlayerInputData data)
         {
-            // 7 floats (4 bytes each) + 1 bool (1 byte) + 1 int (4 bytes) = 33 bytes
-            byte[] bytes = new byte[33];
+            // 7 floats (4 bytes each) + 1 bool (1 byte) + 1 int (4 bytes) + 1 int for buttons (4 bytes) = 37 bytes
+            byte[] bytes = new byte[37];
             int offset = 0;
             WriteFloat(bytes, ref offset, data.moveX);
             WriteFloat(bytes, ref offset, data.moveY);
@@ -244,6 +244,7 @@ namespace GV.Network
             WriteFloat(bytes, ref offset, data.steerYaw);
             WriteFloat(bytes, ref offset, data.steerRoll);
             bytes[offset++] = (byte)(data.boost ? 1 : 0);
+            WriteInt(bytes, ref offset, data.buttons.Bits);
             WriteInt(bytes, ref offset, data.magicNumber);
             return bytes;
         }
@@ -259,6 +260,14 @@ namespace GV.Network
             data.steerYaw = ReadFloat(bytes, ref offset);
             data.steerRoll = ReadFloat(bytes, ref offset);
             data.boost = bytes[offset++] != 0;
+            
+            int buttonsBits = ReadInt(bytes, ref offset);
+            data.buttons = default;
+            for (int i = 0; i < 32; i++)
+            {
+                data.buttons.Set(i, (buttonsBits & (1 << i)) != 0);
+            }
+
             data.magicNumber = ReadInt(bytes, ref offset);
             return data;
         }
@@ -640,7 +649,7 @@ namespace GV.Network
             }
 
             // Accept any reliable data with the right size (skip key comparison — ReliableKey == may not work)
-            if (data.Count >= 33)
+            if (data.Count >= 37)
             {
                 byte[] bytes = new byte[data.Count];
                 System.Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, data.Count);

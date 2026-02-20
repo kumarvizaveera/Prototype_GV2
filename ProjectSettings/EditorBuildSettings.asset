@@ -62,9 +62,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/MP_Mechanics_2.unity
     guid: 5636a9ecaed82ac4c8595854d307e430
-  - enabled: 1
+  - enabled: 0
     path: Assets/MP_Mechanics_3.unity
     guid: 8392c310bf4a7554fac1f53148497b72
+  - enabled: 1
+    path: Assets/MP_Mechanics_4.unity
+    guid: 071f74cf8267fb548839791a83e3fdb6
   m_configObjects:
     com.unity.input.settings: {fileID: 11400000, guid: 15762e7d1852b174496d703157a471ea,
       type: 2}

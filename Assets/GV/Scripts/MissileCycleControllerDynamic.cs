@@ -43,7 +43,9 @@ namespace GV.Scripts
         public Material emptyTextMaterial;
 
 
-        private int currentIndex = -1;
+        [Networked, OnChangedRender(nameof(OnCurrentIndexChanged))]
+        public int currentIndex { get; set; } = -1;
+        
         private Coroutine activeHideCoroutine;
 
 
@@ -91,23 +93,73 @@ namespace GV.Scripts
                 }
             }
 
-            // Initial state
-            if (anyUnlocked)
+            if (Object != null && Object.IsValid && Object.HasStateAuthority)
             {
-                // Find the first unlocked one and equip it
-                for (int i = 0; i < missileMounts.Count; i++)
+                if (anyUnlocked)
                 {
-                    if (missileMounts[i].isUnlocked)
+                    for (int i = 0; i < missileMounts.Count; i++)
                     {
-                        Equip(missileMounts[i], true); // Show active notification for initial equip
-                        break;
+                        if (missileMounts[i].isUnlocked)
+                        {
+                            currentIndex = i;
+                            break;
+                        }
                     }
                 }
             }
-            else
+            else if (Object == null || !Object.IsValid)
             {
-                ShowActiveNotification("None");
+                // Local only setup
+                if (anyUnlocked)
+                {
+                    for (int i = 0; i < missileMounts.Count; i++)
+                    {
+                        if (missileMounts[i].isUnlocked)
+                        {
+                            // Avoid setting networked property before spawned
+                            UpdateEquippedVisuals(i);
+                            ShowActiveNotification(missileMounts[i].label);
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                     ShowActiveNotification("None");
+                }
+                yield break; // Don't run the below logic locally yet
             }
+            
+            // Local initial visuals
+            UpdateEquippedVisuals(currentIndex);
+            if (anyUnlocked) ShowActiveNotification(missileMounts[Mathf.Max(0, currentIndex)].label);
+            else ShowActiveNotification("None");
+        }
+
+        private void OnCurrentIndexChanged()
+        {
+            UpdateEquippedVisuals(currentIndex);
+            
+            // Only show notification on the client who owns the ship, unless handling local offline
+            if (Object == null || !Object.IsValid || Object.HasInputAuthority)
+            {
+                if (currentIndex >= 0 && currentIndex < missileMounts.Count)
+                {
+                    ShowActiveNotification(missileMounts[currentIndex].label);
+                }
+            }
+        }
+
+        private void UpdateEquippedVisuals(int index)
+        {
+            for (int i = 0; i < missileMounts.Count; i++)
+            {
+                if (missileMounts[i].mount != null)
+                {
+                    missileMounts[i].mount.gameObject.SetActive(i == index);
+                }
+            }
+            UpdateStatsUI();
         }
 
         private void Update()
@@ -121,10 +173,19 @@ namespace GV.Scripts
 
             if (Input.GetKeyDown(cycleKey))
             {
-                CycleNext();
+                // Client must ask the Host to cycle
+                if (Object.HasInputAuthority && !Object.HasStateAuthority)
+                {
+                    RPC_RequestCycleNext();
+                }
+                else
+                {
+                    CycleNext();
+                }
             }
 
-            // Update stats texts (Visuals can run on all clients or just owner)
+            // Only update stats UI periodically or when needed instead of every frame?
+            // For now, keep it simple but recognize it runs every frame.
             UpdateStatsUI();
         }
 
@@ -225,7 +286,17 @@ namespace GV.Scripts
                 
                 if(currentIndex == -1 || GetUnlockedCount() == 1)
                 {
-                    Equip(targetEntry, true);
+                    int index = missileMounts.IndexOf(targetEntry);
+                    if (Object != null && Object.HasStateAuthority)
+                    {
+                        currentIndex = index;
+                    }
+                    // If offline/not spawned
+                    else if (Object == null || !Object.IsValid)
+                    {
+                        currentIndex = index;
+                        OnCurrentIndexChanged();
+                    }
                 }
             }
 
@@ -254,6 +325,12 @@ namespace GV.Scripts
             }
         }
 
+        [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+        public void RPC_RequestCycleNext()
+        {
+            CycleNext();
+        }
+
         public void CycleNext()
         {
             if (GetUnlockedCount() <= 1) return; 
@@ -270,31 +347,21 @@ namespace GV.Scripts
 
             if (missileMounts[nextIndex].isUnlocked && nextIndex != currentIndex)
             {
-                Equip(missileMounts[nextIndex], true);
-            }
-        }
-
-        private void Equip(MissileMountEntry entry, bool showActiveNotification = true)
-        {
-            // Disable current
-            if (currentIndex >= 0 && currentIndex < missileMounts.Count)
-            {
-                if (missileMounts[currentIndex].mount != null)
-                    missileMounts[currentIndex].mount.gameObject.SetActive(false);
-            }
-
-            // Enable new
-            if (entry.mount != null)
-            {
-                entry.mount.gameObject.SetActive(true);
-                currentIndex = missileMounts.IndexOf(entry);
-                
-                if (showActiveNotification)
+                if (Object != null && Object.HasStateAuthority)
                 {
-                    ShowActiveNotification(entry.label);
+                    currentIndex = nextIndex;
+                }
+                else if (Object == null || !Object.IsValid)
+                {
+                    // Offline fallback
+                    currentIndex = nextIndex;
+                    OnCurrentIndexChanged();
                 }
             }
         }
+
+        // Equip is now handled proactively via OnCurrentIndexChanged
+        // Removed Equip() method entirely as `currentIndex` sync handles it.
         
         private int GetUnlockedCount()
         {

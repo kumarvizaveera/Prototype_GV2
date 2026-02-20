@@ -755,6 +755,8 @@ namespace VSX.Weapons
         {
              MovementUpdate();
              
+             if (Object == null || !Object.IsValid) return;
+
              if (Object.HasStateAuthority)
              {
                  try {

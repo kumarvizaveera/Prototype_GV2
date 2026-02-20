@@ -278,6 +278,12 @@ namespace VSX.Weapons
                     // Call the event
                     onProjectileLaunched.Invoke(projectileController);
                 }
+                else
+                {
+                    // For Clients that don't spawn projectiles locally, still invoke the event with null
+                    // so VFX and Audio (which ignore the projectile argument) will play.
+                    onProjectileLaunched.Invoke(null);
+                }
             }
 
             ClearAim();

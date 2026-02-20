@@ -100,6 +100,7 @@ namespace VSX.VehicleCombatKits
 
         protected virtual void OnProjectileLaunched(Projectile projectile)
         {
+            if (projectile == null) return;
             projectile.transform.localScale = new Vector3(currentScale, currentScale, currentScale);
             LineRenderer[] lineRenderers = projectile.GetComponentsInChildren<LineRenderer>();
             foreach (LineRenderer lineRenderer in lineRenderers)
