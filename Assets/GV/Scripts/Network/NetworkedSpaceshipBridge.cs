@@ -740,6 +740,7 @@ namespace GV.Network
         private bool _loggedFirstTick = false;
         private bool _loggedFirstRpcSend = false;
         private bool _loggedHostGetInput = false;
+        private bool _loggedMissileDebug = false;
 
         public override void FixedUpdateNetwork()
         {
@@ -964,6 +965,54 @@ namespace GV.Network
             // Missile Fire (Button 2)
             if (misFire)
             {
+                // One-time diagnostic: log missile system state on first RMB press
+                if (!_loggedMissileDebug)
+                {
+                    _loggedMissileDebug = true;
+                    var mcc = GetComponentInChildren<GV.Scripts.MissileCycleControllerDynamic>(true);
+                    string mccInfo = "NULL";
+                    if (mcc != null)
+                    {
+                        mccInfo = $"currentIndex={mcc.currentIndex}, mounts={mcc.missileMounts.Count}";
+                        for (int mi = 0; mi < mcc.missileMounts.Count; mi++)
+                        {
+                            var me = mcc.missileMounts[mi];
+                            bool mountActive = me.mount != null && me.mount.gameObject.activeInHierarchy;
+                            bool moduleActivated = me.mount != null && me.mount.MountedModule() != null && me.mount.MountedModule().IsActivated;
+                            int ammo = -1;
+                            if (me.mount != null && me.mount.MountedModule() != null)
+                            {
+                                var w = me.mount.MountedModule().GetComponent<VSX.Weapons.Weapon>();
+                                if (w != null)
+                                {
+                                    foreach (var rh in w.ResourceHandlers)
+                                    {
+                                        if (rh.unitResourceChange < 0 && !rh.perSecond && rh.resourceContainer != null)
+                                        {
+                                            ammo = rh.resourceContainer.CurrentAmountInteger;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            mccInfo += $"\n  Mount[{mi}]: label={me.label}, unlocked={me.isUnlocked}, active={mountActive}, moduleActivated={moduleActivated}, ammo={ammo}";
+                        }
+                    }
+                    int trigCount = 0;
+                    string trigDetail = "";
+                    for (int ti = 0; ti < triggerablesManager.MountedTriggerables.Count; ti++)
+                    {
+                        var mt = triggerablesManager.MountedTriggerables[ti];
+                        int idx = mt.triggerValuesByGroup.Count > 0 ? mt.triggerValuesByGroup[0] : -1;
+                        trigDetail += $"\n  Trig[{ti}]: {mt.triggerable?.gameObject.name ?? "NULL"} → index={idx}, active={mt.triggerable?.gameObject.activeInHierarchy}";
+                        if (idx == 2) trigCount++;
+                    }
+                    Debug.Log($"[NetworkedSpaceshipBridge] MISSILE DEBUG ({gameObject.name}): " +
+                              $"Auth(State:{Object.HasStateAuthority}, Input:{Object.HasInputAuthority}), " +
+                              $"TotalTriggerables={triggerablesManager.MountedTriggerables.Count}, AtIndex2={trigCount}, " +
+                              $"selectedGroup={triggerablesManager.SelectedTriggerGroupIndex}, " +
+                              $"MCC={mccInfo}{trigDetail}");
+                }
                 triggerablesManager.StartTriggeringAtIndex(2);
             }
             else
@@ -1134,8 +1183,10 @@ namespace GV.Network
 
             _isBoosting = data.boost;
 
-            // Apply weapon input locally so the client gets immediate visual/audio feedback
-            ApplyWeaponInput(data);
+            // NOTE: Weapon input is applied in Update() (line ~363), NOT here.
+            // Calling ApplyWeaponInput from both Update() and FixedUpdate() caused
+            // double audio on the client because TriggerablesManager received two
+            // StartTriggeringAtIndex calls per frame, firing the weapon twice.
 
             // One-time log
             if (!_loggedPredictionActive)

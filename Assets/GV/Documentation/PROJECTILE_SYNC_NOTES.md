@@ -177,6 +177,32 @@ Missile mounts are forced to `DefaultTriggerIndex = 2` in `MissileCycleControlle
 
 ---
 
+### 5. Client Cannot Fire Missiles — Two Root Causes
+
+**Status: FIXED (Part A: ammo sync) + FIXED (Part B: trigger index registration)**
+
+#### Part A — FixedUpdateNetwork Doesn't Run on Client
+
+Bug #2's fix moved the client-side ammo sync from `Render()` into `FixedUpdateNetwork()`. But in Fusion 2 Host Mode, FUN only runs on State Authority (host). The client never syncs ammo.
+
+**Fix:** Re-added client ammo sync to `Render()` (runs on all machines). Host sync remains in FUN.
+
+#### Part B — Missile Triggerables Not Registered at Index 2 (PRIMARY CAUSE)
+
+**Root Cause:**
+`MissileCycleControllerDynamic.Start()` used `GetComponentInChildren<TriggerablesManager>(true)` to find the TriggerablesManager and update missile weapons' `triggerValuesByGroup` to 2. But `GetComponentInChildren` only searches the current gameObject and its **descendants**. If MissileCycleControllerDynamic and TriggerablesManager are on **sibling** branches of the ship hierarchy, the search returns `null`, and the trigger index update is silently skipped.
+
+Result: missile triggerables stay at their prefab default `DefaultTriggerIndex` (0 = Primary Fire), so `StartTriggeringAtIndex(2)` finds zero matching weapons.
+
+Diagnostic confirmed: `TriggerablesAtIndex2=0` with mount active, module activated, ammo available.
+
+**Fix — `MissileCycleControllerDynamic.cs`:**
+Changed to `transform.root.GetComponentInChildren<TriggerablesManager>(true)` which searches from the ship root, guaranteed to find TriggerablesManager regardless of hierarchy.
+
+Added diagnostic logging: warns if TriggerablesManager is null or if a missile triggerable isn't found in the manager.
+
+---
+
 ## Known Remaining Issues
 
-- None at present. All previously known issues have been resolved.
+- **Double Audio on Client:** Client hears two firing sounds for primary weapons. Low priority per user. Two fix attempts failed (removing duplicate ApplyWeaponInput call; disabling AudioSource.playOnAwake on proxies).

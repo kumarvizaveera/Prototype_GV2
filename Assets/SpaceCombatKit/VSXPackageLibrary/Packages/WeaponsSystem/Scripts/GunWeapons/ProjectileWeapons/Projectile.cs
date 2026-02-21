@@ -222,9 +222,13 @@ namespace VSX.Weapons
         }
 
 
+        // Cached list of AudioSources that originally had playOnAwake enabled.
+        // We disable them in Awake() (before they play) and selectively re-enable in Spawned().
+        private List<AudioSource> _awakeAudioSources = new List<AudioSource>();
+
         protected virtual void Awake()
         {
-            // CollisionScanner is not used for networked projectiles in the same way, 
+            // CollisionScanner is not used for networked projectiles in the same way,
             // but we keep it for reference or if used in single player without Fusion instantiation?
             // Actually, if we are fully networking, we should rely on Fusion's LagCompensation.
             // For now, let's keep references but disable it if networked.
@@ -236,6 +240,21 @@ namespace VSX.Weapons
 
             gameAgentOwnables = new List<IGameAgentOwnable>(transform.GetComponentsInChildren<IGameAgentOwnable>());
 
+            // PRE-EMPTIVELY disable all AudioSources to prevent playOnAwake from firing
+            // before Spawned() can check authority. Spawned() re-enables on state authority.
+            // This prevents duplicate fire sounds: the client already plays audio locally via
+            // onProjectileLaunched, so the replicated proxy projectile must NOT also play audio.
+            AudioSource[] allAudio = GetComponentsInChildren<AudioSource>(true);
+            foreach (AudioSource src in allAudio)
+            {
+                if (src.playOnAwake)
+                {
+                    _awakeAudioSources.Add(src);
+                    src.playOnAwake = false;
+                }
+                src.Stop();
+                src.enabled = false;
+            }
         }
 
         public override void Spawned()
@@ -252,6 +271,8 @@ namespace VSX.Weapons
                     transform.rotation = NetworkedSpawnRotation;
                     Debug.Log($"[Projectile] PROXY: Applied spawn pos={NetworkedSpawnPosition}, rot={NetworkedSpawnRotation.eulerAngles}");
                 }
+                // Audio stays disabled on proxies (disabled in Awake).
+                // The client already gets fire audio from the local onProjectileLaunched event.
             }
 
             lastPosition = transform.position;
@@ -276,9 +297,19 @@ namespace VSX.Weapons
                 GameAgent agent = ownerObj.GetComponent<GameAgent>();
                 if(agent != null) SetOwner(agent);
             }
-        
+
             if (Object.HasStateAuthority)
             {
+                 // Re-enable AudioSources on the authority (host) that were disabled in Awake().
+                 // The host plays projectile audio via onProjectileLaunched in ProjectileWeaponUnit,
+                 // but some projectiles may have flight/ambient sounds that should play on authority.
+                 foreach (AudioSource src in _awakeAudioSources)
+                 {
+                     src.enabled = true;
+                     src.playOnAwake = true;
+                     src.Play();
+                 }
+
                  // Only set defaults if onBeforeSpawned didn't already set them.
                  // onBeforeSpawned sets these BEFORE the first snapshot, guaranteeing proxies
                  // receive non-zero values immediately.

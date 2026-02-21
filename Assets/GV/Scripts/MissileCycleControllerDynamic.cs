@@ -127,7 +127,46 @@ namespace GV.Scripts
 
         public override void Render()
         {
-            // Removed ammo sync here, migrated to FixedUpdateNetwork so it precedes Input evaluation.
+            // CLIENT-SIDE AMMO SYNC:
+            // FixedUpdateNetwork() does NOT run on the client in Fusion 2 Host Mode (client only has
+            // InputAuthority, not StateAuthority). Without this sync, the client's ResourceContainer
+            // stays at its initial value (often 0), causing CanTriggerWeapon() to fail every time
+            // the player presses RMB.
+            //
+            // Render() runs AFTER Update() in the same frame, so the ammo value is technically one
+            // frame stale when Update()'s ApplyWeaponInput checks CanTriggerWeapon(). This is fine:
+            // - The client's local firing is only for audio/VFX feedback (no actual projectile spawn)
+            // - The REAL firing happens on the Host (which syncs ammo in FixedUpdateNetwork before input)
+            // - One frame of staleness is imperceptible
+            if (Object != null && Object.IsValid && !Object.HasStateAuthority)
+            {
+                for (int i = 0; i < missileMounts.Count; i++)
+                {
+                    if (i < NetworkedAmmoCounts.Length)
+                    {
+                        var entry = missileMounts[i];
+                        if (entry.mount != null && entry.mount.MountedModule() != null)
+                        {
+                            Weapon weapon = entry.mount.MountedModule().GetComponent<Weapon>();
+                            if (weapon != null)
+                            {
+                                foreach (var handler in weapon.ResourceHandlers)
+                                {
+                                    if (handler.unitResourceChange < 0 && !handler.perSecond && handler.resourceContainer != null)
+                                    {
+                                        int netAmmo = NetworkedAmmoCounts.Get(i);
+                                        if (handler.resourceContainer.CurrentAmountInteger != netAmmo)
+                                        {
+                                            handler.resourceContainer.SetAmount((float)netAmmo);
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         private void Awake()
@@ -142,33 +181,53 @@ namespace GV.Scripts
 
             // Explicitly disable all mounts first to ensure clean state after initialization
             // AND FORCE them to use Trigger Index 2 (Missile Fire group) to avoid accidental laser firing
-            var triggerManager = GetComponentInChildren<VSX.Weapons.TriggerablesManager>(true);
+            //
+            // CRITICAL: Use transform.root.GetComponentInChildren — NOT GetComponentInChildren on this object!
+            // MissileCycleControllerDynamic and TriggerablesManager may be on different branches of the
+            // ship hierarchy (siblings, not parent-child). GetComponentInChildren only searches descendants
+            // of THIS gameObject, so it would return null if TriggerablesManager is on a sibling branch.
+            var triggerManager = transform.root.GetComponentInChildren<VSX.Weapons.TriggerablesManager>(true);
+            Debug.Log($"[MissileCycleController] Start() — triggerManager={(triggerManager != null ? triggerManager.gameObject.name : "NULL")}, " +
+                      $"mountedTriggerables={(triggerManager != null ? triggerManager.MountedTriggerables.Count.ToString() : "N/A")}, " +
+                      $"searching from root={transform.root.name}");
             foreach (var entry in missileMounts)
             {
                 if (entry.mount != null)
                 {
                     entry.mount.gameObject.SetActive(false);
-                    
+
                     if (entry.mount.MountedModule() != null)
                     {
                         var trig = entry.mount.MountedModule().GetComponent<VSX.Weapons.Triggerable>();
                         if (trig != null)
                         {
                             trig.DefaultTriggerIndex = 2; // Force to BUTTON_FIRE_MISSILE
-                            
+
                             // Also update TriggerablesManager if it ALREADY mounted it
                             if (triggerManager != null)
                             {
+                                bool foundInManager = false;
                                 foreach (var mt in triggerManager.MountedTriggerables)
                                 {
                                     if (mt.triggerable == trig)
                                     {
+                                        foundInManager = true;
                                         for (int i = 0; i < mt.triggerValuesByGroup.Count; i++)
                                         {
                                             mt.triggerValuesByGroup[i] = 2;
                                         }
+                                        Debug.Log($"[MissileCycleController] Updated triggerValuesByGroup to 2 for '{entry.label}'");
                                     }
                                 }
+                                if (!foundInManager)
+                                {
+                                    Debug.LogWarning($"[MissileCycleController] Triggerable for '{entry.label}' NOT found in TriggerablesManager.MountedTriggerables! " +
+                                                     $"Total mounted: {triggerManager.MountedTriggerables.Count}");
+                                }
+                            }
+                            else
+                            {
+                                Debug.LogWarning($"[MissileCycleController] TriggerablesManager is NULL! Cannot update triggerValuesByGroup for '{entry.label}'");
                             }
                         }
                     }
