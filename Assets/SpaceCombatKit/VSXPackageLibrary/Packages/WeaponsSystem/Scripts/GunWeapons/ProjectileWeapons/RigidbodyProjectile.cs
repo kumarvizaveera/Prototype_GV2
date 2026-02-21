@@ -157,7 +157,16 @@ namespace VSX.Weapons
 
         protected override void FixedUpdate()
         {
-            if (Object != null) return;
+            if (Object != null && Object.IsValid)
+            {
+                // Proxy Simulation: If we lack State/Input Authority, we simulate physics visually.
+                // Otherwise, FixedUpdateNetwork handles it for the Authority.
+                if (!Object.HasStateAuthority && !Object.HasInputAuthority)
+                {
+                    MovementFixedUpdate();
+                }
+                return;
+            }
 
             MovementFixedUpdate();
         }

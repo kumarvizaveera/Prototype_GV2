@@ -80,7 +80,8 @@ namespace GV.Network
         {
             _onInputCalled = true;
             _onInputCallCount++;
-            _inputData.buttons = default; // Reset one-shot buttons after they've been sent
+            // One-shot buttons shouldn't be manually reset. Fusion handles state deltas, 
+            // and Update() will inherently reset `wasPressedThisFrame` inputs on the next frame.
         }
 
         // --- ON-SCREEN DIAGNOSTICS (visible in builds without dev console) ---
@@ -273,7 +274,8 @@ namespace GV.Network
             if (Mouse.current != null)
             {
                 _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_PRIMARY, Mouse.current.leftButton.isPressed);
-                _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_SECONDARY, Mouse.current.rightButton.isPressed);
+                _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_SECONDARY, Mouse.current.middleButton.isPressed);
+                _inputData.buttons.Set(PlayerInputData.BUTTON_FIRE_MISSILE, Mouse.current.rightButton.isPressed);
             }
             if (Keyboard.current != null)
             {

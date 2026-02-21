@@ -8,7 +8,7 @@ namespace GV.Scripts.Network
     /// Synchronizes a VSX ResourceContainer over the network.
     /// Place this on the same GameObject as the ResourceContainer you want to sync.
     /// </summary>
-    public class NetworkedResourceSync : NetworkBehaviour
+    public class NetworkedResourceSync : NetworkBehaviour, ISpawned
     {
         [SerializeField]
         private ResourceContainer resourceContainer;
@@ -31,7 +31,11 @@ namespace GV.Scripts.Network
                 // Init networked var from local state
                 if (resourceContainer != null)
                 {
+                    // If this is the Host taking authority over a proxy ship's weapon,
+                    // it should initialize the networked amount to whatever the prefab/Awake set it to
+                    // rather than resetting it to 0. (Because Awake clamp sets currentAmount to startAmount)
                     NetworkedAmount = resourceContainer.CurrentAmountFloat;
+                    Debug.Log($"[NetworkedResourceSync] ({gameObject.name}) Spawned (Host): Initializing NetworkedAmount to {NetworkedAmount}");
                 }
             }
             else
@@ -40,6 +44,7 @@ namespace GV.Scripts.Network
                 if (resourceContainer != null)
                 {
                     resourceContainer.SetAmount(NetworkedAmount);
+                    Debug.Log($"[NetworkedResourceSync] ({gameObject.name}) Spawned (Client): Initializing container amount to NetworkedAmount: {NetworkedAmount}");
                 }
             }
         }

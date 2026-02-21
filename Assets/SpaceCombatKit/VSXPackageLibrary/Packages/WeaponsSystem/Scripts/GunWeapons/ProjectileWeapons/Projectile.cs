@@ -168,6 +168,17 @@ namespace VSX.Weapons
                  {
                      healthModifier.DamageMultiplier = NetworkedDamageMultiplier;
                      healthModifier.HealingMultiplier = NetworkedHealingMultiplier;
+                     
+                     // PROXY SIMULATION: Simulate movement visually for clients!
+                     // Server spawns the object, but fusion doesn't run FixedUpdateNetwork for Proxies.
+                     // Without a NetworkTransform, we must manually extrapolate movement.
+                     // We don't check InputAuthority because NO client has InputAuth over server-spawned projectiles.
+                     // (Unless the Server gives it to the Client who fired, but by default it doesn't).
+                     if (movementUpdateMode == MovementUpdateMode.Update || movementUpdateMode == MovementUpdateMode.FixedUpdate)
+                     {
+                          transform.Translate(Vector3.forward * Speed * Time.deltaTime);
+                     }
+                     distanceCovered += (Speed * Time.deltaTime);
                  }
             }
         }

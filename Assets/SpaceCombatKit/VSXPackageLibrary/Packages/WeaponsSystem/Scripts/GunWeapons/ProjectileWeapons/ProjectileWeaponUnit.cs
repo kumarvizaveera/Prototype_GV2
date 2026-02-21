@@ -275,14 +275,24 @@ namespace VSX.Weapons
                         projectileController.AddVelocity(transform.TransformDirection(projectileRelativeImpulseVelocity));
                     }
 
-                    // Call the event
-                    onProjectileLaunched.Invoke(projectileController);
+                    // Only invoke events (audio, muzzle flash) if we are the authority or the shooter.
+                    // This prevents proxy ships from duplicating the firing audio when the host's prediction matches the client's.
+                    NetworkObject netObj = rootTransform.GetComponentInParent<NetworkObject>();
+                    if (runner == null || !runner.IsRunning || netObj == null || netObj.HasStateAuthority || netObj.HasInputAuthority)
+                    {
+                        onProjectileLaunched.Invoke(projectileController);
+                    }
                 }
                 else
                 {
                     // For Clients that don't spawn projectiles locally, still invoke the event with null
                     // so VFX and Audio (which ignore the projectile argument) will play.
-                    onProjectileLaunched.Invoke(null);
+                    // DO NOT do this for Proxy ships (Host's ship on Client, or other clients on Client).
+                    NetworkObject netObj = rootTransform.GetComponentInParent<NetworkObject>();
+                    if (runner == null || !runner.IsRunning || netObj == null || netObj.HasStateAuthority || netObj.HasInputAuthority)
+                    {
+                        onProjectileLaunched.Invoke(null);
+                    }
                 }
             }
 

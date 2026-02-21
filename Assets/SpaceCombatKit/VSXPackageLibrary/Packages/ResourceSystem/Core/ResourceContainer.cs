@@ -105,6 +105,7 @@ namespace VSX.ResourceSystem
         protected virtual void Awake()
         {
             currentAmount = Mathf.Clamp(startAmount, 0, capacity);
+            Debug.Log($"[ResourceContainer] ({gameObject.name}) Awake: currentAmount set to {currentAmount} (start={startAmount}, capacity={capacity})");
         }
 
 
@@ -119,6 +120,11 @@ namespace VSX.ResourceSystem
 
             bool filledThisFrame = nextValue >= capacity && currentAmount < capacity;
             bool emptyThisFrame = nextValue <= 0 && currentAmount > 0;
+
+            if (amount < 0)
+            {
+                Debug.Log($"[ResourceContainer] ({gameObject.name}) AddRemove: Subtracting {-amount}. New value will be {nextValue}");
+            }
 
             SetAmount(nextValue);
 
@@ -248,6 +254,14 @@ namespace VSX.ResourceSystem
 
             if (!Mathf.Approximately(amount, currentAmount))
             {
+                if (amount < currentAmount)
+                {
+                    Debug.Log($"[ResourceContainer] ({gameObject.name}) SetAmount: Subtracting from {currentAmount} to {amount}. Call Stack:\n{StackTraceUtility.ExtractStackTrace()}");
+                }
+                else
+                {
+                    Debug.Log($"[ResourceContainer] ({gameObject.name}) SetAmount: Changing from {currentAmount} to {amount}");
+                }
                 currentAmount = amount;
                 onChanged.Invoke();
             }

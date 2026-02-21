@@ -85,7 +85,7 @@ namespace VSX.Utilities
             aim.origin = aimOrigin.position;
             aim.direction = aimOrigin.forward;
 
-            if (cursor != null) aim.direction = cursor.AimDirection;
+            if (cursor != null && cursor.gameObject.activeInHierarchy) aim.direction = cursor.AimDirection;
 
             // Get all raycast hits
             RaycastHit[] hits = Physics.RaycastAll(aim, 1000000, raycastAimMask, ignoreTriggerColliders ? QueryTriggerInteraction.Ignore : QueryTriggerInteraction.Collide);

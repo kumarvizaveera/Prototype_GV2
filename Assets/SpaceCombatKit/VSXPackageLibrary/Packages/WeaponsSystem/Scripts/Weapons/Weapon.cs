@@ -489,7 +489,15 @@ namespace VSX.Weapons
             {
                 if (!resourceHandlers[i].Ready((multiWeaponFiringMode == MultiWeaponFiringMode.Simultaneous && applyResourceUsagePerWeaponUnit) ? weaponUnits.Count : 1))
                 {
-                    Debug.Log($"[Weapon] ({gameObject.name}) CanTriggerWeapon FAILED: Resources not ready.");
+                    var container = resourceHandlers[i].resourceContainer;
+                    if (container != null)
+                    {
+                        Debug.Log($"[Weapon] ({gameObject.name}) CanTriggerWeapon FAILED: Resources not ready. Container: {container.name}, Current: {container.CurrentAmountFloat}, Capacity: {container.CapacityFloat}, perSecond: {resourceHandlers[i].perSecond}, unitChange: {resourceHandlers[i].unitResourceChange}");
+                    }
+                    else
+                    {
+                        Debug.Log($"[Weapon] ({gameObject.name}) CanTriggerWeapon FAILED: Resources not ready. (Container is NULL)");
+                    }
                     return false;
                 }
             }

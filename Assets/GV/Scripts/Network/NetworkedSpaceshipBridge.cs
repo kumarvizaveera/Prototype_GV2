@@ -358,17 +358,8 @@ namespace GV.Network
                                       clientData.steerPitch, clientData.steerYaw, clientData.steerRoll,
                                       clientData.boost, pFire, sFire, mFire, playerMagic);
 
-                        // One-time log to confirm RPC sending is active
-                        if (!_loggedFirstRpcSend)
-                        {
-                            _loggedFirstRpcSend = true;
-                            Debug.Log($"[NetworkedSpaceshipBridge] CLIENT FIRST RPC SEND (from Update) on {gameObject.name}: " +
-                                      $"throttle={clientData.moveZ:F2}, steer=({clientData.steerPitch:F2},{clientData.steerYaw:F2}), " +
-                                      $"magic={playerMagic}, LocalPlayer={nm.Runner.LocalPlayer}");
-                        }
-
                         // Apply weapon input locally on the Client so muzzle flashes and audio can play
-                        // (FixedUpdateNetwork does not run on the client in Host mode)
+                        // (FixedUpdateNetwork does not run on the client in Host mode, and `ApplyWeaponInput` sets `TriggerablesManager`)
                         ApplyWeaponInput(clientData);
 
                         // --- NEW: Client Authority Transform Send ---
@@ -536,14 +527,18 @@ namespace GV.Network
                 ga.enabled = false;
             }
 
-            // FORCE activate all modules (weapons/triggerables) because disabling GameAgent
+            // FORCE activate all active modules (weapons/triggerables) because disabling GameAgent
             // sometimes cascades and deactivates them, or they start dormant.
+            // DO NOT force activate inactive modules (like swapped-out missiles).
             var modules = GetComponentsInChildren<Module>(true);
             foreach (var mod in modules)
             {
-                mod.SetActivated(true);
+                if (mod.gameObject.activeInHierarchy)
+                {
+                    mod.SetActivated(true);
+                }
             }
-            Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Force-activated {modules.Length} modules for local weapons.");
+            Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Force-activated visible modules for local weapons.");
 
             // Re-disable any VehicleInput scripts that EnterVehicle() may have re-initialized
             var reactivatedInputs = GetComponentsInChildren<VehicleInput>(true);
@@ -665,10 +660,8 @@ namespace GV.Network
             // 6. Handle GameAgent on remote ships:
             //    - Unregister from GameAgentManager (prevents interference with host's focused agent)
             //    - Manually enter the vehicle so SCK's ModuleManagers activate (renders weapons, effects, etc.)
-            //    - Then destroy the GameAgent component so it can't interfere further
-            //    Note: GameAgent.Awake() already registered before Spawned(), so we must unregister.
-            //    Note: startingVehicle is null on the prefab, so EnterVehicle never runs in Start().
-            //    We need to call it ourselves to activate the vehicle's module system.
+            //    - We KEEP the GameAgent alive so SCK doesn't panic and turn off the weapons,
+            //      but because it's unregistered and its VehicleInputs are disabled, it acts as a dumb puppet.
             var vehicle = GetComponentInChildren<Vehicle>(true);
             var gameAgents = GetComponentsInChildren<GameAgent>(true);
             foreach (var ga in gameAgents)
@@ -677,40 +670,24 @@ namespace GV.Network
                 if (GameAgentManager.Instance != null)
                 {
                     GameAgentManager.Instance.Unregister(ga);
-                    Debug.Log($"[NetworkedSpaceshipBridge] Unregistered remote GameAgent: {ga.name}");
                 }
 
                 // Manually enter the vehicle to activate SCK's ModuleManagers
-                // This makes weapons, effects, and visual modules visible.
                 // IMPORTANT: Save and restore the camera target — EnterVehicle may hijack it.
                 var savedCameraVehicle = FindFirstObjectByType<VehicleCamera>()?.TargetVehicle;
                 if (vehicle != null && !ga.IsInVehicle)
                 {
                     ga.EnterVehicle(vehicle);
-                    Debug.Log($"[NetworkedSpaceshipBridge] Entered vehicle for remote ship activation: {vehicle.name}");
+                    Debug.Log($"[NetworkedSpaceshipBridge] PROXY: Entered vehicle with lobotomized GameAgent: {vehicle.name}");
                 }
+                
                 // Restore camera to whatever it was following before (might be null on first ship spawn)
                 if (savedCameraVehicle != null)
                 {
                     var vc = FindFirstObjectByType<VehicleCamera>();
                     if (vc != null) vc.SetVehicle(savedCameraVehicle);
                 }
-
-                // Now destroy the GameAgent component entirely
-                // (the vehicle stays entered, modules stay active, but no further interference)
-                Destroy(ga);
-                Debug.Log($"[NetworkedSpaceshipBridge] Destroyed GameAgent on remote ship: {ga.gameObject.name}");
             }
-
-            // FORCE activate all modules (weapons/triggerables) because GameAgent destruction
-            // cascades and natively disables them, causing Triggerable.StartTriggering() to abort
-            // during remote Host execution.
-            var modules = GetComponentsInChildren<Module>(true);
-            foreach (var mod in modules)
-            {
-                mod.SetActivated(true);
-            }
-            Debug.Log($"[NetworkedSpaceshipBridge] PROXY: Force-activated {modules.Length} modules for remote weapons.");
 
             // Re-disable any VehicleInput scripts that EnterVehicle() may have re-initialized
             var reactivatedInputs = GetComponentsInChildren<VehicleInput>(true);
@@ -724,6 +701,14 @@ namespace GV.Network
                 ((MonoBehaviour)gi).enabled = false;
             }
             Debug.Log($"[NetworkedSpaceshipBridge] Re-disabled {reactivatedInputs.Length} input scripts after vehicle activation");
+
+            // 7. Disable CustomCursor on remote ships so they don't force weapons to aim backward!
+            // Without a camera, CustomCursor calculates a Vector3.back aim direction.
+            var cursors = GetComponentsInChildren<VSX.Utilities.CustomCursor>(true);
+            foreach (var cursor in cursors)
+            {
+                cursor.gameObject.SetActive(false);
+            }
 
             // Cache the child transform for position interpolation on proxy ships.
             // Rigidbody is kept alive (kinematic) because SCK scripts depend on it.
@@ -903,8 +888,9 @@ namespace GV.Network
             var data = inputData;
 
             // === WEAPONS ===
-            bool isHostLocalShip = Object.HasStateAuthority && Object.HasInputAuthority;
-            if (!isHostLocalShip && (Object.HasStateAuthority || Object.HasInputAuthority))
+            // Host applies weapon input in FixedUpdateNetwork to spawn projectiles authoritatively.
+            // Client applies it in Update (above) for local visual/audio feedback.
+            if (Object.HasStateAuthority)
             {
                 ApplyWeaponInput(data);
             }

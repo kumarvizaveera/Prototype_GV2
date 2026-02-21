@@ -43,6 +43,9 @@ namespace GV.Scripts
         public Material emptyTextMaterial;
 
 
+        [Networked, Capacity(8)]
+        public NetworkArray<int> NetworkedAmmoCounts { get; }
+        
         [Networked, OnChangedRender(nameof(OnCurrentIndexChanged))]
         public int currentIndex { get; set; } = -1;
         
@@ -51,16 +54,80 @@ namespace GV.Scripts
 
         public override void Spawned()
         {
+            // Initial sync or setup if needed
+            
+            // For local player control, we usually access the local instance.
+            if (Object.HasInputAuthority)
+            {
+                Instance = this;
+            }
+        }
+        
+        public override void FixedUpdateNetwork()
+        {
             if (Object.HasStateAuthority)
             {
-                // Initial syncing or setup if needed
+                // Sync local ammo counts to network array
+                for (int i = 0; i < missileMounts.Count; i++)
+                {
+                    if (i < NetworkedAmmoCounts.Length)
+                    {
+                        var entry = missileMounts[i];
+                        if (entry.mount != null && entry.mount.MountedModule() != null)
+                        {
+                            Weapon weapon = entry.mount.MountedModule().GetComponent<Weapon>();
+                            if (weapon != null)
+                            {
+                                foreach (var handler in weapon.ResourceHandlers)
+                                {
+                                    if (handler.unitResourceChange < 0 && !handler.perSecond && handler.resourceContainer != null)
+                                    {
+                                        NetworkedAmmoCounts.Set(i, handler.resourceContainer.CurrentAmountInteger);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-             // Instance assignment moved to Awake, but check if we need networked instance handling
-             // For local player control, we usually access the local instance.
-             if (Object.HasInputAuthority)
-             {
-                 Instance = this;
-             }
+            else
+            {
+                // Client syncs networked ammo counts to local resource containers during the physical tick
+                // This ensures that when the Client predicts weapon firing (ApplyWeaponInput),
+                // the local CanTriggerWeapon() check sees the correct synchronized ammo count!
+                for (int i = 0; i < missileMounts.Count; i++)
+                {
+                    if (i < NetworkedAmmoCounts.Length)
+                    {
+                        var entry = missileMounts[i];
+                        if (entry.mount != null && entry.mount.MountedModule() != null)
+                        {
+                            Weapon weapon = entry.mount.MountedModule().GetComponent<Weapon>();
+                            if (weapon != null)
+                            {
+                                foreach (var handler in weapon.ResourceHandlers)
+                                {
+                                    if (handler.unitResourceChange < 0 && !handler.perSecond && handler.resourceContainer != null)
+                                    {
+                                        int netAmmo = NetworkedAmmoCounts.Get(i);
+                                        if (handler.resourceContainer.CurrentAmountInteger != netAmmo)
+                                        {
+                                            handler.resourceContainer.SetAmount((float)netAmmo);
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        public override void Render()
+        {
+            // Removed ammo sync here, migrated to FixedUpdateNetwork so it precedes Input evaluation.
         }
 
         private void Awake()
@@ -74,11 +141,37 @@ namespace GV.Scripts
             yield return null; 
 
             // Explicitly disable all mounts first to ensure clean state after initialization
+            // AND FORCE them to use Trigger Index 2 (Missile Fire group) to avoid accidental laser firing
+            var triggerManager = GetComponentInChildren<VSX.Weapons.TriggerablesManager>(true);
             foreach (var entry in missileMounts)
             {
                 if (entry.mount != null)
                 {
                     entry.mount.gameObject.SetActive(false);
+                    
+                    if (entry.mount.MountedModule() != null)
+                    {
+                        var trig = entry.mount.MountedModule().GetComponent<VSX.Weapons.Triggerable>();
+                        if (trig != null)
+                        {
+                            trig.DefaultTriggerIndex = 2; // Force to BUTTON_FIRE_MISSILE
+                            
+                            // Also update TriggerablesManager if it ALREADY mounted it
+                            if (triggerManager != null)
+                            {
+                                foreach (var mt in triggerManager.MountedTriggerables)
+                                {
+                                    if (mt.triggerable == trig)
+                                    {
+                                        for (int i = 0; i < mt.triggerValuesByGroup.Count; i++)
+                                        {
+                                            mt.triggerValuesByGroup[i] = 2;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             
@@ -156,7 +249,16 @@ namespace GV.Scripts
             {
                 if (missileMounts[i].mount != null)
                 {
-                    missileMounts[i].mount.gameObject.SetActive(i == index);
+                    bool isActive = (i == index);
+                    missileMounts[i].mount.gameObject.SetActive(isActive);
+                    
+                    // CRITICAL: We must also update the Module.isActivated state.
+                    // Otherwise, TriggerablesManager will still fire hidden weapons
+                    // because it does not check gameObject.activeInHierarchy!
+                    if (missileMounts[i].mount.MountedModule() != null)
+                    {
+                        missileMounts[i].mount.MountedModule().SetActivated(isActive);
+                    }
                 }
             }
             UpdateStatsUI();

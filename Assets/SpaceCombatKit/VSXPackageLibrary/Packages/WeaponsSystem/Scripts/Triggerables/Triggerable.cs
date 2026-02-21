@@ -185,16 +185,18 @@ namespace VSX.Weapons
         {
 
             coroutineRunning = true;
+            Debug.Log($"[Triggerable] ({gameObject.name}) TriggeringCoroutine ENTERED! triggerMode = {triggerMode}");
 
             switch (triggerMode)
             {
                 case TriggerMode.Single:
-
+                    Debug.Log($"[Triggerable] ({gameObject.name}) TriggeringCoroutine (Single) Action(1) FIRED!");
                     Action(1);
                     break;
 
                 case TriggerMode.Burst:
                     
+                    Debug.Log($"[Triggerable] ({gameObject.name}) TriggeringCoroutine (Burst) STARTING!");
                     while (true)
                     {
 
@@ -203,6 +205,7 @@ namespace VSX.Weapons
                         // Burst
                         for (int i = 0; i < burstSize; ++i)
                         {
+                            Debug.Log($"[Triggerable] ({gameObject.name}) TriggeringCoroutine (Burst) Action(1) FIRED! ({i}/{burstSize})");
                             Action(1);
                             if (i != burstSize - 1) yield return new WaitForSeconds(actionInterval);
                         }
@@ -218,12 +221,18 @@ namespace VSX.Weapons
 
                 case TriggerMode.Automatic:
 
+                    Debug.Log($"[Triggerable] ({gameObject.name}) TriggeringCoroutine (Automatic): actionInterval={actionInterval}, triggering={triggering}");
                     while (true)
                     {
                         Action(1);
+                        Debug.Log($"[Triggerable] ({gameObject.name}) TriggeringCoroutine (Automatic) Action(1) FIRED!");
 
                         yield return new WaitForSeconds(actionInterval);
-                        if (!triggering) break;
+                        if (!triggering)
+                        {
+                            Debug.Log($"[Triggerable] ({gameObject.name}) TriggeringCoroutine (Automatic) STOPPING (triggering = false)");
+                            break;
+                        }
                     }
 
                     break;
