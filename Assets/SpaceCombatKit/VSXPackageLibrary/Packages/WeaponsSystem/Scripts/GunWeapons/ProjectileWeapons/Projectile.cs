@@ -164,6 +164,13 @@ namespace VSX.Weapons
         [Networked] public Vector3 NetworkedSpawnPosition { get; set; }
         [Networked] public Quaternion NetworkedSpawnRotation { get; set; }
 
+        public bool IsVisualDummy { get; private set; } = false;
+
+        public void SetVisualDummy()
+        {
+            IsVisualDummy = true;
+        }
+
         private bool _proxyFirstRenderLogged = false;
 
         public override void Render()
@@ -375,6 +382,15 @@ namespace VSX.Weapons
                 healthModifier.HealingMultiplier = NetworkedHealingMultiplier;
                 speed = NetworkedSpeed > 0 ? NetworkedSpeed : speed; // Fallback to prefab speed
                 Debug.Log($"[Projectile] Spawned (Proxy). NetworkedSpeed: {NetworkedSpeed}, localSpeed fallback: {speed}");
+                
+                // Hide this networked projectile if we are the client who fired it
+                // because we already spawned a local visual dummy instantly!
+                if (OwnerId.IsValid && Runner.TryFindObject(OwnerId, out NetworkObject owner) && owner.HasInputAuthority)
+                {
+                    foreach (Renderer r in renderers) r.enabled = false;
+                    foreach (TrailRenderer t in trailRenderers) t.enabled = false;
+                    Debug.Log($"[Projectile] Hid networked projectile (Proxy) because we are the owner Client (we have a visual dummy).");
+                }
             }
         }
 
@@ -615,7 +631,7 @@ namespace VSX.Weapons
             if (!areaEffect)
             {
                 damageReceiver = hit.collider.GetComponent<DamageReceiver>();
-                if (damageReceiver != null)
+                if (damageReceiver != null && !IsVisualDummy)
                 {
 
                     HealthEffectInfo info = new HealthEffectInfo();
@@ -716,6 +732,7 @@ namespace VSX.Weapons
         protected virtual void AreaEffect()
         {
             if (!areaEffect) return;
+            if (IsVisualDummy) return;
 
             if (Mathf.Approximately(areaEffectRadius, 0)) return;
 

@@ -253,10 +253,38 @@ namespace VSX.Weapons
                                  // Without NetworkTransform, Fusion does NOT replicate the transform.
                                  proj.NetworkedSpawnPosition = spawnPos;
                                  proj.NetworkedSpawnRotation = spawnRot;
+
+                                 if (rootTransform != null) 
+                                 {
+                                     var parentNetObj = rootTransform.GetComponentInParent<NetworkObject>();
+                                     if (parentNetObj != null) proj.OwnerId = parentNetObj.Id;
+                                 }
                              }
                          });
                      projectileController = networkObject.GetComponent<Projectile>();
                      spawnedViaNetwork = true;
+                }
+                else if (runner != null && runner.IsRunning && !runner.IsServer)
+                {
+                    // CLIENT-SIDE PREDICTION (Visual Dummy)
+                    // Spawn a local visual-only copy instantly to prevent perceived spawn lag.
+                    NetworkObject netObj = rootTransform.GetComponentInParent<NetworkObject>();
+                    if (netObj != null && netObj.HasInputAuthority && !netObj.HasStateAuthority)
+                    {
+                        if (usePoolManager)
+                        {
+                            projectileController = PoolManager.Instance.Get(projectilePrefab.gameObject, spawnPoint.position, spawnPoint.rotation).GetComponent<Projectile>();
+                        }
+                        else
+                        {
+                            projectileController = GameObject.Instantiate(projectilePrefab, spawnPoint.position, spawnPoint.rotation);
+                        }
+                        
+                        if (projectileController != null)
+                        {
+                            projectileController.SetVisualDummy();
+                        }
+                    }
                 }
                 else if (runner == null || !runner.IsRunning)
                 {
@@ -270,13 +298,6 @@ namespace VSX.Weapons
                         projectileController = GameObject.Instantiate(projectilePrefab, spawnPoint.position, spawnPoint.rotation);
                     }
                 }
-                // If we are Client (and runner is running), we DO NOT spawn the projectile here for gameplay logic.
-                // However, visually we might want to? 
-                // If we spawn it locally, it will duplicate when the server one arrives.
-                // For now, let's rely on the Server spawn replicating to us. 
-                // This might cause a slight delay (RTT/2).
-                // Advanced: Spawn visual-only dummy, or use Client-Side Prediction with localized rollback.
-                // Given the complexity, let's stick to Server Spawn for now.
                 
                 if (projectileController != null)
                 {
