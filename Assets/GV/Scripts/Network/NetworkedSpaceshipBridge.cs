@@ -944,12 +944,49 @@ namespace GV.Network
 
             var data = inputData;
 
-            // === WEAPONS ===
+            // === WEAPONS AND ENGINE VISUALS/FUEL ===
             // Host applies weapon input in FixedUpdateNetwork to spawn projectiles authoritatively.
-            // Client applies it in Update (above) for local visual/audio feedback.
+            // Host also applies steering/movement/boost so that fuel is consumed and engine VFX play correctly for remote ships.
             if (Object.HasStateAuthority)
             {
                 ApplyWeaponInput(data);
+                
+                // Only apply networked steering/movement/boost for REMOTE ships.
+                // The Host's OWN ship (HasInputAuthority == true) relies on local SCK input scripts.
+                if (!Object.HasInputAuthority)
+                {
+                    // Ensure remote engines are active so they consume fuel / show VFX
+                    if (engines != null && !engines.EnginesActivated)
+                    {
+                        engines.SetEngineActivation(true);
+                    }
+                    if (engines != null)
+                    {
+                        engines.ControlsDisabled = false;
+                        
+                        Vector3 steering = new Vector3(data.steerPitch, data.steerYaw, data.steerRoll);
+                        if (enableLinkYawAndRoll)
+                        {
+                            float linkedRoll = Mathf.Clamp(-steering.y * yawRollRatio, -1f, 1f);
+                            if (Mathf.Abs(linkedRoll) > Mathf.Abs(steering.z))
+                            {
+                                steering.z = linkedRoll;
+                            }
+                        }
+                        
+                        Vector3 movement = new Vector3(data.moveX, data.moveY, data.moveZ);
+                        if (data.boost)
+                        {
+                            movement.z = 1f; // Force max forward throttle during boost (matches SCK behavior)
+                        }
+                        
+                        engines.SetSteeringInputs(steering);
+                        engines.SetMovementInputs(movement);
+                        engines.SetBoostInputs(data.boost ? new Vector3(0f, 0f, 1f) : Vector3.zero);
+                        
+                        _isBoosting = data.boost;
+                    }
+                }
             }
 
             // --- HOST: Enforce VehicleInput stays disabled on remote ships ---
@@ -1231,6 +1268,10 @@ namespace GV.Network
             }
 
             Vector3 movement = new Vector3(data.moveX, data.moveY, data.moveZ);
+            if (data.boost)
+            {
+                movement.z = 1f; // Force max forward throttle during boost
+            }
 
             // Feed engines — VehicleEngines3D.FixedUpdate (order 0) will apply the forces
             engines.SetSteeringInputs(steering);

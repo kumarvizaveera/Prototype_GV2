@@ -46,7 +46,7 @@ namespace GV.Network
     public class NetworkedPlayerInput : MonoBehaviour, INetworkRunnerCallbacks
     {
         [Header("Settings")]
-        [SerializeField] private bool enableAutoForward = false;
+        [SerializeField] private bool enableAutoForward = true;
         
         private PlayerInputData _inputData;
 
@@ -256,16 +256,16 @@ namespace GV.Network
             _inputData.moveY = strafeY;
             _inputData.moveZ = throttle;
             
-            // Boost (shift or W with auto-forward)
+            // Boost (Tab, or W if auto-forward is enabled)
             if (Keyboard.current != null)
             {
                 if (enableAutoForward)
                 {
-                    _inputData.boost = Keyboard.current.wKey.isPressed;
+                    _inputData.boost = Keyboard.current.tabKey.isPressed || Keyboard.current.wKey.isPressed;
                 }
                 else
                 {
-                    _inputData.boost = Keyboard.current.leftShiftKey.isPressed;
+                    _inputData.boost = Keyboard.current.tabKey.isPressed;
                 }
             }
             
