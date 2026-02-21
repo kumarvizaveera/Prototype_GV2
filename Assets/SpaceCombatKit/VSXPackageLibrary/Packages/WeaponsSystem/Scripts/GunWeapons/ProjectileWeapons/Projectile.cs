@@ -158,6 +158,14 @@ namespace VSX.Weapons
         [Networked] public float NetworkedHealingMultiplier { get; set; }
         [Networked] public NetworkId OwnerId { get; set; }
 
+        // Spawn position/rotation — set in onBeforeSpawned so proxies get the correct
+        // initial position in the first snapshot. Without NetworkTransform, Fusion does NOT
+        // replicate the position passed to runner.Spawn() to proxies.
+        [Networked] public Vector3 NetworkedSpawnPosition { get; set; }
+        [Networked] public Quaternion NetworkedSpawnRotation { get; set; }
+
+        private bool _proxyFirstRenderLogged = false;
+
         public override void Render()
         {
             if(Object != null && Object.IsValid)
@@ -168,17 +176,32 @@ namespace VSX.Weapons
                  {
                      healthModifier.DamageMultiplier = NetworkedDamageMultiplier;
                      healthModifier.HealingMultiplier = NetworkedHealingMultiplier;
-                     
+
+                     // If NetworkedSpeed arrived late, sync it to the local field
+                     if (NetworkedSpeed > 0 && speed != NetworkedSpeed)
+                     {
+                         speed = NetworkedSpeed;
+                     }
+
+                     // Use the best available speed: networked → prefab fallback
+                     float renderSpeed = Speed; // Speed getter already falls back to local 'speed'
+
+                     if (!_proxyFirstRenderLogged)
+                     {
+                         _proxyFirstRenderLogged = true;
+                         Debug.Log($"[Projectile] PROXY FIRST RENDER: pos={transform.position}, rot={transform.rotation.eulerAngles}, " +
+                                   $"NetworkedSpeed={NetworkedSpeed}, localSpeed={speed}, renderSpeed={renderSpeed}, " +
+                                   $"NetworkedMaxDist={NetworkedMaxDistance}, gameObject.active={gameObject.activeInHierarchy}");
+                     }
+
                      // PROXY SIMULATION: Simulate movement visually for clients!
-                     // Server spawns the object, but fusion doesn't run FixedUpdateNetwork for Proxies.
+                     // Server spawns the object, but Fusion doesn't run FixedUpdateNetwork for Proxies.
                      // Without a NetworkTransform, we must manually extrapolate movement.
-                     // We don't check InputAuthority because NO client has InputAuth over server-spawned projectiles.
-                     // (Unless the Server gives it to the Client who fired, but by default it doesn't).
                      if (movementUpdateMode == MovementUpdateMode.Update || movementUpdateMode == MovementUpdateMode.FixedUpdate)
                      {
-                          transform.Translate(Vector3.forward * Speed * Time.deltaTime);
+                          transform.Translate(Vector3.forward * renderSpeed * Time.deltaTime);
                      }
-                     distanceCovered += (Speed * Time.deltaTime);
+                     distanceCovered += (renderSpeed * Time.deltaTime);
                  }
             }
         }
@@ -217,6 +240,20 @@ namespace VSX.Weapons
 
         public override void Spawned()
         {
+            // --- PROXY: Apply spawn position/rotation from networked state ---
+            // Without NetworkTransform, Fusion does NOT replicate the position passed to
+            // runner.Spawn() to proxies. The proxy instantiates the prefab at (0,0,0).
+            // We set NetworkedSpawnPosition/Rotation in onBeforeSpawned so it's in the first snapshot.
+            if (!Object.HasStateAuthority)
+            {
+                if (NetworkedSpawnPosition != Vector3.zero)
+                {
+                    transform.position = NetworkedSpawnPosition;
+                    transform.rotation = NetworkedSpawnRotation;
+                    Debug.Log($"[Projectile] PROXY: Applied spawn pos={NetworkedSpawnPosition}, rot={NetworkedSpawnRotation.eulerAngles}");
+                }
+            }
+
             lastPosition = transform.position;
             distanceCovered = 0;
             lifeStartTime = Time.time;
@@ -227,11 +264,8 @@ namespace VSX.Weapons
                 trailRenderer.Clear();
             }
 
-            // Sync visual properties from networked state if needed (though they are synced via Networked vars)
-            // If we are proxy, we might want to ensure visuals are correct.
-            
             // Disable standard collision scanner as we use FixedUpdateNetwork
-            if (collisionScanner != null) 
+            if (collisionScanner != null)
             {
                 collisionScanner.enabled = false;
             }
@@ -245,20 +279,27 @@ namespace VSX.Weapons
         
             if (Object.HasStateAuthority)
             {
-                 NetworkedSpeed = speed;
-                 NetworkedMaxDistance = maxDistance;
-                 // Initialize networked values from local if they were set before Spawn (unlikely for multipliers but possible for base speed)
-                 if(NetworkedDamageMultiplier == 0) NetworkedDamageMultiplier = 1; 
-                 if(NetworkedHealingMultiplier == 0) NetworkedHealingMultiplier = 1;
-                 
-                 Debug.Log($"[Projectile] Spawned (StateAuthority). Speed: {speed}, NetworkedSpeed set to: {NetworkedSpeed}");
+                 // Only set defaults if onBeforeSpawned didn't already set them.
+                 // onBeforeSpawned sets these BEFORE the first snapshot, guaranteeing proxies
+                 // receive non-zero values immediately.
+                 if (NetworkedSpeed == 0) NetworkedSpeed = speed;
+                 if (NetworkedMaxDistance == 0) NetworkedMaxDistance = maxDistance;
+                 if (NetworkedDamageMultiplier == 0) NetworkedDamageMultiplier = 1;
+                 if (NetworkedHealingMultiplier == 0) NetworkedHealingMultiplier = 1;
+
+                 // Sync the local field to match networked (in case onBeforeSpawned set a modified value)
+                 speed = NetworkedSpeed;
+
+                 Debug.Log($"[Projectile] Spawned (StateAuthority). Speed: {speed}, NetworkedSpeed: {NetworkedSpeed}, MaxDist: {NetworkedMaxDistance}");
             }
             else
             {
-                // Proxy: Apply initial values
+                // Proxy: Apply initial values from networked state.
+                // These should already be set via onBeforeSpawned snapshot.
                 healthModifier.DamageMultiplier = NetworkedDamageMultiplier;
                 healthModifier.HealingMultiplier = NetworkedHealingMultiplier;
-                Debug.Log($"[Projectile] Spawned (Proxy). NetworkedSpeed: {NetworkedSpeed}");
+                speed = NetworkedSpeed > 0 ? NetworkedSpeed : speed; // Fallback to prefab speed
+                Debug.Log($"[Projectile] Spawned (Proxy). NetworkedSpeed: {NetworkedSpeed}, localSpeed fallback: {speed}");
             }
         }
 

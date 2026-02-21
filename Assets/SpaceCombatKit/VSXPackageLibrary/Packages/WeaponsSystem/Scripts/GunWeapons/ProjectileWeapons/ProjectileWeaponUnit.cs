@@ -230,8 +230,31 @@ namespace VSX.Weapons
                 
                 if (runner != null && runner.IsRunning && runner.IsServer)
                 {
-                     // Server spawns the network object
-                     var networkObject = runner.Spawn(projectilePrefab, spawnPoint.position, spawnPoint.rotation, runner.LocalPlayer);
+                     // Server spawns the network object.
+                     // CRITICAL: Use onBeforeSpawned to set [Networked] properties BEFORE the first snapshot.
+                     // Without this, the proxy receives NetworkedSpeed=0 and projectiles are invisible
+                     // because Render() translates by speed*deltaTime = 0.
+                     float finalSpeed = projectilePrefab.Speed * speedMultiplier;
+                     float finalMaxDistance = projectilePrefab.Range * rangeMultiplier;
+                     Vector3 spawnPos = spawnPoint.position;
+                     Quaternion spawnRot = spawnPoint.rotation;
+
+                     var networkObject = runner.Spawn(projectilePrefab, spawnPos, spawnRot, runner.LocalPlayer,
+                         onBeforeSpawned: (runner, obj) =>
+                         {
+                             var proj = obj.GetComponent<Projectile>();
+                             if (proj != null)
+                             {
+                                 proj.NetworkedSpeed = finalSpeed;
+                                 proj.NetworkedMaxDistance = finalMaxDistance;
+                                 proj.NetworkedDamageMultiplier = damageMultiplier;
+                                 proj.NetworkedHealingMultiplier = healingMultiplier;
+                                 // CRITICAL: Set spawn position/rotation so proxies can apply it.
+                                 // Without NetworkTransform, Fusion does NOT replicate the transform.
+                                 proj.NetworkedSpawnPosition = spawnPos;
+                                 proj.NetworkedSpawnRotation = spawnRot;
+                             }
+                         });
                      projectileController = networkObject.GetComponent<Projectile>();
                      spawnedViaNetwork = true;
                 }
@@ -260,14 +283,21 @@ namespace VSX.Weapons
                     projectileController.SetOwner(owner);
                     projectileController.SetSenderRootTransform(rootTransform);
 
-                    // Apply modifiers
-                    projectileController.SetDamageMultiplier(damageMultiplier);
-                    projectileController.SetHealingMultiplier(healingMultiplier);
-                    
-                    // Apply character bonuses
-                    projectileController.Speed *= speedMultiplier;
-                    projectileController.SetMaxDistance(projectileController.Range * rangeMultiplier);
-                    projectileController.SetLifetime(100f); // Default high lifetime so MaxDistance controls it, unless defined otherwise
+                    if (spawnedViaNetwork)
+                    {
+                        // Speed, MaxDistance, Damage, Healing were already set in onBeforeSpawned
+                        // (before the first snapshot). Only set lifetime here.
+                        projectileController.SetLifetime(100f);
+                    }
+                    else
+                    {
+                        // Legacy/Offline: apply modifiers the old way
+                        projectileController.SetDamageMultiplier(damageMultiplier);
+                        projectileController.SetHealingMultiplier(healingMultiplier);
+                        projectileController.Speed *= speedMultiplier;
+                        projectileController.SetMaxDistance(projectileController.Range * rangeMultiplier);
+                        projectileController.SetLifetime(100f);
+                    }
 
                     if (addLauncherVelocityToProjectile && rBody != null)
                     {
