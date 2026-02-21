@@ -573,9 +573,7 @@ namespace GV.Scripts
             activeNotificationText.text = activeMessagePrefix + finalName;
             activeNotificationText.gameObject.SetActive(true);
 
-            // Cancel any existing hide timer and start a fresh one
-            if (activeHideCoroutine != null) StopCoroutine(activeHideCoroutine);
-            activeHideCoroutine = StartCoroutine(HideActiveNotificationAfterDelay(3f));
+            // Keep notification visible permanently (no auto-hide)
         }
 
         private IEnumerator HideActiveNotificationAfterDelay(float delay)
