@@ -99,6 +99,31 @@ namespace GV.Network
             _hasRpcTransform = true;
         }
 
+        // --- AIM POSITION SYNC (client → host) ---
+        // The client computes the world-space aim position from its AimController (which has
+        // the cursor + camera). The host has no cursor/camera for the client's ship, so weapons
+        // aim straight forward. This RPC sends the client's aim so the host can override.
+        private Vector3 _rpcAimPosition;
+        private bool _hasRpcAimPosition = false;
+        private NetworkedAimOverride _aimOverride;
+
+        /// <summary>
+        /// RPC: Client sends its world-space aim position to the host every frame.
+        /// The host uses this to aim the client's weapons toward the correct direction.
+        /// </summary>
+        [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+        public void RPC_SendAimPosition(Vector3 aimPos)
+        {
+            _rpcAimPosition = aimPos;
+            _hasRpcAimPosition = true;
+
+            // Feed aim position to the override component
+            if (_aimOverride != null)
+            {
+                _aimOverride.SetAimPosition(aimPos);
+            }
+        }
+
         // Local state for visual feedback (not networked for now)
         private bool _isBoosting;
         public bool IsBoosting => _isBoosting;
@@ -238,6 +263,15 @@ namespace GV.Network
                 Debug.Log($"[NetworkedSpaceshipBridge] Remote player ship - disabling ALL local input immediately");
                 DisableLocalInput();
                 _hasCheckedAuthority = true;
+
+                // HOST: Attach NetworkedAimOverride on the host's copy of a client's ship.
+                // This component runs after WeaponsController's LateUpdate and overrides weapon aim
+                // with the client's aim position (received via RPC_SendAimPosition).
+                if (Object.HasStateAuthority)
+                {
+                    _aimOverride = gameObject.AddComponent<NetworkedAimOverride>();
+                    Debug.Log($"[NetworkedSpaceshipBridge] HOST: Attached NetworkedAimOverride for remote player aim sync");
+                }
             }
             else if (Object.HasStateAuthority)
             {
@@ -375,6 +409,28 @@ namespace GV.Network
                         else
                         {
                              RPC_SendTransform(transform.position, transform.rotation);
+                        }
+
+                        // --- AIM POSITION SYNC (client → host) ---
+                        // The client has a working AimController (cursor + camera), so it computes the
+                        // correct world-space aim position. Send it to the host so projectiles spawned
+                        // by the host aim toward the client's cursor, not straight forward.
+                        {
+                            var aimCtrl = GetComponentInChildren<VSX.Utilities.AimControllerBase>(true);
+                            if (aimCtrl != null)
+                            {
+                                Vector3 clientAimPos;
+                                if (aimCtrl.HitFound)
+                                {
+                                    clientAimPos = aimCtrl.Hit.point;
+                                }
+                                else
+                                {
+                                    // No hit — aim far along the aim direction
+                                    clientAimPos = aimCtrl.Aim.origin + aimCtrl.Aim.direction * 5000f;
+                                }
+                                RPC_SendAimPosition(clientAimPos);
+                            }
                         }
 
                         // --- HUD CURSOR UPDATE (client's own ship) ---
