@@ -54,12 +54,36 @@ namespace GV.Scripts
 
         public override void Spawned()
         {
-            // Initial sync or setup if needed
-            
             // For local player control, we usually access the local instance.
             if (Object.HasInputAuthority)
             {
                 Instance = this;
+            }
+            else
+            {
+                // NON-LOCAL ship: Hide all missile UI elements immediately.
+                // Each ship prefab has its own screen-space notification and stats texts.
+                // Without hiding them, every ship instance renders its UI on top of each other.
+                HideAllUI();
+            }
+        }
+
+        /// <summary>
+        /// Hides all missile-related UI elements (notification text + per-mount stats texts).
+        /// Called on non-local ships so only the local player's missile UI is visible.
+        /// </summary>
+        private void HideAllUI()
+        {
+            if (activeNotificationText != null)
+            {
+                activeNotificationText.gameObject.SetActive(false);
+            }
+            foreach (var entry in missileMounts)
+            {
+                if (entry.statsText != null)
+                {
+                    entry.statsText.gameObject.SetActive(false);
+                }
             }
         }
         
@@ -310,7 +334,7 @@ namespace GV.Scripts
                 {
                     bool isActive = (i == index);
                     missileMounts[i].mount.gameObject.SetActive(isActive);
-                    
+
                     // CRITICAL: We must also update the Module.isActivated state.
                     // Otherwise, TriggerablesManager will still fire hidden weapons
                     // because it does not check gameObject.activeInHierarchy!
@@ -320,7 +344,11 @@ namespace GV.Scripts
                     }
                 }
             }
-            UpdateStatsUI();
+            // Only update UI on the local player's ship
+            if (Object == null || !Object.IsValid || Object.HasInputAuthority)
+            {
+                UpdateStatsUI();
+            }
         }
 
         private void Update()
@@ -535,11 +563,29 @@ namespace GV.Scripts
         {
             if (activeNotificationText == null) return;
 
+            // Only show notification on the LOCAL player's ship.
+            // Without this check, all ship instances on the same machine (host's ship +
+            // client's ship on host) each write to their own notification text in screen-space,
+            // causing overlapping UI.
+            if (Object != null && Object.IsValid && !Object.HasInputAuthority) return;
+
             string finalName = string.IsNullOrEmpty(label) ? "Unknown" : label;
             activeNotificationText.text = activeMessagePrefix + finalName;
             activeNotificationText.gameObject.SetActive(true);
 
+            // Cancel any existing hide timer and start a fresh one
             if (activeHideCoroutine != null) StopCoroutine(activeHideCoroutine);
+            activeHideCoroutine = StartCoroutine(HideActiveNotificationAfterDelay(3f));
+        }
+
+        private IEnumerator HideActiveNotificationAfterDelay(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (activeNotificationText != null)
+            {
+                activeNotificationText.gameObject.SetActive(false);
+            }
+            activeHideCoroutine = null;
         }
     }
 }
