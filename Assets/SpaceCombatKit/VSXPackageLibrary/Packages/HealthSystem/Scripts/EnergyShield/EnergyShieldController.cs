@@ -67,7 +67,7 @@ namespace VSX.Health
 
         [Tooltip("Whether to disable the shield object on start (e.g., waiting for powerup).")]
         [SerializeField]
-        protected bool startDisabled = false;
+        protected bool startDisabled = true;
 
 
         protected float remainingDuration = 0f;

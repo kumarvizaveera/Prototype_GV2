@@ -199,7 +199,45 @@ namespace VSX.Weapons
                      // Without a NetworkTransform, we must manually extrapolate movement.
                      if (movementUpdateMode == MovementUpdateMode.Update || movementUpdateMode == MovementUpdateMode.FixedUpdate)
                      {
-                          transform.Translate(Vector3.forward * renderSpeed * Time.deltaTime);
+                          if (detonated) return; // Prevent movement/collision if we already hit something locally
+                          
+                          float moveDistance = renderSpeed * Time.deltaTime;
+                          Vector3 previousPosition = transform.position;
+                          Vector3 direction = Vector3.forward; // Local forward
+                          
+                          // Convert local forward to world space direction for translation and raycast
+                          Vector3 worldDirection = transform.TransformDirection(direction);
+
+                          // Check collision locally before moving. 
+                          // Add a lag-compensation look-ahead (e.g., 0.15s of travel) to ensure proxy hits before Host despawns it.
+                          float lookAheadDistance = moveDistance + (renderSpeed * 0.15f);
+                          if (Physics.Raycast(previousPosition, worldDirection, out RaycastHit physHit, lookAheadDistance, collisionScanner != null ? collisionScanner.HitMask : Physics.DefaultRaycastLayers, ignoreTriggerColliders ? QueryTriggerInteraction.Ignore : QueryTriggerInteraction.Collide))
+                          {
+                               // Filter hierarchy collision
+                               if (senderRootTransform != null && (physHit.transform == senderRootTransform || physHit.transform.IsChildOf(senderRootTransform))) 
+                               {
+                                   // Ignore self hit, continue moving
+                                   transform.Translate(direction * moveDistance);
+                               }
+                               else
+                               {
+                                   // Visual Hit detected!
+                                   transform.position = physHit.point; // Snap to hit position
+                                   OnCollision(physHit);               // Trigger local visual effects and damage events
+                                   
+                                   // Hide visual renderers immediately so it doesn't pass through
+                                   foreach (Renderer rend in renderers)
+                                   {
+                                       rend.enabled = false;
+                                   }
+                                   
+                                   detonated = true; // Mark detonated locally so it stops moving
+                               }
+                          }
+                          else
+                          {
+                              transform.Translate(direction * moveDistance);
+                          }
                      }
                      distanceCovered += (renderSpeed * Time.deltaTime);
                  }
@@ -279,6 +317,12 @@ namespace VSX.Weapons
             distanceCovered = 0;
             lifeStartTime = Time.time;
             detonated = false;
+
+            // Re-enable renderers that might have been hidden by proxy local hit detection
+            foreach (Renderer rend in renderers)
+            {
+                rend.enabled = true;
+            }
 
             foreach (TrailRenderer trailRenderer in trailRenderers)
             {
