@@ -517,6 +517,8 @@ MonoBehaviour:
   inactiveTextMaterial: {fileID: 2100000, guid: 9a5ac4e6a2501c546bd13e9446fefa2a,
     type: 2}
   emptyTextMaterial: {fileID: 2100000, guid: 9dec41b37e05ff849b1b5b29aee27d61, type: 2}
+  _NetworkedAmmoCounts: 
+  _currentIndex: -1
 --- !u!1 &574532843966208318
 GameObject:
   m_ObjectHideFlags: 0
@@ -3015,6 +3017,7 @@ MonoBehaviour:
   - {fileID: 1301586559464983885}
   - {fileID: 3420246686420463674}
   - {fileID: 8112468108042422247}
+  - {fileID: 8545829136287632250}
   - {fileID: 3809411344610667540}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &8293294363971003067
@@ -3049,6 +3052,11 @@ MonoBehaviour:
   engines: {fileID: 0}
   triggerablesManager: {fileID: 0}
   localInputScripts: []
+  positionSmoothTime: 0.1
+  rotationSmoothSpeed: 10
+  rotationSnapThreshold: 90
+  enableLinkYawAndRoll: 1
+  yawRollRatio: 0.5
 --- !u!114 &8519753181047599757
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3169,7 +3177,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GV.Network.NetworkedHealthSync
   vehicleHealth: {fileID: 0}
-  _NetworkedCurrentHealth: 0
+  _NetworkedHealthValues: []
+  _NetworkedDamageableCount: 0
 --- !u!1 &4609898187100312877
 GameObject:
   m_ObjectHideFlags: 0
@@ -3899,6 +3908,8 @@ MonoBehaviour:
   inactiveTextMaterial: {fileID: 2100000, guid: 9a5ac4e6a2501c546bd13e9446fefa2a,
     type: 2}
   emptyTextMaterial: {fileID: 2100000, guid: 9dec41b37e05ff849b1b5b29aee27d61, type: 2}
+  _NetworkedAmmoCounts: 
+  _currentIndex: -1
 --- !u!1 &6277993804557570670
 GameObject:
   m_ObjectHideFlags: 0
@@ -18601,6 +18612,7 @@ MonoBehaviour:
   keySelectA: 49
   keySelectB: 50
   toggleMeshesWhenSwitching: 1
+  isLocalPlayer: 1
 --- !u!114 &5509765615164493124
 MonoBehaviour:
   m_ObjectHideFlags: 0
