@@ -60,6 +60,14 @@ namespace VSX.Weapons
 
 
         /// <summary>
+        /// Missiles use Rigidbody physics + engine steering (via Missile.Update) for movement.
+        /// Disable the manual transform.Translate proxy simulation in Projectile.Render() to
+        /// prevent double movement that causes missiles to overshoot targets on the client screen.
+        /// </summary>
+        protected override bool UseManualProxyMovement => engines == null;
+
+
+        /// <summary>
         /// Get the missile's speed.
         /// </summary>
         public override float Speed

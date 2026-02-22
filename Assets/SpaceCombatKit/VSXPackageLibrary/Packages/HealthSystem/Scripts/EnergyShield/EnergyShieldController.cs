@@ -311,7 +311,6 @@ namespace VSX.Health
                 }
 
                 if (remainingDuration <= 0)
-                if (remainingDuration <= 0)
                 {
                     remainingDuration = 0;
                     SetShieldActive(false);

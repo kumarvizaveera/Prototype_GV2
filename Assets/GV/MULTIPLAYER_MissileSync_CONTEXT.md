@@ -206,6 +206,7 @@ if (healthInfo == null && newTarget.Rigidbody != null)
 4. ~~**Shield bar mismatch**~~ — **DONE** (shield Damageable now zeroed when inactive, HUD hides 0-health bars).
 5. **Detonation visuals on both screens**: Ensure the explosion FX prefab is also spawned on the client (may need a networked spawn or a `ClientRpc` for the visual-only explosion).
 6. **Verify missile fix in-game**: Run host+client and check console for `HOST MISSILE SETUP` logs. If missiles still don't lock, the logs will show which part of the chain fails (selectableTeams, TargetLocker state, etc.).
+7. ~~**Missile visual desync (client missiles overshoot target)**~~ — **DONE** (see 3.7 below).
 
 ### 3.5 Health Bars Not Depleting on Host Screen — **FIXED**
 - **Root Cause:** `HUDTargetInfo.UpdateHealthDisplays()` was only called via `VehicleHealth.OnHealthChanged` event subscription. On proxy ships, the event chain (`Damageable.onHealthChanged → VehicleHealth.onHealthChanged`) may not fire because the proxy's `VehicleHealth.Awake()` ran before the `Damageable` components were fully initialized during `DisableLocalInput()` setup.
@@ -216,6 +217,13 @@ if (healthInfo == null && newTarget.Rigidbody != null)
 - **Root Cause:** Shield starts disabled (`EnergyShieldController.startDisabled = true`), but the shield `Damageable` still had full health. `HUDTargetInfo` showed "Shield: 100%" even when shield was inactive because `GetHealthCapacityByType(shieldType) != 0`.
 - **Fix 1 (EnergyShieldController):** `SetShieldActive(false)` now also sets shield `Damageable` health to 0 and `isDamageable = false`. `SetShieldActive(true)` calls `Restore()` (fills to capacity) and `isDamageable = true`.
 - **Fix 2 (HUDTargetInfo):** `UpdateHealthDisplays()` now dynamically shows/hides bars: if `currentHealth == 0` for a health type, the bar handle is hidden. When shield activates (health restored to full), bar reappears. Hull bar always shows since it has health > 0 until destroyed.
+
+### 3.7 Missile Visual Desync — Client Missiles Overshoot Target — **FIXED**
+- **Symptom:** When the client fires a missile at the host ship, the missile visually flies past the host ship on the client screen and detonates at a distance. However, the host ship still takes damage (because on the host, the missile correctly tracked and hit).
+- **Root Cause:** Double movement on proxy missiles. `Projectile.Render()` runs manual `transform.Translate(Vector3.forward * speed * dt)` for proxy simulation (designed for simple bullets without physics). But Missiles already use Rigidbody physics + engine steering via `Missile.Update()` which runs on ALL instances (no authority check). The PID controller steers via `VehicleEngines3D.SetSteeringInputs()` and `SetMovementInputs()`. So the proxy missile got: (1) correct physics-based homing movement from `Missile.Update()` + Rigidbody, AND (2) extra straight-line translate from `Projectile.Render()`. The extra translate caused the missile to move ~2x too fast and overshoot.
+- **Fix 1 (Projectile.cs):** Added `protected virtual bool UseManualProxyMovement => true;` property. The proxy translate block in `Render()` now checks `UseManualProxyMovement` before applying manual movement. Simple bullets (default) still use the translate. Physics-based projectiles can override to skip it.
+- **Fix 2 (Missile.cs):** Added `protected override bool UseManualProxyMovement => engines == null;` — missiles with engines skip the manual translate entirely, relying on `Missile.Update()` + Rigidbody physics for correct homing movement on all instances.
+- **Also fixed:** Duplicate `if (remainingDuration <= 0)` line in `EnergyShieldController.Update()` (line 313-314).
 
 ---
 

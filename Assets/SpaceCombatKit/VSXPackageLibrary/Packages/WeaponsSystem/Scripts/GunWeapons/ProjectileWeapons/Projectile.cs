@@ -165,6 +165,12 @@ namespace VSX.Weapons
         [Networked] public Vector3 NetworkedSpawnPosition { get; set; }
         [Networked] public Quaternion NetworkedSpawnRotation { get; set; }
 
+        /// <summary>
+        /// Whether proxy simulation should use manual transform.Translate movement.
+        /// Override to return false for projectiles that use Rigidbody physics + engine steering (e.g. Missiles).
+        /// </summary>
+        protected virtual bool UseManualProxyMovement => true;
+
         public bool IsVisualDummy { get; private set; } = false;
 
         public void SetVisualDummy()
@@ -205,24 +211,29 @@ namespace VSX.Weapons
                      // PROXY SIMULATION: Simulate movement visually for clients!
                      // Server spawns the object, but Fusion doesn't run FixedUpdateNetwork for Proxies.
                      // Without a NetworkTransform, we must manually extrapolate movement.
-                     if (movementUpdateMode == MovementUpdateMode.Update || movementUpdateMode == MovementUpdateMode.FixedUpdate)
+                     //
+                     // NOTE: Skip manual translate for physics-based projectiles (e.g. Missiles) that
+                     // use Rigidbody + engine steering. Those projectiles already move via Missile.Update()
+                     // which runs on all instances. Manual translate would cause double movement, making
+                     // missiles overshoot their target on the client screen.
+                     if (UseManualProxyMovement && (movementUpdateMode == MovementUpdateMode.Update || movementUpdateMode == MovementUpdateMode.FixedUpdate))
                      {
                           if (detonated) return; // Prevent movement/collision if we already hit something locally
-                          
+
                           float moveDistance = renderSpeed * Time.deltaTime;
                           Vector3 previousPosition = transform.position;
                           Vector3 direction = Vector3.forward; // Local forward
-                          
+
                           // Convert local forward to world space direction for translation and raycast
                           Vector3 worldDirection = transform.TransformDirection(direction);
 
-                          // Check collision locally before moving. 
+                          // Check collision locally before moving.
                           // Add a lag-compensation look-ahead (e.g., 0.15s of travel) to ensure proxy hits before Host despawns it.
                           float lookAheadDistance = moveDistance + (renderSpeed * 0.15f);
                           if (Physics.Raycast(previousPosition, worldDirection, out RaycastHit physHit, lookAheadDistance, collisionScanner != null ? collisionScanner.HitMask : Physics.DefaultRaycastLayers, ignoreTriggerColliders ? QueryTriggerInteraction.Ignore : QueryTriggerInteraction.Collide))
                           {
                                // Filter hierarchy collision
-                               if (senderRootTransform != null && (physHit.transform == senderRootTransform || physHit.transform.IsChildOf(senderRootTransform))) 
+                               if (senderRootTransform != null && (physHit.transform == senderRootTransform || physHit.transform.IsChildOf(senderRootTransform)))
                                {
                                    // Ignore self hit, continue moving
                                    transform.Translate(direction * moveDistance);
@@ -232,13 +243,13 @@ namespace VSX.Weapons
                                    // Visual Hit detected!
                                    transform.position = physHit.point; // Snap to hit position
                                    OnCollision(physHit);               // Trigger local visual effects and damage events
-                                   
+
                                    // Hide visual renderers immediately so it doesn't pass through
                                    foreach (Renderer rend in renderers)
                                    {
                                        rend.enabled = false;
                                    }
-                                   
+
                                    detonated = true; // Mark detonated locally so it stops moving
                                }
                           }
