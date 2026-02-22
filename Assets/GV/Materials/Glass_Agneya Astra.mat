@@ -20,7 +20,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Glass_Pavana Astra
+  m_Name: Glass_Agneya Astra
   m_Shader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
   m_Parent: {fileID: 2100000, guid: 38a0183be9a562248b194b1ebf339128, type: 2}
   m_ModifiedSerializedProperties: 18
@@ -79,8 +79,8 @@ Material:
     - _Surface: 1
     - _ZWrite: 0
     m_Colors:
-    - _BaseColor: {r: 0.6924528, g: 0.9793438, b: 1, a: 1}
-    - _Color: {r: 0.6924528, g: 0.9793437, b: 1, a: 1}
-    - _EmissionColor: {r: 0.35283017, g: 1, b: 0.9083176, a: 1}
+    - _BaseColor: {r: 1, g: 0.7077843, b: 0.39811313, a: 1}
+    - _Color: {r: 1, g: 0.7077843, b: 0.3981131, a: 1}
+    - _EmissionColor: {r: 1, g: 0.60124993, b: 0.39811313, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
