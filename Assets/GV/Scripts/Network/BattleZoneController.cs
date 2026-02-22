@@ -37,7 +37,8 @@ namespace GV.Network
         [Networked] public float CurrentRadius { get; set; }
         [Networked] public NetworkBool IsShrinking { get; set; }
         [Networked] private TickTimer ShrinkTimer { get; set; }
-        
+        [Networked] public float NetworkedShrinkDuration { get; set; }
+
         private TickTimer _damageTimer;
 
         public override void Spawned()
@@ -45,6 +46,7 @@ namespace GV.Network
             if (Object.HasStateAuthority)
             {
                 CurrentRadius = initialRadius;
+                NetworkedShrinkDuration = shrinkDuration;
                 IsShrinking = false;
 
                 if (autoStart)
@@ -64,11 +66,32 @@ namespace GV.Network
                      CurrentRadius = initialRadius;
                 }
 
+                // Sync duration if changed at runtime in Inspector (host only)
+                if (!Mathf.Approximately(NetworkedShrinkDuration, shrinkDuration))
+                {
+                    float oldDuration = NetworkedShrinkDuration;
+                    NetworkedShrinkDuration = shrinkDuration;
+
+                    // If currently shrinking, recreate timer with adjusted remaining time
+                    if (IsShrinking && ShrinkTimer.IsRunning && oldDuration > 0f)
+                    {
+                        float? remainingOld = ShrinkTimer.RemainingTime(Runner);
+                        if (remainingOld.HasValue)
+                        {
+                            float elapsed = oldDuration - remainingOld.Value;
+                            float elapsedRatio = Mathf.Clamp01(elapsed / oldDuration);
+                            float newRemaining = Mathf.Max(0f, shrinkDuration * (1f - elapsedRatio));
+                            ShrinkTimer = TickTimer.CreateFromSeconds(Runner, newRemaining);
+                        }
+                    }
+                }
+
                 if (IsShrinking)
                 {
                     if (ShrinkTimer.IsRunning)
                     {
-                        float progress = 1f - (float)(ShrinkTimer.RemainingTime(Runner) / shrinkDuration);
+                        float duration = NetworkedShrinkDuration > 0f ? NetworkedShrinkDuration : 1f;
+                        float progress = 1f - (float)(ShrinkTimer.RemainingTime(Runner) / duration);
                         CurrentRadius = Mathf.Lerp(initialRadius, minRadius, progress);
                     }
                     else if (ShrinkTimer.Expired(Runner))
@@ -128,7 +151,8 @@ namespace GV.Network
                     }
                     else
                     {
-                        int totalSeconds = Mathf.CeilToInt(shrinkDuration);
+                        float displayDuration = NetworkedShrinkDuration > 0f ? NetworkedShrinkDuration : shrinkDuration;
+                        int totalSeconds = Mathf.CeilToInt(displayDuration);
                         int minutes = totalSeconds / 60;
                         int seconds = totalSeconds % 60;
                         timerText.text = $"{timerPrefix}{minutes:00}:{seconds:00}{timerSuffix}";
@@ -190,8 +214,9 @@ namespace GV.Network
         {
             if (Object.HasStateAuthority)
             {
+                NetworkedShrinkDuration = shrinkDuration;
                 IsShrinking = true;
-                ShrinkTimer = TickTimer.CreateFromSeconds(Runner, shrinkDuration);
+                ShrinkTimer = TickTimer.CreateFromSeconds(Runner, NetworkedShrinkDuration);
             }
         }
     }
