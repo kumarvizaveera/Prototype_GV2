@@ -68,6 +68,10 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
     [Header("Visual Safety")]
     public bool forceDisableCollidersOnVisualRoots = true;
 
+    [Header("Network Ownership")]
+    [Tooltip("Set to false on remote (non-local) ships so only the owning player can trigger swaps.")]
+    public bool isLocalPlayer = true;
+
     [SerializeField] private bool isA;
     private bool isSwapping;
 
@@ -137,6 +141,9 @@ public class AircraftMeshSwapWithFX : MonoBehaviour
 
     void Update()
     {
+        // Only the local player's ship should respond to keyboard input
+        if (!isLocalPlayer) return;
+
         if (lockInputWhileSwapping && isSwapping) return;
 
         // Checkpoint Restriction

@@ -53,6 +53,10 @@ namespace VSX.Engines3D
         [Tooltip("If true, this component will also toggle mesh roots when switching by key or API.")]
         public bool toggleMeshesWhenSwitching = true;
 
+        [Header("Network Ownership")]
+        [Tooltip("Set to false on remote (non-local) ships so only the owning player can trigger swaps.")]
+        public bool isLocalPlayer = true;
+
         private int activeIndex = -1;
 
         // Cached reflection fields (VehicleEngines3D has these as protected)
@@ -92,10 +96,10 @@ namespace VSX.Engines3D
 
         private void Update()
         {
-            if (allowKeySwitch)
+            if (allowKeySwitch && isLocalPlayer)
             {
                 // Checkpoint Restriction
-                // Both MeshSwap and ProfileSwapper might listen to keys. 
+                // Both MeshSwap and ProfileSwapper might listen to keys.
                 // We should block this one too if not allowed.
                 bool canSwap = (CheckpointNetwork.Instance != null) ? CheckpointNetwork.Instance.CanSwapAircraft : true;
 

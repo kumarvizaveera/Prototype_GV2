@@ -950,6 +950,21 @@ namespace GV.Network
                 Debug.Log($"[NetworkedSpaceshipBridge] Disabled Unity PlayerInput on: {upi.gameObject.name}");
             }
 
+            // 4b. Disable aircraft swap input on remote ships (prevents local keys from swapping remote meshes)
+            var meshSwaps = GetComponentsInChildren<AircraftMeshSwapWithFX>(true);
+            foreach (var ms in meshSwaps)
+            {
+                ms.isLocalPlayer = false;
+                Debug.Log($"[NetworkedSpaceshipBridge] Marked AircraftMeshSwapWithFX as non-local on: {ms.gameObject.name}");
+            }
+
+            var profileSwaps = GetComponentsInChildren<VehicleEngines3DProfileSwapper>(true);
+            foreach (var ps in profileSwaps)
+            {
+                ps.isLocalPlayer = false;
+                Debug.Log($"[NetworkedSpaceshipBridge] Marked VehicleEngines3DProfileSwapper as non-local on: {ps.gameObject.name}");
+            }
+
             // 5. DESTROY SetStartAtCheckpoint ONLY on PROXY ships (no state authority).
             //    On the HOST, we have state authority over remote ships and WANT the teleport to happen
             //    so the client's ship starts at the correct checkpoint position.
