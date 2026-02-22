@@ -191,8 +191,13 @@ namespace GV.Network
                 {
                     Debug.Log($"[HealthSync] CLIENT DESTROY [{i}] {damageable.name} " +
                               $"type={damageable.HealthType?.name ?? "NULL"} on {gameObject.name}");
-                    damageable.SetHealth(0);
-                    damageable.Destroy();
+                    // Use Damage() so onDamaged event fires → triggers VFX/audio on client
+                    float damageAmount = localHealth; // Remaining health to reach 0
+                    HealthEffectInfo info = new HealthEffectInfo();
+                    info.amount = damageAmount;
+                    info.worldPosition = damageable.transform.position;
+                    info.sourceRootTransform = transform;
+                    damageable.Damage(info);
                     continue;
                 }
 
@@ -209,10 +214,34 @@ namespace GV.Network
                 // Apply the networked health value
                 if (!Mathf.Approximately(networkedHealth, damageable.CurrentHealth))
                 {
-                    Debug.Log($"[HealthSync] CLIENT APPLY [{i}] {damageable.name} " +
-                              $"type={damageable.HealthType?.name ?? "NULL"}: " +
-                              $"local={damageable.CurrentHealth:F1} → networked={networkedHealth:F1} on {gameObject.name}");
-                    damageable.SetHealth(networkedHealth);
+                    float healthDelta = localHealth - networkedHealth;
+
+                    if (healthDelta > 0 && damageable.IsDamageable && !damageable.Destroyed)
+                    {
+                        // Health decreased → use Damage() so onDamaged fires VFX/audio
+                        Debug.Log($"[HealthSync] CLIENT DAMAGE [{i}] {damageable.name} " +
+                                  $"type={damageable.HealthType?.name ?? "NULL"}: " +
+                                  $"local={localHealth:F1} → networked={networkedHealth:F1} (delta={healthDelta:F1}) on {gameObject.name}");
+                        HealthEffectInfo info = new HealthEffectInfo();
+                        info.amount = healthDelta;
+                        info.worldPosition = damageable.transform.position;
+                        info.sourceRootTransform = transform;
+                        damageable.Damage(info);
+
+                        // Correct any floating-point drift so client stays exactly in sync
+                        if (!Mathf.Approximately(damageable.CurrentHealth, networkedHealth))
+                        {
+                            damageable.SetHealth(networkedHealth);
+                        }
+                    }
+                    else
+                    {
+                        // Health increased or other edge case → use SetHealth directly
+                        Debug.Log($"[HealthSync] CLIENT APPLY [{i}] {damageable.name} " +
+                                  $"type={damageable.HealthType?.name ?? "NULL"}: " +
+                                  $"local={damageable.CurrentHealth:F1} → networked={networkedHealth:F1} on {gameObject.name}");
+                        damageable.SetHealth(networkedHealth);
+                    }
                 }
             }
 
