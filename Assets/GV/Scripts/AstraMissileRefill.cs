@@ -1,5 +1,7 @@
 using UnityEngine;
 using TMPro;
+using VSX.Weapons;
+using Fusion;
 using GV.Scripts;
 
 namespace GV.Scripts
@@ -25,6 +27,12 @@ namespace GV.Scripts
 
         [Tooltip("Message to display before the countdown.")]
         public string refillMessage = "Astra Energy is recharging...";
+
+        [Tooltip("Text component to display when ammo capacity is full.")]
+        public TMP_Text capacityFullText;
+
+        [Tooltip("Message to display when ammo is at full capacity.")]
+        public string capacityFullMessage = "Character Astra energy is full";
 
         private MissileCycleControllerDynamic activeController;
         private float timer;
@@ -68,11 +76,43 @@ namespace GV.Scripts
             }
             
             if (feedbackText != null) feedbackText.gameObject.SetActive(false);
+            if (capacityFullText != null) capacityFullText.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Checks if the colliding object belongs to the local player's ship.
+        /// Only the local player's ship has InputAuthority on this machine.
+        /// </summary>
+        private bool IsLocalPlayer(Collider other)
+        {
+            // Search from root to find the NetworkObject (ships are complex hierarchies)
+            Transform root = other.transform.root;
+            NetworkObject netObj = root.GetComponent<NetworkObject>();
+            if (netObj == null && other.attachedRigidbody != null)
+            {
+                netObj = other.attachedRigidbody.GetComponent<NetworkObject>();
+            }
+            if (netObj == null)
+            {
+                netObj = other.GetComponentInParent<NetworkObject>();
+            }
+
+            // If no NetworkObject found, allow it (offline/local testing)
+            if (netObj == null) return true;
+
+            return netObj.HasInputAuthority;
         }
 
         private void OnTriggerEnter(Collider other)
         {
             Debug.Log($"[AstraRefill] OnTriggerEnter with {other.name}");
+
+            // Only react to the local player's ship — ignore remote ships
+            if (!IsLocalPlayer(other))
+            {
+                Debug.Log($"[AstraRefill] Ignoring non-local player {other.name}");
+                return;
+            }
 
             MissileCycleControllerDynamic controller = null;
 
@@ -88,7 +128,7 @@ namespace GV.Scripts
             {
                 controller = other.GetComponent<MissileCycleControllerDynamic>();
             }
-            
+
             // Method 3: Check Parent
             if (controller == null)
             {
@@ -105,7 +145,7 @@ namespace GV.Scripts
             {
                 Debug.Log($"[AstraRefill] Found Controller on {controller.gameObject.name}");
                 activeController = controller;
-                timer = refillInterval; 
+                timer = refillInterval;
                 UpdateFeedbackUI();
             }
             else
@@ -117,7 +157,10 @@ namespace GV.Scripts
         private void OnTriggerExit(Collider other)
         {
              Debug.Log($"[AstraRefill] OnTriggerExit with {other.name}");
-            
+
+            // Only react to the local player's ship
+            if (!IsLocalPlayer(other)) return;
+
             MissileCycleControllerDynamic controller = null;
 
             if (other.attachedRigidbody != null)
@@ -135,6 +178,7 @@ namespace GV.Scripts
                 Debug.Log($"[AstraRefill] Exited active controller zone.");
                 activeController = null;
                 if (feedbackText != null) feedbackText.gameObject.SetActive(false);
+                if (capacityFullText != null) capacityFullText.gameObject.SetActive(false);
             }
         }
 
@@ -142,15 +186,62 @@ namespace GV.Scripts
         {
             if (activeController != null)
             {
-                timer -= Time.deltaTime;
-                UpdateFeedbackUI();
-
-                if (timer <= 0f)
+                if (IsAmmoFull())
                 {
-                    PerformRefill();
-                    timer = refillInterval;
+                    // Capacity is full — hide refill text, show full text
+                    if (feedbackText != null) feedbackText.gameObject.SetActive(false);
+                    if (capacityFullText != null)
+                    {
+                        capacityFullText.gameObject.SetActive(true);
+                        capacityFullText.text = capacityFullMessage;
+                    }
+                }
+                else
+                {
+                    // Still refilling — show refill text, hide full text
+                    if (capacityFullText != null) capacityFullText.gameObject.SetActive(false);
+
+                    timer -= Time.deltaTime;
+                    UpdateFeedbackUI();
+
+                    if (timer <= 0f)
+                    {
+                        PerformRefill();
+                        timer = refillInterval;
+                    }
                 }
             }
+        }
+
+        /// <summary>
+        /// Checks if the ammo resource container for the target missile is at full capacity.
+        /// </summary>
+        private bool IsAmmoFull()
+        {
+            if (activeController == null) return false;
+
+            foreach (var entry in activeController.missileMounts)
+            {
+                if (entry.label.Equals(missileLabel, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    if (entry.mount != null && entry.mount.MountedModule() != null)
+                    {
+                        Weapon weapon = entry.mount.MountedModule().GetComponent<Weapon>();
+                        if (weapon != null)
+                        {
+                            foreach (var handler in weapon.ResourceHandlers)
+                            {
+                                if (handler.unitResourceChange < 0 && !handler.perSecond && handler.resourceContainer != null)
+                                {
+                                    return handler.resourceContainer.IsFull;
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+            return false;
         }
 
         private void UpdateFeedbackUI()
