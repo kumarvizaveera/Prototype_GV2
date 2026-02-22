@@ -202,8 +202,14 @@ if (healthInfo == null && newTarget.Rigidbody != null)
 
 1. ~~**Health/Shield bars on Host for Client ship**~~ — **DONE** (broadened IHealthInfo search in HUDTargetInfo).
 2. ~~**Missile locking on Host screen**~~ — **DONE** (added SetupHostMissileTargeting with diagnostic logging).
-3. **Detonation visuals on both screens**: Ensure the explosion FX prefab is also spawned on the client (may need a networked spawn or a `ClientRpc` for the visual-only explosion).
-4. **Verify missile fix in-game**: Run host+client and check console for `HOST MISSILE SETUP` logs. If missiles still don't lock, the logs will show which part of the chain fails (selectableTeams, TargetLocker state, etc.).
+3. ~~**Health bars not depleting on Host when proxy takes damage**~~ — **DONE** (two fixes below).
+4. **Detonation visuals on both screens**: Ensure the explosion FX prefab is also spawned on the client (may need a networked spawn or a `ClientRpc` for the visual-only explosion).
+5. **Verify missile fix in-game**: Run host+client and check console for `HOST MISSILE SETUP` logs. If missiles still don't lock, the logs will show which part of the chain fails (selectableTeams, TargetLocker state, etc.).
+
+### 3.5 Health Bars Not Depleting on Host Screen — **FIXED**
+- **Root Cause:** `HUDTargetInfo.UpdateHealthDisplays()` was only called via `VehicleHealth.OnHealthChanged` event subscription. On proxy ships, the event chain (`Damageable.onHealthChanged → VehicleHealth.onHealthChanged`) may not fire because the proxy's `VehicleHealth.Awake()` ran before the `Damageable` components were fully initialized during `DisableLocalInput()` setup.
+- **Fix 1 (HUDTargetInfo):** Added health polling in `Update()`. Now calls `UpdateHealthDisplays()` every frame when a target with `IHealthInfo` is selected. This guarantees the HUD stays in sync regardless of event wiring.
+- **Fix 2 (NetworkedHealthSync):** Rewrote to sync ALL Damageables (shield, hull, etc.) using a `NetworkArray<float>` of size 8. Previously only synced `Damageables[0]`. Now iterates all damageables and syncs each health value individually. Clients receive all health updates.
 
 ---
 

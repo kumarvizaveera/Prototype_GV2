@@ -7,19 +7,40 @@ namespace GV.Network
 {
     /// <summary>
     /// Synchronizes the VehicleHealth state across the network.
+    /// Syncs ALL Damageables (shield, hull, etc.) not just the first one.
     /// Assumes VehicleHealth is authoritative on the State Authority (Host).
+    ///
+    /// Uses a fixed-size Networked array to sync up to MAX_DAMAGEABLES health values.
+    /// On the host: reads local Damageable health values → writes to networked array.
+    /// On clients: reads networked array → writes to local Damageables via SetHealth().
     /// </summary>
     public class NetworkedHealthSync : NetworkBehaviour
     {
+        private const int MAX_DAMAGEABLES = 8; // Supports up to 8 health components per ship
+
         [SerializeField] private VehicleHealth vehicleHealth;
 
+        // Networked array for all damageable health values.
+        // Fusion [Networked] arrays must use fixed-size Capacity.
+        [Networked, Capacity(8)]
+        public NetworkArray<float> NetworkedHealthValues { get; }
+
         [Networked]
-        public float NetworkedCurrentHealth { get; set; }
+        public int NetworkedDamageableCount { get; set; }
+
+        // Keep old property for backward compatibility (reads index 0)
+        public float NetworkedCurrentHealth
+        {
+            get => NetworkedHealthValues.Length > 0 ? NetworkedHealthValues[0] : 0f;
+        }
 
         private void Awake()
         {
             if (vehicleHealth == null)
                 vehicleHealth = GetComponent<VehicleHealth>();
+
+            if (vehicleHealth == null)
+                vehicleHealth = GetComponentInChildren<VehicleHealth>(true);
         }
 
         private ChangeDetector _changes;
@@ -28,13 +49,28 @@ namespace GV.Network
         {
             _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
 
+            if (vehicleHealth == null)
+            {
+                Debug.LogWarning($"[NetworkedHealthSync] No VehicleHealth found on {gameObject.name}!");
+                return;
+            }
+
+            int count = Mathf.Min(vehicleHealth.Damageables.Count, MAX_DAMAGEABLES);
+
             if (Object.HasStateAuthority)
             {
-                // Initialize networked var from local state
-                if (vehicleHealth != null && vehicleHealth.Damageables.Count > 0)
+                // Initialize networked vars from local state
+                NetworkedDamageableCount = count;
+                for (int i = 0; i < count; i++)
                 {
-                    // Assuming the first damageable is the main health/hull
-                   NetworkedCurrentHealth = vehicleHealth.Damageables[0].CurrentHealth;
+                    NetworkedHealthValues.Set(i, vehicleHealth.Damageables[i].CurrentHealth);
+                }
+
+                Debug.Log($"[NetworkedHealthSync] HOST: Initialized {count} damageables on {gameObject.name}");
+                for (int i = 0; i < count; i++)
+                {
+                    var d = vehicleHealth.Damageables[i];
+                    Debug.Log($"  [{i}] {d.name} type={d.HealthType?.name ?? "NULL"} health={d.CurrentHealth}/{d.HealthCapacity}");
                 }
             }
             else
@@ -48,25 +84,32 @@ namespace GV.Network
         {
             foreach (var change in _changes.DetectChanges(this))
             {
-                if (change == nameof(NetworkedCurrentHealth))
-                {
-                    ApplyHealthToLocal();
-                }
+                // Any networked property change triggers a full health sync
+                ApplyHealthToLocal();
+                break; // Only need to apply once regardless of how many properties changed
             }
         }
 
         public override void FixedUpdateNetwork()
         {
-            if (Object.HasStateAuthority)
+            if (!Object.HasStateAuthority) return;
+            if (vehicleHealth == null) return;
+
+            int count = Mathf.Min(vehicleHealth.Damageables.Count, MAX_DAMAGEABLES);
+
+            // Update damageable count if it changed (modules mounted/unmounted)
+            if (count != NetworkedDamageableCount)
             {
-                if (vehicleHealth != null && vehicleHealth.Damageables.Count > 0)
+                NetworkedDamageableCount = count;
+            }
+
+            // Check each damageable for health changes and sync
+            for (int i = 0; i < count; i++)
+            {
+                float currentLocalHealth = vehicleHealth.Damageables[i].CurrentHealth;
+                if (!Mathf.Approximately(currentLocalHealth, NetworkedHealthValues[i]))
                 {
-                    // Check if local health has changed and update networked var
-                    float currentLocalHealth = vehicleHealth.Damageables[0].CurrentHealth;
-                    if (!Mathf.Approximately(currentLocalHealth, NetworkedCurrentHealth))
-                    {
-                        NetworkedCurrentHealth = currentLocalHealth;
-                    }
+                    NetworkedHealthValues.Set(i, currentLocalHealth);
                 }
             }
         }
@@ -74,12 +117,20 @@ namespace GV.Network
         private void ApplyHealthToLocal()
         {
             // If we are NOT the state authority, we receive the health update
-            if (!Object.HasStateAuthority)
+            if (Object.HasStateAuthority) return;
+            if (vehicleHealth == null) return;
+
+            int count = Mathf.Min(NetworkedDamageableCount, vehicleHealth.Damageables.Count);
+            count = Mathf.Min(count, MAX_DAMAGEABLES);
+
+            for (int i = 0; i < count; i++)
             {
-                if (vehicleHealth != null && vehicleHealth.Damageables.Count > 0)
+                float networkedHealth = NetworkedHealthValues[i];
+                float localHealth = vehicleHealth.Damageables[i].CurrentHealth;
+
+                if (!Mathf.Approximately(networkedHealth, localHealth))
                 {
-                     // We need to set the local health to match the networked value.
-                     vehicleHealth.Damageables[0].SetHealth(NetworkedCurrentHealth);
+                    vehicleHealth.Damageables[i].SetHealth(networkedHealth);
                 }
             }
         }

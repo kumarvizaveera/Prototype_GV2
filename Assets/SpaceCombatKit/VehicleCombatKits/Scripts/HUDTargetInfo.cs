@@ -305,6 +305,15 @@ namespace VSX.VehicleCombatKits
             {
                 UpdateDistanceText();
                 UpdateSpeedText();
+
+                // Poll health every frame as a safety net for networked proxy ships.
+                // On proxies, the VehicleHealth.onHealthChanged event chain may not fire
+                // (e.g., if Damageable→VehicleHealth wiring didn't complete during proxy setup).
+                // This ensures health bars always reflect the current state.
+                if (healthInfo != null)
+                {
+                    UpdateHealthDisplays();
+                }
             }
         }
     }
