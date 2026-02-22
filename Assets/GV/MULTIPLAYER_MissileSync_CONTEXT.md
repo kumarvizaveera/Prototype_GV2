@@ -241,6 +241,16 @@ if (healthInfo == null && newTarget.Rigidbody != null)
 - **Root Cause:** The client creates a local "visual dummy" missile (`SetVisualDummy()`) for instant visual feedback in `ProjectileWeaponUnit.TriggerOnce()`. This local object has `Object == null` (not a NetworkObject), so `Missile.Spawned()` never runs — which is where the target is resolved from `NetworkedTargetId`. The visual dummy missile has no target and no lock, so it just flies forward in a straight line.
 - **Fix (ProjectileWeaponUnit.cs):** After `SetVisualDummy()`, check if the projectile is a `Missile`. If so, resolve the target from `TargetIdForNextSpawn` via `Runner.TryFindObject()` and call `missile.SetTarget(trackable)` to give it the target lock. Added `using VSX.RadarSystem;` import.
 
+### 3.10 Health Sync — Destroy/Restore State + Shield Sync + restoreOnEnable — **FIXED**
+- **Symptom:** Health values sync correctly between host and client (HOST WRITE → CLIENT APPLY match), but visual/state issues persist: (1) Shield activation/deactivation may not sync reliably. (2) Damageable destruction effects don't play on the client. (3) Health can reset to full on the client unexpectedly.
+- **Root Cause 1 (NetworkShieldHandler):** Used `ChangeDetector` to detect `IsShieldActive` changes — same unreliable pattern we already fixed in `NetworkedHealthSync`. If the client misses the toggle, `EnergyShieldController.SetShieldActive()` never fires, so the shield mesh/collider stays wrong even though health values sync.
+- **Root Cause 2 (Destroy/Restore):** `NetworkedHealthSync.ApplyHealthToLocal()` only called `SetHealth()` — it never triggered `Damageable.Destroy()` (when health → 0) or `Damageable.Restore()` (when health → positive). This meant the client's `destroyed` flag, gameObject active state, and destruction events were out of sync with the host.
+- **Root Cause 3 (restoreOnEnable):** `Damageable.restoreOnEnable = true` (default) causes `OnEnable()` → `Restore(true)` → health = healthCapacity. On clients, if anything toggles a damageable's gameObject (e.g., destruction → restore cycle), this resets health to full, fighting the networked health values.
+- **Fix 1 (NetworkShieldHandler.cs):** Replaced `ChangeDetector` with direct polling in `Render()`. Tracks `_localShieldActive` and compares against `IsShieldActive` every frame. When they differ, calls `UpdateShieldState()`. More reliable.
+- **Fix 2 (NetworkedHealthSync.cs - ApplyHealthToLocal):** Added destroy/restore state transitions: (a) If networked health = 0 and local damageable is alive and damageable → call `Destroy()`. (b) If networked health > 0 and local damageable is destroyed → call `Restore(false)` then `SetHealth()`. Shield damageables (health=0 but not damageable when inactive) are excluded from auto-destroy.
+- **Fix 3 (NetworkedHealthSync.cs - Spawned):** On clients, disables `restoreOnEnable` on all damageables via reflection. This prevents local health resets from overwriting networked values.
+- **Debug Logging:** Added `destroyed` state to all health sync log lines. `NetworkShieldHandler` now logs all state transitions.
+
 ---
 
 ## 7. Fusion 2 Host Mode Gotchas

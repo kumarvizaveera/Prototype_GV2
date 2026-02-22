@@ -13,6 +13,10 @@ namespace GV.Network
     /// Uses a fixed-size Networked array to sync up to MAX_DAMAGEABLES health values.
     /// On the host: reads local Damageable health values → writes to networked array.
     /// On clients: reads networked array → writes to local Damageables via SetHealth().
+    ///
+    /// Also handles destroy/restore state transitions:
+    /// - When networked health → 0 and local isn't destroyed → call Destroy()
+    /// - When networked health > 0 and local is destroyed → call Restore()
     /// </summary>
     public class NetworkedHealthSync : NetworkBehaviour
     {
@@ -66,13 +70,41 @@ namespace GV.Network
                 for (int i = 0; i < count; i++)
                 {
                     var d = vehicleHealth.Damageables[i];
-                    Debug.Log($"  [{i}] {d.name} type={d.HealthType?.name ?? "NULL"} health={d.CurrentHealth}/{d.HealthCapacity}");
+                    Debug.Log($"  [{i}] {d.name} type={d.HealthType?.name ?? "NULL"} health={d.CurrentHealth}/{d.HealthCapacity} destroyed={d.Destroyed}");
                 }
             }
             else
             {
+                // On clients, disable restoreOnEnable on all damageables to prevent
+                // local health resets from fighting the networked health values.
+                // Without this, toggling a damageable's gameObject triggers OnEnable →
+                // Restore(true) → health = healthCapacity, overwriting the synced value.
+                for (int i = 0; i < count; i++)
+                {
+                    DisableRestoreOnEnable(vehicleHealth.Damageables[i]);
+                }
+
                 // Initial sync for clients
                 ApplyHealthToLocal();
+
+                Debug.Log($"[NetworkedHealthSync] CLIENT: Initialized {count} damageables on {gameObject.name}");
+            }
+        }
+
+        /// <summary>
+        /// Disable restoreOnEnable on a Damageable to prevent it from resetting health
+        /// when its gameObject is toggled. This is only done on clients where health
+        /// is authoritative from the network, not from local state.
+        /// </summary>
+        private void DisableRestoreOnEnable(Damageable damageable)
+        {
+            // restoreOnEnable is a serialized field, we use reflection to disable it
+            // since there's no public setter. This prevents local health resets on clients.
+            var field = typeof(Damageable).GetField("restoreOnEnable",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (field != null)
+            {
+                field.SetValue(damageable, false);
             }
         }
 
@@ -104,7 +136,6 @@ namespace GV.Network
             }
 
             // Check each damageable for health changes and sync
-            bool anyChanged = false;
             for (int i = 0; i < count; i++)
             {
                 float currentLocalHealth = vehicleHealth.Damageables[i].CurrentHealth;
@@ -113,9 +144,9 @@ namespace GV.Network
                     Debug.Log($"[HealthSync] HOST WRITE [{i}] {vehicleHealth.Damageables[i].name} " +
                               $"type={vehicleHealth.Damageables[i].HealthType?.name ?? "NULL"}: " +
                               $"{NetworkedHealthValues[i]:F1} → {currentLocalHealth:F1} " +
-                              $"(capacity={vehicleHealth.Damageables[i].HealthCapacity:F1}) on {gameObject.name}");
+                              $"(capacity={vehicleHealth.Damageables[i].HealthCapacity:F1}) " +
+                              $"destroyed={vehicleHealth.Damageables[i].Destroyed} on {gameObject.name}");
                     NetworkedHealthValues.Set(i, currentLocalHealth);
-                    anyChanged = true;
                 }
             }
 
@@ -127,7 +158,7 @@ namespace GV.Network
                 for (int i = 0; i < count; i++)
                 {
                     var d = vehicleHealth.Damageables[i];
-                    healthDump += $"[{i}]{d.HealthType?.name ?? "?"}: {d.CurrentHealth:F0}/{d.HealthCapacity:F0}(net={NetworkedHealthValues[i]:F0}) ";
+                    healthDump += $"[{i}]{d.HealthType?.name ?? "?"}: {d.CurrentHealth:F0}/{d.HealthCapacity:F0}(net={NetworkedHealthValues[i]:F0}) dest={d.Destroyed} ";
                 }
                 Debug.Log($"[HealthSync] HOST STATE on {gameObject.name}: count={count} | {healthDump}");
             }
@@ -142,19 +173,46 @@ namespace GV.Network
             int count = Mathf.Min(NetworkedDamageableCount, vehicleHealth.Damageables.Count);
             count = Mathf.Min(count, MAX_DAMAGEABLES);
 
-            bool anyChanged = false;
             for (int i = 0; i < count; i++)
             {
                 float networkedHealth = NetworkedHealthValues[i];
-                float localHealth = vehicleHealth.Damageables[i].CurrentHealth;
+                Damageable damageable = vehicleHealth.Damageables[i];
+                float localHealth = damageable.CurrentHealth;
 
-                if (!Mathf.Approximately(networkedHealth, localHealth))
+                // Handle destroy/restore state transitions.
+                // The host controls the authoritative state; we mirror it on the client.
+
+                // Case 1: Networked health is 0 but local damageable is not destroyed
+                // → The host destroyed this damageable, we need to mirror that.
+                // Note: Shield damageables have health=0 when inactive (not destroyed),
+                // so only call Destroy() if the damageable is actually damageable (not shield-inactive).
+                if (Mathf.Approximately(networkedHealth, 0) && !damageable.Destroyed
+                    && localHealth > 0 && damageable.IsDamageable)
                 {
-                    Debug.Log($"[HealthSync] CLIENT APPLY [{i}] {vehicleHealth.Damageables[i].name} " +
-                              $"type={vehicleHealth.Damageables[i].HealthType?.name ?? "NULL"}: " +
-                              $"local={localHealth:F1} → networked={networkedHealth:F1} on {gameObject.name}");
-                    vehicleHealth.Damageables[i].SetHealth(networkedHealth);
-                    anyChanged = true;
+                    Debug.Log($"[HealthSync] CLIENT DESTROY [{i}] {damageable.name} " +
+                              $"type={damageable.HealthType?.name ?? "NULL"} on {gameObject.name}");
+                    damageable.SetHealth(0);
+                    damageable.Destroy();
+                    continue;
+                }
+
+                // Case 2: Networked health is > 0 but local damageable is destroyed
+                // → The host restored this damageable, we need to mirror that.
+                if (networkedHealth > 0 && damageable.Destroyed)
+                {
+                    Debug.Log($"[HealthSync] CLIENT RESTORE [{i}] {damageable.name} " +
+                              $"type={damageable.HealthType?.name ?? "NULL"}: " +
+                              $"networked={networkedHealth:F1} on {gameObject.name}");
+                    damageable.Restore(false); // Don't reset to full — we'll set exact value below
+                }
+
+                // Apply the networked health value
+                if (!Mathf.Approximately(networkedHealth, damageable.CurrentHealth))
+                {
+                    Debug.Log($"[HealthSync] CLIENT APPLY [{i}] {damageable.name} " +
+                              $"type={damageable.HealthType?.name ?? "NULL"}: " +
+                              $"local={damageable.CurrentHealth:F1} → networked={networkedHealth:F1} on {gameObject.name}");
+                    damageable.SetHealth(networkedHealth);
                 }
             }
 
@@ -166,7 +224,7 @@ namespace GV.Network
                 for (int i = 0; i < count; i++)
                 {
                     var d = vehicleHealth.Damageables[i];
-                    healthDump += $"[{i}]{d.HealthType?.name ?? "?"}: local={d.CurrentHealth:F0} net={NetworkedHealthValues[i]:F0}/{d.HealthCapacity:F0} ";
+                    healthDump += $"[{i}]{d.HealthType?.name ?? "?"}: local={d.CurrentHealth:F0} net={NetworkedHealthValues[i]:F0}/{d.HealthCapacity:F0} dest={d.Destroyed} ";
                 }
                 Debug.Log($"[HealthSync] CLIENT STATE on {gameObject.name}: netCount={NetworkedDamageableCount} localCount={vehicleHealth.Damageables.Count} | {healthDump}");
             }

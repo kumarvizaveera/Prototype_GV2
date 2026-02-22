@@ -12,8 +12,9 @@ namespace GV.Network
 
         [Networked] public NetworkBool IsShieldActive { get; set; }
 
-        private ChangeDetector _changes;
-        
+        // Track local state to detect changes (replaces unreliable ChangeDetector)
+        private bool _localShieldActive;
+
         // Server-side timer to disable shield
         [Networked] private TickTimer ShieldTimer { get; set; }
 
@@ -30,8 +31,6 @@ namespace GV.Network
 
         public override void Spawned()
         {
-            _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
-            
             if (shieldController == null)
                 shieldController = GetComponentInChildren<EnergyShieldController>(true);
 
@@ -41,26 +40,30 @@ namespace GV.Network
                 SetUI(PowerSphereMasterController.Instance.shieldTimerText, PowerSphereMasterController.Instance.shieldTimerFormat);
             }
 
+            _localShieldActive = IsShieldActive;
             UpdateShieldState();
+
+            Debug.Log($"[NetworkShieldHandler] Spawned on {gameObject.name} | isAuth={Object.HasStateAuthority} | shieldActive={IsShieldActive}");
         }
 
         public override void Render()
         {
-            foreach (var change in _changes.DetectChanges(this))
+            // Direct polling — always check networked state vs local cache.
+            // ChangeDetector can miss rapid changes; this is more reliable.
+            if (IsShieldActive != _localShieldActive)
             {
-                if (change == nameof(IsShieldActive))
-                {
-                    UpdateShieldState();
-                }
+                Debug.Log($"[NetworkShieldHandler] Shield state changed on {gameObject.name}: {_localShieldActive} → {IsShieldActive} | isAuth={Object.HasStateAuthority}");
+                _localShieldActive = IsShieldActive;
+                UpdateShieldState();
             }
-            
+
             // UI Update (local only)
             if (IsShieldActive && timerText != null)
             {
                  float remaining = 0f;
                  if (ShieldTimer.IsRunning)
                      remaining = (float)ShieldTimer.RemainingTime(Runner);
-                 
+
                  if (remaining > 0)
                  {
                      timerText.text = string.Format(timerFormat, remaining);
@@ -79,6 +82,7 @@ namespace GV.Network
                 // Check timer
                 if (IsShieldActive && ShieldTimer.Expired(Runner))
                 {
+                    Debug.Log($"[NetworkShieldHandler] Shield timer expired on {gameObject.name}");
                     IsShieldActive = false;
                 }
             }
@@ -88,18 +92,14 @@ namespace GV.Network
         {
             if (shieldController != null)
             {
-                // We use SetShieldActive directly.
-                // If true, we might want to ensure the visual is fully on.
                 shieldController.SetShieldActive(IsShieldActive);
-                
-                // If we want the local controller to handle the fade in/out or hit effects, 
-                // SetShieldActive usually toggles the mesh renderer. 
+                Debug.Log($"[NetworkShieldHandler] UpdateShieldState: {IsShieldActive} on {gameObject.name} | meshEnabled={shieldController.IsShieldActive}");
             }
 
             if (timerText != null)
             {
                 if (IsShieldActive) timerText.gameObject.SetActive(true);
-                else timerText.gameObject.SetActive(false); 
+                else timerText.gameObject.SetActive(false);
             }
         }
 
@@ -108,6 +108,7 @@ namespace GV.Network
         {
             if (Object.HasStateAuthority)
             {
+                Debug.Log($"[NetworkShieldHandler] ActivateShield({duration}s) on {gameObject.name}");
                 IsShieldActive = true;
                 ShieldTimer = TickTimer.CreateFromSeconds(Runner, duration);
             }
