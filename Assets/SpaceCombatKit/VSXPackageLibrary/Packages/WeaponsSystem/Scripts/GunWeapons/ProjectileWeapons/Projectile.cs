@@ -157,6 +157,7 @@ namespace VSX.Weapons
         [Networked] public float NetworkedDamageMultiplier { get; set; }
         [Networked] public float NetworkedHealingMultiplier { get; set; }
         [Networked] public NetworkId OwnerId { get; set; }
+        [Networked] public NetworkId NetworkedTargetId { get; set; }
 
         // Spawn position/rotation — set in onBeforeSpawned so proxies get the correct
         // initial position in the first snapshot. Without NetworkTransform, Fusion does NOT

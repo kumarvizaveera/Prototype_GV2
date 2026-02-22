@@ -65,6 +65,8 @@ namespace VSX.Weapons
             set { maxInaccuracyAngle = value; }
         }
 
+        public NetworkId TargetIdForNextSpawn { get; set; }
+
         [Range(0, 1)]
         [SerializeField]
         protected float accuracy = 1;
@@ -259,6 +261,8 @@ namespace VSX.Weapons
                                      var parentNetObj = rootTransform.GetComponentInParent<NetworkObject>();
                                      if (parentNetObj != null) proj.OwnerId = parentNetObj.Id;
                                  }
+
+                                 proj.NetworkedTargetId = TargetIdForNextSpawn;
                              }
                          });
                      projectileController = networkObject.GetComponent<Projectile>();

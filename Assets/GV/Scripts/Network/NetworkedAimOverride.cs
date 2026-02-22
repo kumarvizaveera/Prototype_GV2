@@ -1,5 +1,6 @@
 using UnityEngine;
 using VSX.Weapons;
+using VSX.RadarSystem;
 
 namespace GV.Network
 {
@@ -21,6 +22,9 @@ namespace GV.Network
         private bool _hasAimPosition = false;
         private WeaponsController _weaponsController;
 
+        private Trackable _targetTrackable;
+        private bool _hasTargetTrackable = false;
+
         /// <summary>
         /// Called by NetworkedSpaceshipBridge when it receives RPC aim data from the client.
         /// </summary>
@@ -28,6 +32,15 @@ namespace GV.Network
         {
             _aimPosition = worldAimPos;
             _hasAimPosition = true;
+        }
+
+        /// <summary>
+        /// Called by NetworkedSpaceshipBridge to sync the locked target from the client.
+        /// </summary>
+        public void SetTargetLock(Trackable target)
+        {
+            _targetTrackable = target;
+            _hasTargetTrackable = true;
         }
 
         private void Start()
@@ -56,8 +69,6 @@ namespace GV.Network
         /// </summary>
         private void LateUpdate()
         {
-            if (!_hasAimPosition) return;
-
             // Lazy-find WeaponsController if not found yet (weapons may register after Start)
             if (_weaponsController == null)
             {
@@ -67,16 +78,41 @@ namespace GV.Network
                 if (_weaponsController == null) return;
             }
 
-            // Override gun weapon aim
-            foreach (var gun in _weaponsController.GunWeapons)
+            if (_hasAimPosition)
             {
-                gun.Aim(_aimPosition);
+                // Override gun weapon aim
+                foreach (var gun in _weaponsController.GunWeapons)
+                {
+                    gun.Aim(_aimPosition);
+                }
+
+                // Override missile weapon aim
+                foreach (var missile in _weaponsController.MissileWeapons)
+                {
+                    missile.Aim(_aimPosition);
+                }
             }
 
-            // Override missile weapon aim
-            foreach (var missile in _weaponsController.MissileWeapons)
+            if (_hasTargetTrackable)
             {
-                missile.Aim(_aimPosition);
+                // Apply the target to all MissileWeapons
+                foreach (var missileWeapon in _weaponsController.MissileWeapons)
+                {
+                    if (missileWeapon is MissileWeapon mWeapon)
+                    {
+                        if (mWeapon.TargetLocker != null)
+                        {
+                            if (_targetTrackable != null)
+                            {
+                                mWeapon.TargetLocker.SetTarget(_targetTrackable, LockState.Locked);
+                            }
+                            else
+                            {
+                                mWeapon.TargetLocker.ClearTarget();
+                            }
+                        }
+                    }
+                }
             }
         }
     }

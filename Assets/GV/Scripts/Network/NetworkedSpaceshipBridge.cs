@@ -124,6 +124,88 @@ namespace GV.Network
             }
         }
 
+        // --- TARGET LOCK SYNC (client → host) ---
+        private NetworkId _rpcTargetId;
+        private bool _hasRpcTargetId = false;
+
+        /// <summary>
+        /// RPC: Client sends its currently locked target's NetworkId to the host.
+        /// </summary>
+        [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+        public void RPC_SendTargetLock(NetworkId targetId)
+        {
+            _rpcTargetId = targetId;
+            _hasRpcTargetId = true;
+
+            VSX.RadarSystem.Trackable targetTrackable = null;
+            if (targetId.IsValid && Runner != null)
+            {
+                var targetObj = Runner.FindObject(targetId);
+                if (targetObj != null)
+                {
+                    targetTrackable = targetObj.GetComponentInChildren<VSX.RadarSystem.Trackable>(true);
+                    if (targetTrackable == null)
+                    {
+                        targetTrackable = targetObj.GetComponentInParent<VSX.RadarSystem.Trackable>();
+                    }
+                }
+            }
+
+            // Feed target id to the override component
+            if (_aimOverride != null)
+            {
+                _aimOverride.SetTargetLock(targetTrackable);
+            }
+        }
+
+        // --- TEAM SYNC (client → host) ---
+        // Proxy ships on the host do not have a GameAgent in their Vehicle.Occupants,
+        // so their Trackable.Team remains null. This RPC syncs the team name from the
+        // client's local ship to the host, allowing the host to assign the matching Team.
+        private string _rpcTeamName;
+        private bool _hasRpcTeamName = false;
+
+        [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+        public void RPC_SendTeam(string teamName)
+        {
+            _rpcTeamName = teamName;
+            _hasRpcTeamName = true;
+
+            if (!string.IsNullOrEmpty(teamName))
+            {
+                var trackables = GetComponentsInChildren<VSX.RadarSystem.Trackable>(true);
+                
+                // Find the Team scriptable object by name from the scene manager or resources
+                // Since Team is a ScriptableObject, we can look for it in the TrackableSceneManager's existing targets
+                // to find a matching Team reference.
+                VSX.Teams.Team foundTeam = null;
+                if (VSX.RadarSystem.TrackableSceneManager.Instance != null)
+                {
+                    foreach (var t in VSX.RadarSystem.TrackableSceneManager.Instance.Trackables)
+                    {
+                        if (t.Team != null && t.Team.name == teamName)
+                        {
+                            foundTeam = t.Team;
+                            break;
+                        }
+                    }
+                }
+
+                if (foundTeam != null)
+                {
+                    foreach (var t in trackables)
+                    {
+                        t.Team = foundTeam;
+                    }
+                    Debug.Log($"[NetworkedSpaceshipBridge] HOST: Applied synced Team '{teamName}' to proxy ship {gameObject.name}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[NetworkedSpaceshipBridge] HOST: Could not find Team '{teamName}' to apply to proxy ship {gameObject.name}");
+                }
+            }
+        }
+
         // Local state for visual feedback (not networked for now)
         private bool _isBoosting;
         public bool IsBoosting => _isBoosting;
@@ -396,6 +478,19 @@ namespace GV.Network
                         // (FixedUpdateNetwork does not run on the client in Host mode, and `ApplyWeaponInput` sets `TriggerablesManager`)
                         ApplyWeaponInput(clientData);
 
+                        // --- SYNC TEAM ---
+                        // The proxy ship on the host lacks a Team because its GameAgent doesn't run locally.
+                        // We need the client to send its Team name over to the host once the GameAgent sets it up.
+                        if (!_hasRpcTeamName)
+                        {
+                            var myTrackable = GetComponentInChildren<VSX.RadarSystem.Trackable>(true);
+                            if (myTrackable != null && myTrackable.Team != null && !string.IsNullOrEmpty(myTrackable.Team.name))
+                            {
+                                RPC_SendTeam(myTrackable.Team.name);
+                                _hasRpcTeamName = true;
+                            }
+                        }
+
                         // --- NEW: Client Authority Transform Send ---
                         // Send the locally simulated transform to the host.
                         if (_cachedTarget != null)
@@ -430,6 +525,36 @@ namespace GV.Network
                                     clientAimPos = aimCtrl.Aim.origin + aimCtrl.Aim.direction * 5000f;
                                 }
                                 RPC_SendAimPosition(clientAimPos);
+                            }
+                        }
+
+                        // --- TARGET LOCK SYNC (client → host) ---
+                        // The client target selector picks targets locally based on camera and cursor.
+                        // We need to send the selected target's NetworkId so the host can lock onto it.
+                        {
+                            var targetSelector = GetComponentInChildren<VSX.RadarSystem.TargetSelector>(true);
+                            if (targetSelector != null)
+                            {
+                                var selectedTarget = targetSelector.SelectedTarget;
+                                NetworkId targetId = default;
+
+                                if (selectedTarget != null && selectedTarget.RootTransform != null)
+                                {
+                                    // Normally the NetworkObject is on the root
+                                    var netObj = selectedTarget.RootTransform.GetComponent<NetworkObject>();
+                                    // Alternatively, it might be on the trackable itself
+                                    if (netObj == null)
+                                    {
+                                        netObj = selectedTarget.GetComponentInParent<NetworkObject>();
+                                    }
+
+                                    if (netObj != null)
+                                    {
+                                        targetId = netObj.Id;
+                                    }
+                                }
+                                
+                                RPC_SendTargetLock(targetId);
                             }
                         }
 

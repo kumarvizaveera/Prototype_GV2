@@ -57,6 +57,26 @@ namespace VSX.Weapons
             }
         }
 
+        protected override void TriggerWeaponUnitOnce(int index)
+        {
+            // Inject the Target's NetworkId into the weapon unit before firing
+            if (weaponUnits[index] is ProjectileWeaponUnit projUnit)
+            {
+                projUnit.TargetIdForNextSpawn = default(Fusion.NetworkId);
+
+                if (targetLocker != null && targetLocker.Target != null)
+                {
+                    var netObj = targetLocker.Target.GetComponentInParent<Fusion.NetworkObject>();
+                    if (netObj != null)
+                    {
+                        projUnit.TargetIdForNextSpawn = netObj.Id;
+                    }
+                }
+            }
+
+            base.TriggerWeaponUnitOnce(index);
+        }
+
 
         protected void OnModuleActivated()
         {

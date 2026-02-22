@@ -140,6 +140,30 @@ namespace VSX.Weapons
             triggered = false;
         }
 
+        public override void Spawned()
+        {
+            base.Spawned();
+
+            // Try to resolve the initial networked target lock
+            if (NetworkedTargetId.IsValid && targetLocker != null)
+            {
+                if (Runner.TryFindObject(NetworkedTargetId, out Fusion.NetworkObject targetNetObj))
+                {
+                    var trackable = targetNetObj.GetComponentInChildren<Trackable>(true);
+                    if (trackable == null)
+                    {
+                        trackable = targetNetObj.GetComponentInParent<Trackable>();
+                    }
+
+                    if (trackable != null)
+                    {
+                        targetLocker.SetTarget(trackable);
+                        SetLockState(LockState.Locked);
+                    }
+                }
+            }
+        }
+
 
         protected override void Awake()
         {

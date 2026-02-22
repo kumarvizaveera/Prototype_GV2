@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b8a4a5fb6aebb84097c4cc2e6b533f7, type: 3}
   m_Name: Enemy
   m_EditorClassIdentifier: 
-  defaultColor: {r: 1, g: 0.50065356, b: 0.25098038, a: 1}
+  defaultColor: {r: 1, g: 0, b: 0.09903383, a: 1}
   sprites: []
   hostileTeams:
   - {fileID: 11400000, guid: db9c6365835e2014aad79d9a779edefc, type: 2}

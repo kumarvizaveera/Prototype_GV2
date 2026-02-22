@@ -12,6 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b8a4a5fb6aebb84097c4cc2e6b533f7, type: 3}
   m_Name: Friendly
   m_EditorClassIdentifier: 
-  defaultColor: {r: 0.254902, g: 0.7516339, b: 1, a: 1}
+  defaultColor: {r: 1, g: 0.5019608, b: 0.2509804, a: 1}
+  sprites: []
   hostileTeams:
   - {fileID: 11400000, guid: f6183930511df324ca41846a92df975f, type: 2}
+  - {fileID: 11400000}
