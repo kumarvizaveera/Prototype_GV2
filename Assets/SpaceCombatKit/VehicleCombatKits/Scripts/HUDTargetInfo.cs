@@ -209,13 +209,32 @@ namespace VSX.VehicleCombatKits
                     healthDisplays[i].handle.SetActive(false);
                 }
 
+                // Search for IHealthInfo broadly — on proxy ships the VehicleHealth component
+                // may live on a parent/sibling of the Rigidbody, not a child.
+                healthInfo = null;
+
+                // 1. Try from the Rigidbody's transform (original SCK path)
                 if (newTarget.Rigidbody != null)
                 {
                     healthInfo = newTarget.Rigidbody.transform.GetComponentInChildren<IHealthInfo>();
                 }
-                else
+
+                // 2. Fallback: search from the Trackable itself
+                if (healthInfo == null)
                 {
                     healthInfo = newTarget.GetComponentInChildren<IHealthInfo>();
+                }
+
+                // 3. Fallback: search from root transform (covers sibling hierarchy branches)
+                if (healthInfo == null && newTarget.RootTransform != null)
+                {
+                    healthInfo = newTarget.RootTransform.GetComponentInChildren<IHealthInfo>();
+                }
+
+                // 4. Fallback: search upward from Rigidbody (VehicleHealth may be on a parent)
+                if (healthInfo == null && newTarget.Rigidbody != null)
+                {
+                    healthInfo = newTarget.Rigidbody.GetComponentInParent<IHealthInfo>();
                 }
                 
 

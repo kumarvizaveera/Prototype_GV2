@@ -6,6 +6,8 @@ using VSX.Vehicles;
 using VSX.VehicleCombatKits;
 using VSX.Controls;
 using VSX.Utilities;
+using VSX.Weapons;
+using VSX.RadarSystem;
 
 namespace GV.Network
 {
@@ -260,6 +262,14 @@ namespace GV.Network
         private Vector3 _jitterLastLoggedPos;
         private bool _jitterDiagStarted = false;
 
+        // --- HOST MISSILE SETUP ---
+        // When the host's own ship is spawned via Fusion, GameAgentVehicleSetupManager.UpdateTargetSelectors()
+        // may not run with correct timing. We explicitly verify and fix the missile targeting chain.
+        // Runs twice: once at 1s (initial) and once at 3s (after proxy team arrives via RPC).
+        private int _hostMissileSetupCount = 0;
+        private float _hostMissileSetupTimer = 0f;
+        private static readonly float[] HOST_MISSILE_SETUP_TIMES = { 1.0f, 3.0f };
+
         // Flag to track if we've done the initial authority check
         private bool _hasCheckedAuthority = false;
 
@@ -410,6 +420,114 @@ namespace GV.Network
             }
 
             Debug.LogWarning("[NetworkedSpaceshipBridge] No camera system found yet - will retry in Update");
+        }
+
+        /// <summary>
+        /// HOST ONLY: Ensures the missile targeting chain is fully connected after Fusion spawning.
+        /// When ships are spawned via Fusion (not the normal SCK scene flow),
+        /// GameAgentVehicleSetupManager.UpdateTargetSelectors() may not fire in time.
+        /// This method explicitly:
+        /// 1. Verifies GameAgent entered the Vehicle (triggers UpdateTargetSelectors)
+        /// 2. Ensures weaponsTargetSelector.SelectableTeams includes hostile teams
+        /// 3. Verifies MissileWeapon TargetLockers are connected to the TargetSelector
+        /// </summary>
+        private void SetupHostMissileTargeting()
+        {
+            Debug.Log($"[NetworkedSpaceshipBridge] HOST: Running missile targeting setup for {gameObject.name}");
+
+            // 1. Ensure GameAgent has entered the Vehicle (triggers GameAgentVehicleSetupManager)
+            var vehicle = GetComponentInChildren<Vehicle>(true);
+            var gameAgents = GetComponentsInChildren<GameAgent>(true);
+            foreach (var ga in gameAgents)
+            {
+                if (vehicle != null && !ga.IsInVehicle)
+                {
+                    ga.EnterVehicle(vehicle);
+                    Debug.Log($"[NetworkedSpaceshipBridge] HOST MISSILE SETUP: Force-entered GameAgent into Vehicle (was not in vehicle)");
+                }
+            }
+
+            // 2. Verify and fix weaponsTargetSelector.SelectableTeams
+            var weaponsController = GetComponentInChildren<WeaponsController>(true);
+            if (weaponsController == null)
+            {
+                Debug.LogWarning($"[NetworkedSpaceshipBridge] HOST MISSILE SETUP: No WeaponsController found!");
+                return;
+            }
+
+            var weaponsTargetSelector = weaponsController.WeaponsTargetSelector;
+            if (weaponsTargetSelector == null)
+            {
+                Debug.LogWarning($"[NetworkedSpaceshipBridge] HOST MISSILE SETUP: WeaponsController has no weaponsTargetSelector assigned!");
+                return;
+            }
+
+            // Get the host ship's team
+            var myTrackable = GetComponentInChildren<Trackable>(true);
+            VSX.Teams.Team myTeam = myTrackable != null ? myTrackable.Team : null;
+
+            Debug.Log($"[NetworkedSpaceshipBridge] HOST MISSILE SETUP: " +
+                      $"WeaponsController={weaponsController.name}, " +
+                      $"weaponsTargetSelector={weaponsTargetSelector.name}, " +
+                      $"selectableTeams.Count={weaponsTargetSelector.SelectableTeams.Count}, " +
+                      $"myTeam={(myTeam != null ? myTeam.name : "NULL")}, " +
+                      $"missiles={weaponsController.MissileWeapons.Count}, " +
+                      $"guns={weaponsController.GunWeapons.Count}");
+
+            // If selectableTeams is empty but we have a team with hostile teams, populate it
+            if (weaponsTargetSelector.SelectableTeams.Count == 0 && myTeam != null && myTeam.HostileTeams.Count > 0)
+            {
+                weaponsTargetSelector.SelectableTeams = myTeam.HostileTeams;
+                Debug.Log($"[NetworkedSpaceshipBridge] HOST MISSILE SETUP: Set weaponsTargetSelector.SelectableTeams to {myTeam.name}.HostileTeams ({myTeam.HostileTeams.Count} teams)");
+            }
+
+            // Also verify that the selectableTeams includes the proxy's team
+            // (The proxy's team is set via RPC_SendTeam. Since both use the same Team SO, it should be there.)
+            string selectableTeamNames = "";
+            foreach (var t in weaponsTargetSelector.SelectableTeams)
+            {
+                selectableTeamNames += (t != null ? t.name : "NULL") + ", ";
+            }
+            Debug.Log($"[NetworkedSpaceshipBridge] HOST MISSILE SETUP: SelectableTeams = [{selectableTeamNames}]");
+
+            // 3. Verify MissileWeapon TargetLockers are connected to weaponsTargetSelector
+            foreach (var missileWeapon in weaponsController.MissileWeapons)
+            {
+                if (missileWeapon.TargetLocker != null)
+                {
+                    var locker = missileWeapon.TargetLocker;
+                    Debug.Log($"[NetworkedSpaceshipBridge] HOST MISSILE SETUP: MissileWeapon '{missileWeapon.name}' " +
+                              $"TargetLocker.Target={(locker.Target != null ? locker.Target.name : "NULL")}, " +
+                              $"LockState={locker.LockState}, " +
+                              $"lockingEnabled={locker.LockingEnabled}, " +
+                              $"lockingRange={locker.LockingRange}, " +
+                              $"lockingAngle={locker.LockingAngle}");
+
+                    // If TargetLocker has no target but the TargetSelector has one, push it through
+                    if (locker.Target == null && weaponsTargetSelector.SelectedTarget != null)
+                    {
+                        locker.SetTarget(weaponsTargetSelector.SelectedTarget);
+                        Debug.Log($"[NetworkedSpaceshipBridge] HOST MISSILE SETUP: Pushed selected target '{weaponsTargetSelector.SelectedTarget.name}' to MissileWeapon TargetLocker");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"[NetworkedSpaceshipBridge] HOST MISSILE SETUP: MissileWeapon '{missileWeapon.name}' has NULL TargetLocker!");
+                }
+            }
+
+            // 4. Log all Trackables visible to the host for debugging
+            if (TrackableSceneManager.Instance != null)
+            {
+                string trackableInfo = "";
+                foreach (var t in TrackableSceneManager.Instance.Trackables)
+                {
+                    string teamName = t.Team != null ? t.Team.name : "NULL";
+                    bool isSelectable = weaponsTargetSelector.IsSelectable(t);
+                    trackableInfo += $"\n  '{t.name}' team={teamName} selectable={isSelectable} activated={t.Activated}";
+                }
+                Debug.Log($"[NetworkedSpaceshipBridge] HOST MISSILE SETUP: Scene Trackables:{trackableInfo}");
+            }
         }
 
         /// <summary>
@@ -582,6 +700,20 @@ namespace GV.Network
                             _hudCursor.SetViewportPosition(new Vector3(reticle.x, reticle.y, 0f));
                         }
                     }
+                }
+            }
+
+            // --- HOST MISSILE SETUP (host's own ship only) ---
+            // Ensure the weapons targeting chain is set up after Fusion spawning.
+            // GameAgentVehicleSetupManager.UpdateTargetSelectors() may not fire with correct timing.
+            // Runs at 1s (initial SCK setup) and 3s (after proxy team arrives via RPC).
+            if (Object.HasStateAuthority && Object.HasInputAuthority && _hostMissileSetupCount < HOST_MISSILE_SETUP_TIMES.Length)
+            {
+                _hostMissileSetupTimer += Time.deltaTime;
+                if (_hostMissileSetupTimer >= HOST_MISSILE_SETUP_TIMES[_hostMissileSetupCount])
+                {
+                    SetupHostMissileTargeting();
+                    _hostMissileSetupCount++;
                 }
             }
 

@@ -34,14 +34,19 @@ This document summarizes all multiplayer networking issues encountered, the root
 - **Root Cause:** When the client fires a missile, Fusion spawns the real missile on the host. But the host's spawned missile had no target — the target was only known on the client side. 
 - **Fix:** Added `TargetIdForNextSpawn` to `ProjectileWeaponUnit`. Before firing, `MissileWeapon` captures the locked target's `NetworkId` and stores it. `ProjectileWeaponUnit` passes it via `onBeforeSpawned` into the spawned `Projectile`. `Missile.Spawned()` resolves the ID back to a `Trackable` and locks it.
 
-### 3.2 Host Not Seeing Client's Team / Health Bar — **PARTIALLY FIXED (Red Box Works)**
-- **Root Cause:** On the Host, the client's ship is a "proxy" object. SpaceCombatKit's `GameAgent` system is NOT initialized on proxies (the `Vehicle.OnEntered(GameAgent)` call never happens), so `Trackable.Team` remains `null`. The `Tracker` system requires `Team != null` to pass a trackable through its filter. 
-- **Status:** `RPC_SendTeam` was added to `NetworkedSpaceshipBridge` and is called from the client. The host now searches existing trackables for a team with a matching name and assigns it to the proxy's `Trackable`. The red box now appears. **Health bars still not showing.**
-- **Likely remaining issue:** `HUDTargetInfo` pulls health from `target.Rigidbody.GetComponentInChildren<IHealthInfo>()`. On the client's proxy ship the Rigidbody is set to **kinematic** for position-sync reasons, but the `IHealthInfo` component might be on the ship (not the Rigidbody). Needs investigation.
+### 3.2 Host Not Seeing Client's Team / Health Bar — **FIXED (Red Box + Health Bars)**
+- **Root Cause:** On the Host, the client's ship is a "proxy" object. SpaceCombatKit's `GameAgent` system is NOT initialized on proxies (the `Vehicle.OnEntered(GameAgent)` call never happens), so `Trackable.Team` remains `null`. The `Tracker` system requires `Team != null` to pass a trackable through its filter.
+- **Team Fix:** `RPC_SendTeam` was added to `NetworkedSpaceshipBridge` and is called from the client. The host now searches existing trackables for a team with a matching name and assigns it to the proxy's `Trackable`. The red box now appears.
+- **Health Bar Fix:** `HUDTargetInfo.OnTargetSelected()` searched for `IHealthInfo` starting from `Trackable.Rigidbody.transform.GetComponentInChildren<IHealthInfo>()`. On the proxy ship, `VehicleHealth` (which implements `IHealthInfo`) lives on a parent/sibling of the Rigidbody, not a child — so the search returned null. **Fixed** by broadening the search: now tries Rigidbody children → Trackable children → RootTransform children → Rigidbody parent, in that order.
 
-### 3.3 Missiles Not Working on Host Screen — **OPEN**
-- **Root Cause (suspected):** The Host's `TargetLocker` on the client proxy ship (managed by `NetworkedAimOverride`) may not be locking correctly. Additionally, the target (`Trackable` on the Host's own ship) may have a null `Team` or may be excluded from the target selector's `selectableTeams` list.
-- **Next Steps:** Verify the `Tracker`/`TargetSelector` selectable teams. Ensure the Host ship also has its `Trackable.Team` set. The `TargetSelector` in `WeaponsController` uses a `selectableTeams` list populated from `GameAgentVehicleSetupManager.UpdateTargetSelectors()`, which only runs when `Vehicle.onGameAgentEntered` fires.
+### 3.3 Missiles Not Working on Host Screen — **FIXED (Setup Chain)**
+- **Root Cause:** When ships are spawned via Fusion (not the normal SCK scene flow), `GameAgentVehicleSetupManager.UpdateTargetSelectors()` may not fire with correct timing. This means the host's own ship's `weaponsTargetSelector.SelectableTeams` was not populated, and `MissileWeapon.TargetLocker` may not be connected to the `TargetSelector`.
+- **Fix:** Added `SetupHostMissileTargeting()` to `NetworkedSpaceshipBridge`. Runs at 1s and 3s after spawn on the HOST's own ship. It:
+  1. Force-enters the GameAgent into the Vehicle if not already in (triggers `UpdateTargetSelectors`)
+  2. Verifies `weaponsTargetSelector.SelectableTeams` is populated with `team.HostileTeams`
+  3. Pushes the currently selected target to any MissileWeapon TargetLockers that have no target
+  4. Logs full diagnostic info (trackables, teams, lock state) to help debug any remaining issues
+- **Note:** The fix also adds heavy diagnostic logging. Check console for `[NetworkedSpaceshipBridge] HOST MISSILE SETUP:` messages to verify the targeting chain. If missiles still don't work, the logs will show exactly where the chain breaks.
 
 ### 3.4 Radar Shows Blue Box Instead of Red — **FIXED**
 - **Root Cause:** All players shared the same `Team` ScriptableObject but the `Team.HostileTeams` list was empty.
@@ -72,7 +77,14 @@ RPC_SendTransform()    — Client → Host: sends local position/rotation for cl
 **Key Logic:**
 - In `Spawned()`: Proxy ships become kinematic. Input is disabled on all remote ships. `NetworkedAimOverride` is added dynamically on the Host's proxy of the Client.
 - In `Update()` (client only): Sends RPCs every frame for input, aim, target lock, transform, and team.
+- In `Update()` (host's own ship): Runs `SetupHostMissileTargeting()` at 1s and 3s after spawn to ensure missile targeting chain is connected.
 - In `Render()`: Proxies follow `SyncPosition`/`SyncRotation` via SmoothDamp.
+
+**Added Method: `SetupHostMissileTargeting()`**
+- Force-enters GameAgent into Vehicle (triggers `UpdateTargetSelectors`)
+- Populates `weaponsTargetSelector.SelectableTeams` from `team.HostileTeams` if empty
+- Pushes selected target to MissileWeapon TargetLockers if they have no target
+- Logs full diagnostic chain (trackables, teams, lock states)
 
 ---
 
@@ -153,6 +165,25 @@ public override void Spawned()
 
 ---
 
+### 4.6 `Assets/SpaceCombatKit/VehicleCombatKits/Scripts/HUDTargetInfo.cs`
+
+**Modified `OnTargetSelected()`** to broaden the `IHealthInfo` search on proxy ships:
+```csharp
+// Was: only searched from Rigidbody.transform downward (missed VehicleHealth on parent/sibling)
+// Now: cascading search — Rigidbody children → Trackable children → RootTransform children → Rigidbody parent
+healthInfo = null;
+if (newTarget.Rigidbody != null)
+    healthInfo = newTarget.Rigidbody.transform.GetComponentInChildren<IHealthInfo>();
+if (healthInfo == null)
+    healthInfo = newTarget.GetComponentInChildren<IHealthInfo>();
+if (healthInfo == null && newTarget.RootTransform != null)
+    healthInfo = newTarget.RootTransform.GetComponentInChildren<IHealthInfo>();
+if (healthInfo == null && newTarget.Rigidbody != null)
+    healthInfo = newTarget.Rigidbody.GetComponentInParent<IHealthInfo>();
+```
+
+---
+
 ## 5. Key SCK Components Relevant to Multiplayer
 
 | Component | Purpose |
@@ -169,9 +200,10 @@ public override void Spawned()
 
 ## 6. Remaining Work
 
-1. **Health/Shield bars on Host for Client ship**: Investigate `HUDTargetInfo.OnTargetSelected` — ensure `target.Rigidbody` is found correctly on proxy (kinematic) ships, and that `IHealthInfo` is accessible from it.
-2. **Missile locking on Host screen**: Verify `TargetSelector.selectableTeams` for the host's weapons controller is populated correctly. May need the host's OWN ship to also call `GameAgentVehicleSetupManager.UpdateTargetSelectors()`.
+1. ~~**Health/Shield bars on Host for Client ship**~~ — **DONE** (broadened IHealthInfo search in HUDTargetInfo).
+2. ~~**Missile locking on Host screen**~~ — **DONE** (added SetupHostMissileTargeting with diagnostic logging).
 3. **Detonation visuals on both screens**: Ensure the explosion FX prefab is also spawned on the client (may need a networked spawn or a `ClientRpc` for the visual-only explosion).
+4. **Verify missile fix in-game**: Run host+client and check console for `HOST MISSILE SETUP` logs. If missiles still don't lock, the logs will show which part of the chain fails (selectableTeams, TargetLocker state, etc.).
 
 ---
 
