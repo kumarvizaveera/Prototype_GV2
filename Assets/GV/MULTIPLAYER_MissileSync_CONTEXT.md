@@ -207,6 +207,7 @@ if (healthInfo == null && newTarget.Rigidbody != null)
 5. **Detonation visuals on both screens**: Ensure the explosion FX prefab is also spawned on the client (may need a networked spawn or a `ClientRpc` for the visual-only explosion).
 6. **Verify missile fix in-game**: Run host+client and check console for `HOST MISSILE SETUP` logs. If missiles still don't lock, the logs will show which part of the chain fails (selectableTeams, TargetLocker state, etc.).
 7. ~~**Missile visual desync (client missiles overshoot target)**~~ — **DONE** (see 3.7 below).
+8. ~~**Missile double detonation + health sync**~~ — **DONE** (see 3.8 below).
 
 ### 3.5 Health Bars Not Depleting on Host Screen — **FIXED**
 - **Root Cause:** `HUDTargetInfo.UpdateHealthDisplays()` was only called via `VehicleHealth.OnHealthChanged` event subscription. On proxy ships, the event chain (`Damageable.onHealthChanged → VehicleHealth.onHealthChanged`) may not fire because the proxy's `VehicleHealth.Awake()` ran before the `Damageable` components were fully initialized during `DisableLocalInput()` setup.
@@ -224,6 +225,15 @@ if (healthInfo == null && newTarget.Rigidbody != null)
 - **Fix 1 (Projectile.cs):** Added `protected virtual bool UseManualProxyMovement => true;` property. The proxy translate block in `Render()` now checks `UseManualProxyMovement` before applying manual movement. Simple bullets (default) still use the translate. Physics-based projectiles can override to skip it.
 - **Fix 2 (Missile.cs):** Added `protected override bool UseManualProxyMovement => engines == null;` — missiles with engines skip the manual translate entirely, relying on `Missile.Update()` + Rigidbody physics for correct homing movement on all instances.
 - **Also fixed:** Duplicate `if (remainingDuration <= 0)` line in `EnergyShieldController.Update()` (line 313-314).
+
+### 3.8 Missile Double Detonation on Client + Health Sync — **FIXED**
+- **Symptom:** Client-fired missile shows two detonation effects — one near the host ship (impact), then another after flying past. Health sync also not reflecting damage properly.
+- **Root Cause (Double Detonation):** After `CheckTrigger()` fires `Detonate()` on the proxy: (1) `detonated = true` was set, but the NetworkObject was NOT despawned (proxy has no authority). (2) `Missile.Update()` still ran engine logic (it checked `targetLocker.LockState`, not `detonated`), so the missile kept physically flying. (3) Renderers stayed visible. (4) Eventually the host despawned the object, causing a visual "second detonation."
+- **Root Cause (Health Sync):** Two sub-issues: (1) `NetworkedHealthSync.Render()` used `ChangeDetector` which could miss rapid health changes. (2) Proxy projectiles were applying `AreaEffect()` and `OnCollision()` damage on the CLIENT too, fighting against the host's health sync (double damage, then overwrite by sync = flickering).
+- **Fix 1 (Missile.cs):** Added `detonated` early-return at top of `Update()` — when detonated, stops engines (`SetMovementInputs(Vector3.zero)`) and skips all steering/trigger logic. Also overrode `Detonate()` to freeze the Rigidbody on proxy (`isKinematic = true`, zero velocity).
+- **Fix 2 (Projectile.cs - Detonate):** `AreaEffect()` now only runs on State Authority (`isAuthority` check). Proxy detonation hides all renderers and trail renderers so the missile doesn't visually persist.
+- **Fix 3 (Projectile.cs - OnCollision):** Direct damage/healing via `DamageReceiver.Damage()` / `Heal()` now only runs on State Authority. Proxies still get visual hit effects (surface type effects, detonator).
+- **Fix 4 (NetworkedHealthSync.cs):** Replaced `ChangeDetector` with direct polling — `ApplyHealthToLocal()` now runs every `Render()` frame on non-authority. More reliable than change detection for rapid health updates.
 
 ---
 

@@ -43,12 +43,8 @@ namespace GV.Network
                 vehicleHealth = GetComponentInChildren<VehicleHealth>(true);
         }
 
-        private ChangeDetector _changes;
-
         public override void Spawned()
         {
-            _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
-
             if (vehicleHealth == null)
             {
                 Debug.LogWarning($"[NetworkedHealthSync] No VehicleHealth found on {gameObject.name}!");
@@ -82,11 +78,11 @@ namespace GV.Network
 
         public override void Render()
         {
-            foreach (var change in _changes.DetectChanges(this))
+            // Always apply health on non-authority every Render frame.
+            // ChangeDetector can miss rapid changes; direct polling is more reliable.
+            if (!Object.HasStateAuthority)
             {
-                // Any networked property change triggers a full health sync
                 ApplyHealthToLocal();
-                break; // Only need to apply once regardless of how many properties changed
             }
         }
 

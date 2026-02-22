@@ -148,6 +148,31 @@ namespace VSX.Weapons
             triggered = false;
         }
 
+        /// <summary>
+        /// Override Detonate to also stop physics on proxies so the missile doesn't
+        /// keep flying after visual detonation while waiting for host despawn.
+        /// </summary>
+        public override void Detonate()
+        {
+            // Stop engines before base Detonate so the missile doesn't keep thrusting
+            if (engines != null)
+            {
+                engines.SetSteeringInputs(Vector3.zero);
+                engines.SetMovementInputs(Vector3.zero);
+            }
+
+            base.Detonate();
+
+            // On proxy: freeze the Rigidbody so the missile body doesn't keep drifting
+            if (Object != null && !Object.HasStateAuthority && m_Rigidbody != null)
+            {
+                m_Rigidbody.linearVelocity = Vector3.zero;
+                m_Rigidbody.angularVelocity = Vector3.zero;
+                m_Rigidbody.isKinematic = true;
+            }
+        }
+
+
         public override void Spawned()
         {
             base.Spawned();
@@ -299,8 +324,20 @@ namespace VSX.Weapons
         {
             base.Update();
 
+            // After detonation on proxy, stop all missile logic — the missile is dead,
+            // just waiting for the host to despawn the NetworkObject.
+            if (detonated)
+            {
+                if (engines != null)
+                {
+                    engines.SetSteeringInputs(Vector3.zero);
+                    engines.SetMovementInputs(Vector3.zero);
+                }
+                return;
+            }
+
             CheckTrigger();
-            
+
             if (targetLocker.LockState == LockState.Locked)
             {
                 if (engines != null)
@@ -319,7 +356,7 @@ namespace VSX.Weapons
                     engines.SetSteeringInputs(steeringPIDController.GetControlValues());
                     engines.SetMovementInputs(new Vector3(0, 0, 1));
                 }
-                
+
             }
             else
             {
@@ -336,7 +373,7 @@ namespace VSX.Weapons
                     engines.SetSteeringInputs(Vector3.zero);
                     engines.SetMovementInputs(new Vector3(0, 0, 1));
                 }
-               
+
             }
         }
 

@@ -522,7 +522,11 @@ namespace VSX.Weapons
 
         public virtual void Detonate()
         {
-            if (areaEffect) AreaEffect();
+            // Area damage should ONLY run on the State Authority (host).
+            // Proxies should not apply damage — health is synced from the host via NetworkedHealthSync.
+            // Running AreaEffect on proxies would cause double damage and fight the health sync.
+            bool isAuthority = Object == null || Object.HasStateAuthority;
+            if (areaEffect && isAuthority) AreaEffect();
 
             if (detonator != null && detonator.DetonationState == DetonationState.Reset) detonator.Detonate();
 
@@ -530,8 +534,6 @@ namespace VSX.Weapons
             {
                 for (int i = 0; i < defaultHitEffectPrefabs.Count; ++i)
                 {
-                    // For Hit Effects, we can just Instantiate them visually on all clients.
-                    // Or if they need to be networked, we'd spawn them. usually visual effects are local.
                     GameObject spawnedHitEffect;
                     if (PoolManager.Instance != null)
                     {
@@ -551,7 +553,21 @@ namespace VSX.Weapons
             detonated = true;
 
             onDetonated.Invoke();
-            
+
+            // On proxy detonation: hide the missile visually so it doesn't keep flying
+            // while waiting for the host to despawn the NetworkObject.
+            if (Object != null && !Object.HasStateAuthority)
+            {
+                foreach (Renderer rend in renderers)
+                {
+                    rend.enabled = false;
+                }
+                foreach (TrailRenderer trail in trailRenderers)
+                {
+                    trail.enabled = false;
+                }
+            }
+
             // Should despawn networked object
             if (Object != null && Object.HasStateAuthority)
             {
@@ -640,19 +656,23 @@ namespace VSX.Weapons
 
             DamageReceiver damageReceiver = null;
 
+            // Direct damage should ONLY be applied on the State Authority (host).
+            // Proxies just show visual effects — health is synced from the host via NetworkedHealthSync.
+            bool isAuthority = Object == null || Object.HasStateAuthority;
+
             if (!areaEffect)
             {
                 damageReceiver = hit.collider.GetComponent<DamageReceiver>();
-                if (damageReceiver != null && !IsVisualDummy)
+                // Only apply damage/healing on the State Authority (host).
+                // Proxies show visual effects only — health is synced via NetworkedHealthSync.
+                if (damageReceiver != null && !IsVisualDummy && isAuthority)
                 {
-
                     HealthEffectInfo info = new HealthEffectInfo();
                     info.worldPosition = hit.point;
                     info.healthModifierType = healthModifier.HealthModifierType;
                     info.sourceRootTransform = senderRootTransform;
 
                     // Damage
-                    // Corrected: Uses healthModifier which is synced via OnChanged
                     info.amount = healthModifier.GetDamage(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(SafeDistanceCovered / SafeNetworkedMaxDistance);
 
                     if (!Mathf.Approximately(info.amount, 0))
