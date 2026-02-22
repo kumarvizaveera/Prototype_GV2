@@ -33,26 +33,30 @@ namespace GV.Scripts
         [Tooltip("When to trigger the spawn.")]
         public SpawnEvent spawnEvent = SpawnEvent.Start;
 
+        [Header("Network")]
+        [Tooltip("When true, skip auto-spawning and wait for NetworkedAstraRefillInitializer to call SpawnObjects() with the synced seed.")]
+        public bool waitForNetworkSeed = false;
+
         private List<GameObject> spawnedObjects = new List<GameObject>();
 
         private void Awake()
         {
-            if (spawnEvent == SpawnEvent.Awake) SpawnObjects();
+            if (!waitForNetworkSeed && spawnEvent == SpawnEvent.Awake) SpawnObjects();
         }
 
         private void Start()
         {
-            if (spawnEvent == SpawnEvent.Start) SpawnObjects();
+            if (!waitForNetworkSeed && spawnEvent == SpawnEvent.Start) SpawnObjects();
         }
 
         private void OnEnable()
         {
-            if (spawnEvent == SpawnEvent.OnEnable)
+            if (!waitForNetworkSeed && spawnEvent == SpawnEvent.OnEnable)
             {
                 // Only spawn if not already spawned or if we want to reset on enable
                 if (spawnedObjects.Count == 0 || spawnedObjects.Exists(x => x == null))
                 {
-                   SpawnObjects(); 
+                   SpawnObjects();
                 }
             }
         }
