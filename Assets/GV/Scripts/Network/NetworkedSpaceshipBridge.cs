@@ -44,6 +44,14 @@ namespace GV.Network
         [Networked] private Quaternion SyncRotation { get; set; }
         [Networked] private int SyncTick { get; set; } // Diagnostic: increments every host FUN tick
 
+        // --- AIRCRAFT MESH SWAP SYNC ---
+        // Each ship's swap state (true = mesh A, false = mesh B) is networked so all clients see the swap.
+        // Host writes from local AircraftMeshSwapWithFX; client sends via RPC.
+        [Networked] private NetworkBool SyncIsAActive { get; set; }
+        private AircraftMeshSwapWithFX _meshSwap;
+        private bool _meshSwapCached = false;
+        private bool _prevSyncIsA = true; // Track changes for proxy application
+
         // --- RPC-BASED INPUT BYPASS ---
         // Fusion's OnInput/GetInput pipeline silently fails in our setup (GetInput always returns
         // false on the host despite the client correctly calling input.Set()). This is likely a
@@ -208,6 +216,29 @@ namespace GV.Network
             }
         }
 
+        // --- AIRCRAFT SWAP SYNC (client → host) ---
+        // The client swaps its own mesh locally (AircraftMeshSwapWithFX handles visuals + input).
+        // This RPC tells the host which mesh is active so the host can write it to [Networked] SyncIsAActive.
+        [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+        public void RPC_SendSwapState(NetworkBool isA)
+        {
+            // Host receives client's swap state and writes it to the networked property.
+            // This will propagate to all clients (including back to the sender) via Fusion's state replication.
+            SyncIsAActive = isA;
+
+            // Also apply the swap visually on the host's representation of the client's ship
+            if (!_meshSwapCached)
+            {
+                _meshSwap = GetComponentInChildren<AircraftMeshSwapWithFX>(true);
+                _meshSwapCached = true;
+            }
+            if (_meshSwap != null && _meshSwap.IsAActive != (bool)isA)
+            {
+                _meshSwap.RequestSetA(isA);
+                Debug.Log($"[NetworkedSpaceshipBridge] HOST: Applied remote player swap state isA={isA} on {gameObject.name}");
+            }
+        }
+
         // Local state for visual feedback (not networked for now)
         private bool _isBoosting;
         public bool IsBoosting => _isBoosting;
@@ -285,6 +316,18 @@ namespace GV.Network
             if (engines == null)
             {
                 engines = GetComponentInChildren<VehicleEngines3D>();
+            }
+
+            // Cache aircraft mesh swap reference and initialize sync state
+            if (!_meshSwapCached)
+            {
+                _meshSwap = GetComponentInChildren<AircraftMeshSwapWithFX>(true);
+                _meshSwapCached = true;
+            }
+            if (_meshSwap != null && Object.HasStateAuthority)
+            {
+                SyncIsAActive = _meshSwap.IsAActive;
+                _prevSyncIsA = _meshSwap.IsAActive;
             }
 
             if (triggerablesManager == null)
@@ -622,6 +665,18 @@ namespace GV.Network
                         else
                         {
                              RPC_SendTransform(transform.position, transform.rotation);
+                        }
+
+                        // --- AIRCRAFT SWAP SYNC (client → host) ---
+                        // Send the client's local swap state to the host so it can update [Networked] SyncIsAActive.
+                        if (!_meshSwapCached)
+                        {
+                            _meshSwap = GetComponentInChildren<AircraftMeshSwapWithFX>(true);
+                            _meshSwapCached = true;
+                        }
+                        if (_meshSwap != null)
+                        {
+                            RPC_SendSwapState(_meshSwap.IsAActive);
                         }
 
                         // --- AIM POSITION SYNC (client → host) ---
@@ -1129,7 +1184,14 @@ namespace GV.Network
             if (Object.HasStateAuthority)
             {
                 SyncTick++;
-                
+
+                // --- AIRCRAFT SWAP SYNC: Host writes local swap state for its OWN ship ---
+                // For the client's ship, swap state is written via RPC_SendSwapState.
+                if (Object.HasInputAuthority && _meshSwap != null)
+                {
+                    SyncIsAActive = _meshSwap.IsAActive;
+                }
+
                 // If it's a remote client (Client Authority Mode), use the RPC pos instead of physics.
                 if (!Object.HasInputAuthority && _hasRpcTransform)
                 {
@@ -1388,8 +1450,29 @@ namespace GV.Network
 
         public override void Render()
         {
-            // Visual feedback can be done here for all clients
-            // e.g., boost effects, engine sounds based on IsBoosting
+            // --- AIRCRAFT SWAP SYNC: Apply swap on proxy/remote ships ---
+            // On non-state-authority machines, detect when the networked swap state changes
+            // and apply it visually via RequestSetA (which triggers mesh toggle + VFX + SFX).
+            if (!Object.HasStateAuthority)
+            {
+                bool syncIsA = (bool)SyncIsAActive;
+                if (syncIsA != _prevSyncIsA)
+                {
+                    _prevSyncIsA = syncIsA;
+
+                    if (!_meshSwapCached)
+                    {
+                        _meshSwap = GetComponentInChildren<AircraftMeshSwapWithFX>(true);
+                        _meshSwapCached = true;
+                    }
+
+                    if (_meshSwap != null && _meshSwap.IsAActive != syncIsA)
+                    {
+                        _meshSwap.RequestSetA(syncIsA);
+                        Debug.Log($"[NetworkedSpaceshipBridge] PROXY: Applied swap state isA={syncIsA} on {gameObject.name}");
+                    }
+                }
+            }
         }
 
         // --- POSITION FOLLOW METHODS ---
