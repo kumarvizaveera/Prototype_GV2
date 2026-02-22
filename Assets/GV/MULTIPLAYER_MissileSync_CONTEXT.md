@@ -208,6 +208,7 @@ if (healthInfo == null && newTarget.Rigidbody != null)
 6. **Verify missile fix in-game**: Run host+client and check console for `HOST MISSILE SETUP` logs. If missiles still don't lock, the logs will show which part of the chain fails (selectableTeams, TargetLocker state, etc.).
 7. ~~**Missile visual desync (client missiles overshoot target)**~~ — **DONE** (see 3.7 below).
 8. ~~**Missile double detonation + health sync**~~ — **DONE** (see 3.8 below).
+9. ~~**Visual dummy missile has no target lock**~~ — **DONE** (see 3.9 below).
 
 ### 3.5 Health Bars Not Depleting on Host Screen — **FIXED**
 - **Root Cause:** `HUDTargetInfo.UpdateHealthDisplays()` was only called via `VehicleHealth.OnHealthChanged` event subscription. On proxy ships, the event chain (`Damageable.onHealthChanged → VehicleHealth.onHealthChanged`) may not fire because the proxy's `VehicleHealth.Awake()` ran before the `Damageable` components were fully initialized during `DisableLocalInput()` setup.
@@ -234,6 +235,11 @@ if (healthInfo == null && newTarget.Rigidbody != null)
 - **Fix 2 (Projectile.cs - Detonate):** `AreaEffect()` now only runs on State Authority (`isAuthority` check). Proxy detonation hides all renderers and trail renderers so the missile doesn't visually persist.
 - **Fix 3 (Projectile.cs - OnCollision):** Direct damage/healing via `DamageReceiver.Damage()` / `Heal()` now only runs on State Authority. Proxies still get visual hit effects (surface type effects, detonator).
 - **Fix 4 (NetworkedHealthSync.cs):** Replaced `ChangeDetector` with direct polling — `ApplyHealthToLocal()` now runs every `Render()` frame on non-authority. More reliable than change detection for rapid health updates.
+
+### 3.9 Visual Dummy Missile Has No Target Lock — Client Missile Flies Straight — **FIXED**
+- **Symptom:** Client fires missile → on the client screen, the missile flies straight past the host ship with `lockState=NoLock | target=NULL`. The PROXY missile on the host screen correctly homes and detonates.
+- **Root Cause:** The client creates a local "visual dummy" missile (`SetVisualDummy()`) for instant visual feedback in `ProjectileWeaponUnit.TriggerOnce()`. This local object has `Object == null` (not a NetworkObject), so `Missile.Spawned()` never runs — which is where the target is resolved from `NetworkedTargetId`. The visual dummy missile has no target and no lock, so it just flies forward in a straight line.
+- **Fix (ProjectileWeaponUnit.cs):** After `SetVisualDummy()`, check if the projectile is a `Missile`. If so, resolve the target from `TargetIdForNextSpawn` via `Runner.TryFindObject()` and call `missile.SetTarget(trackable)` to give it the target lock. Added `using VSX.RadarSystem;` import.
 
 ---
 

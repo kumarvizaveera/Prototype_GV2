@@ -59,18 +59,67 @@ namespace VSX.Weapons
 
         protected override void TriggerWeaponUnitOnce(int index)
         {
-            // Inject the Target's NetworkId into the weapon unit before firing
+            // Inject the Target's NetworkId and Trackable into the weapon unit before firing
             if (weaponUnits[index] is ProjectileWeaponUnit projUnit)
             {
                 projUnit.TargetIdForNextSpawn = default(Fusion.NetworkId);
+                projUnit.TargetTrackableForNextSpawn = null;
 
-                if (targetLocker != null && targetLocker.Target != null)
+                // Try to get target from our own TargetLocker first
+                Trackable resolvedTarget = (targetLocker != null && targetLocker.Target != null) ? targetLocker.Target : null;
+
+                // FALLBACK: If our TargetLocker has no target, search for the ship's TargetSelector.
+                // On the client, the MissileWeapon.TargetLocker event chain from WeaponsController
+                // may not be connected (timing issue), but the ship's TargetSelector has the target.
+                if (resolvedTarget == null)
                 {
-                    var netObj = targetLocker.Target.GetComponentInParent<Fusion.NetworkObject>();
+                    // Try WeaponsController first (it has the weaponsTargetSelector)
+                    var weaponsController = GetComponentInParent<WeaponsController>();
+                    if (weaponsController != null && weaponsController.WeaponsTargetSelector != null)
+                    {
+                        resolvedTarget = weaponsController.WeaponsTargetSelector.SelectedTarget;
+                        if (resolvedTarget != null)
+                        {
+                            Debug.Log($"[MissileWeapon] TriggerWeaponUnitOnce: FALLBACK got target from WeaponsController.TargetSelector: {resolvedTarget.name}");
+                        }
+                    }
+
+                    // Try any TargetSelector in parent hierarchy
+                    if (resolvedTarget == null)
+                    {
+                        var selectors = GetComponentsInParent<TargetSelector>();
+                        foreach (var sel in selectors)
+                        {
+                            if (sel.SelectedTarget != null)
+                            {
+                                resolvedTarget = sel.SelectedTarget;
+                                Debug.Log($"[MissileWeapon] TriggerWeaponUnitOnce: FALLBACK got target from TargetSelector: {resolvedTarget.name}");
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (resolvedTarget != null)
+                {
+                    // Store the Trackable directly for visual dummy use
+                    projUnit.TargetTrackableForNextSpawn = resolvedTarget;
+
+                    // Store the NetworkId for the host-spawned networked missile
+                    var netObj = resolvedTarget.GetComponentInParent<Fusion.NetworkObject>();
                     if (netObj != null)
                     {
                         projUnit.TargetIdForNextSpawn = netObj.Id;
                     }
+
+                    Debug.Log($"[MissileWeapon] TriggerWeaponUnitOnce: target={resolvedTarget.name} | " +
+                              $"targetId={projUnit.TargetIdForNextSpawn} | " +
+                              $"lockState={targetLocker?.LockState} | source={(targetLocker?.Target != null ? "TargetLocker" : "Fallback")}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[MissileWeapon] TriggerWeaponUnitOnce: No target found anywhere! " +
+                                     $"targetLocker={targetLocker != null} | lockState={targetLocker?.LockState}");
                 }
             }
 
@@ -96,7 +145,11 @@ namespace VSX.Weapons
         /// <param name="missileObject">The missile gameobject</param>
         public void OnMissileLaunched(Projectile missileProjectile)
         {
-            if (missileProjectile == null) return;
+            if (missileProjectile == null)
+            {
+                Debug.Log($"[MissileWeapon] OnMissileLaunched: projectile is NULL (client without visual dummy?)");
+                return;
+            }
             Missile missile = missileProjectile.GetComponent<Missile>();
             if (missile == null)
             {
@@ -104,9 +157,27 @@ namespace VSX.Weapons
             }
             else
             {
+                // Try our TargetLocker first, then fallback to ship's TargetSelector
+                Trackable target = (targetLocker != null) ? targetLocker.Target : null;
+                LockState lockState = (targetLocker != null) ? targetLocker.LockState : LockState.NoLock;
+
+                if (target == null)
+                {
+                    var weaponsController = GetComponentInParent<WeaponsController>();
+                    if (weaponsController != null && weaponsController.WeaponsTargetSelector != null)
+                    {
+                        target = weaponsController.WeaponsTargetSelector.SelectedTarget;
+                        if (target != null) lockState = LockState.Locked; // Player clearly locked and fired
+                    }
+                }
+
+                bool isVisualDummy = missileProjectile.IsVisualDummy;
+                Debug.Log($"[MissileWeapon] OnMissileLaunched: isVisualDummy={isVisualDummy} | " +
+                          $"target={(target != null ? target.name : "NULL")} | lockState={lockState}");
+
                 // Set missile parameters
-                missile.SetTarget(targetLocker.Target);
-                missile.SetLockState(targetLocker.LockState == LockState.Locked ? LockState.Locked : LockState.NoLock);
+                missile.SetTarget(target);
+                missile.SetLockState(lockState);
             }
         }
     }

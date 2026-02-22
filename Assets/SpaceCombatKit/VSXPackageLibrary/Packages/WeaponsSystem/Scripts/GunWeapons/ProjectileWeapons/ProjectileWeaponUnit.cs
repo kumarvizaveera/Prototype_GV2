@@ -6,6 +6,7 @@ using VSX.Pooling;
 using VSX.Vehicles;
 using VSX.Utilities;
 using VSX.Health;
+using VSX.RadarSystem;
 using Fusion;
 
 namespace VSX.Weapons
@@ -66,6 +67,12 @@ namespace VSX.Weapons
         }
 
         public NetworkId TargetIdForNextSpawn { get; set; }
+
+        /// <summary>
+        /// Direct Trackable reference for the visual dummy missile (local, non-networked).
+        /// Set alongside TargetIdForNextSpawn so the visual dummy can get target lock without NetworkId.
+        /// </summary>
+        public Trackable TargetTrackableForNextSpawn { get; set; }
 
         [Range(0, 1)]
         [SerializeField]
@@ -287,6 +294,24 @@ namespace VSX.Weapons
                         if (projectileController != null)
                         {
                             projectileController.SetVisualDummy();
+
+                            // Give the visual dummy the target lock so it can home correctly.
+                            // Without this, the local missile flies straight with no guidance.
+                            // Use the direct Trackable reference (set by MissileWeapon) since
+                            // the visual dummy is local and can't use NetworkId resolution.
+                            Missile dummyMissile = projectileController as Missile;
+                            if (dummyMissile == null) dummyMissile = projectileController.GetComponent<Missile>();
+                            if (dummyMissile != null && TargetTrackableForNextSpawn != null)
+                            {
+                                dummyMissile.SetTarget(TargetTrackableForNextSpawn);
+                                Debug.Log($"[ProjectileWeaponUnit] Visual dummy target set via Trackable: {TargetTrackableForNextSpawn.name}");
+                            }
+                            else if (dummyMissile != null)
+                            {
+                                Debug.LogWarning($"[ProjectileWeaponUnit] Visual dummy missile has NO target! " +
+                                                 $"TargetTrackable={(TargetTrackableForNextSpawn != null ? TargetTrackableForNextSpawn.name : "NULL")} | " +
+                                                 $"TargetId={TargetIdForNextSpawn} valid={TargetIdForNextSpawn.IsValid}");
+                            }
                         }
                     }
                 }

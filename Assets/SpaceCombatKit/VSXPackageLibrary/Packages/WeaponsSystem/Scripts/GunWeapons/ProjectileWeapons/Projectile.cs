@@ -526,6 +526,12 @@ namespace VSX.Weapons
             // Proxies should not apply damage — health is synced from the host via NetworkedHealthSync.
             // Running AreaEffect on proxies would cause double damage and fight the health sync.
             bool isAuthority = Object == null || Object.HasStateAuthority;
+            string role = isAuthority ? (Object == null ? "LOCAL" : "HOST") : "PROXY";
+            Debug.Log($"[Projectile] DETONATE ({role}) | type={GetType().Name} | pos={transform.position} | " +
+                      $"areaEffect={areaEffect} | willApplyAreaDmg={areaEffect && isAuthority} | " +
+                      $"detonated={detonated} | IsVisualDummy={IsVisualDummy} | " +
+                      $"hitEffectCount={defaultHitEffectPrefabs.Count}");
+
             if (areaEffect && isAuthority) AreaEffect();
 
             if (detonator != null && detonator.DetonationState == DetonationState.Reset) detonator.Detonate();
@@ -659,6 +665,10 @@ namespace VSX.Weapons
             // Direct damage should ONLY be applied on the State Authority (host).
             // Proxies just show visual effects — health is synced from the host via NetworkedHealthSync.
             bool isAuthority = Object == null || Object.HasStateAuthority;
+            string role = isAuthority ? (Object == null ? "LOCAL" : "HOST") : "PROXY";
+            Debug.Log($"[Projectile] OnCollision ({role}) | type={GetType().Name} | hitPoint={hit.point} | " +
+                      $"hitCollider={hit.collider.name} | hitObj={hit.collider.transform.root.name} | " +
+                      $"areaEffect={areaEffect} | willApplyDmg={isAuthority && !IsVisualDummy}");
 
             if (!areaEffect)
             {
@@ -920,7 +930,10 @@ namespace VSX.Weapons
                      if (Physics.Raycast(previousPosition, direction, out RaycastHit physHit, dist, collisionScanner != null ? collisionScanner.HitMask : Physics.DefaultRaycastLayers, ignoreTriggerColliders ? QueryTriggerInteraction.Ignore : QueryTriggerInteraction.Collide))
                      {
                            if (senderRootTransform != null && (physHit.transform == senderRootTransform || physHit.transform.IsChildOf(senderRootTransform))) return;
-                           
+
+                           Debug.Log($"[Projectile] HOST MovementUpdate HIT | type={GetType().Name} | " +
+                                     $"hitObj={physHit.collider.transform.root.name} | hitCollider={physHit.collider.name} | " +
+                                     $"hitPoint={physHit.point} | dist={dist:F1}");
                            OnCollision(physHit);
                      }
                }

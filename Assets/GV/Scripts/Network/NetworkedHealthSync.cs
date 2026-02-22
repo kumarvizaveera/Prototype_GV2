@@ -76,6 +76,10 @@ namespace GV.Network
             }
         }
 
+        // Debug: throttle logging to avoid spam
+        private float _lastHealthDebugLog = 0f;
+        private const float HEALTH_LOG_INTERVAL = 1.0f;
+
         public override void Render()
         {
             // Always apply health on non-authority every Render frame.
@@ -100,13 +104,32 @@ namespace GV.Network
             }
 
             // Check each damageable for health changes and sync
+            bool anyChanged = false;
             for (int i = 0; i < count; i++)
             {
                 float currentLocalHealth = vehicleHealth.Damageables[i].CurrentHealth;
                 if (!Mathf.Approximately(currentLocalHealth, NetworkedHealthValues[i]))
                 {
+                    Debug.Log($"[HealthSync] HOST WRITE [{i}] {vehicleHealth.Damageables[i].name} " +
+                              $"type={vehicleHealth.Damageables[i].HealthType?.name ?? "NULL"}: " +
+                              $"{NetworkedHealthValues[i]:F1} → {currentLocalHealth:F1} " +
+                              $"(capacity={vehicleHealth.Damageables[i].HealthCapacity:F1}) on {gameObject.name}");
                     NetworkedHealthValues.Set(i, currentLocalHealth);
+                    anyChanged = true;
                 }
+            }
+
+            // Periodic full state dump
+            if (Time.time - _lastHealthDebugLog > HEALTH_LOG_INTERVAL)
+            {
+                _lastHealthDebugLog = Time.time;
+                string healthDump = "";
+                for (int i = 0; i < count; i++)
+                {
+                    var d = vehicleHealth.Damageables[i];
+                    healthDump += $"[{i}]{d.HealthType?.name ?? "?"}: {d.CurrentHealth:F0}/{d.HealthCapacity:F0}(net={NetworkedHealthValues[i]:F0}) ";
+                }
+                Debug.Log($"[HealthSync] HOST STATE on {gameObject.name}: count={count} | {healthDump}");
             }
         }
 
@@ -119,6 +142,7 @@ namespace GV.Network
             int count = Mathf.Min(NetworkedDamageableCount, vehicleHealth.Damageables.Count);
             count = Mathf.Min(count, MAX_DAMAGEABLES);
 
+            bool anyChanged = false;
             for (int i = 0; i < count; i++)
             {
                 float networkedHealth = NetworkedHealthValues[i];
@@ -126,8 +150,25 @@ namespace GV.Network
 
                 if (!Mathf.Approximately(networkedHealth, localHealth))
                 {
+                    Debug.Log($"[HealthSync] CLIENT APPLY [{i}] {vehicleHealth.Damageables[i].name} " +
+                              $"type={vehicleHealth.Damageables[i].HealthType?.name ?? "NULL"}: " +
+                              $"local={localHealth:F1} → networked={networkedHealth:F1} on {gameObject.name}");
                     vehicleHealth.Damageables[i].SetHealth(networkedHealth);
+                    anyChanged = true;
                 }
+            }
+
+            // Periodic full state dump for client too
+            if (Time.time - _lastHealthDebugLog > HEALTH_LOG_INTERVAL)
+            {
+                _lastHealthDebugLog = Time.time;
+                string healthDump = "";
+                for (int i = 0; i < count; i++)
+                {
+                    var d = vehicleHealth.Damageables[i];
+                    healthDump += $"[{i}]{d.HealthType?.name ?? "?"}: local={d.CurrentHealth:F0} net={NetworkedHealthValues[i]:F0}/{d.HealthCapacity:F0} ";
+                }
+                Debug.Log($"[HealthSync] CLIENT STATE on {gameObject.name}: netCount={NetworkedDamageableCount} localCount={vehicleHealth.Damageables.Count} | {healthDump}");
             }
         }
     }
