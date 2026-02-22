@@ -294,7 +294,23 @@ namespace VSX.VehicleCombatKits
         {
             for (int i = 0; i < healthDisplays.Count; ++i)
             {
-                healthDisplays[i].Update(healthInfo.GetCurrentHealthByType(healthDisplays[i].healthType), healthInfo.GetHealthCapacityByType(healthDisplays[i].healthType));
+                float currentHealth = healthInfo.GetCurrentHealthByType(healthDisplays[i].healthType);
+                float maxHealth = healthInfo.GetHealthCapacityByType(healthDisplays[i].healthType);
+
+                // Dynamically show/hide bars based on whether the health type is active.
+                // Shield powerup: when inactive, EnergyShieldController.SetShieldActive(false) sets
+                // the shield Damageable health to 0. Hide the bar so we don't show "Shield: 0%".
+                // When shield activates: Restore() fills health back to capacity, bar reappears.
+                // Hull bar: always has currentHealth > 0 until destroyed, so it always shows.
+                if (Mathf.Approximately(maxHealth, 0) || Mathf.Approximately(currentHealth, 0))
+                {
+                    healthDisplays[i].handle.SetActive(false);
+                }
+                else
+                {
+                    healthDisplays[i].handle.SetActive(true);
+                    healthDisplays[i].Update(currentHealth, maxHealth);
+                }
             }
         }
 

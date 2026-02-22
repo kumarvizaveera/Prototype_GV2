@@ -270,6 +270,26 @@ namespace VSX.Health
             Collider c = GetComponent<Collider>();
             if (c != null) c.enabled = active;
 
+            // Sync the shield Damageable state so HUD and NetworkedHealthSync
+            // properly reflect whether the shield is active.
+            // When inactive: health = 0, isDamageable = false (hidden on HUD, no damage accepted).
+            // When active: restore to full health, isDamageable = true.
+            if (damageable != null)
+            {
+                if (active)
+                {
+                    damageable.SetDamageable(true);
+                    damageable.SetHealable(true);
+                    damageable.Restore(true); // Restores to full healthCapacity
+                }
+                else
+                {
+                    damageable.SetDamageable(false);
+                    damageable.SetHealable(false);
+                    damageable.SetHealth(0); // Zero health so HUD hides the shield bar
+                }
+            }
+
             if (!active && timerText != null)
             {
                 timerText.gameObject.SetActive(false);
