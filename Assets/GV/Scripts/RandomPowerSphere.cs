@@ -26,10 +26,10 @@ namespace GV
         public SuperWeaponOrb superWeapon;
 
         [Header("Settings")]
-        [Tooltip("If true, the sphere disappears after use.")]
-        public bool consumeOnPickup = true;
-        [Tooltip("If > 0, the sphere reappears after this many seconds.")]
-        public float respawnTime = -1f;
+        [Tooltip("Cooldown in seconds before the sphere can be collected again after pickup.")]
+        public float cooldownAfterPickup = 5f;
+        [Tooltip("Per-player cooldown to prevent the same player from collecting again too quickly.")]
+        public float perPlayerCooldown = 2f;
 
         [Header("Cycling Settings")]
         [Tooltip("If true, powers cycle every few seconds instead of being random.")]
@@ -55,6 +55,9 @@ namespace GV
 
         private Collider m_Collider;
         private Renderer[] m_Renderers;
+
+        // Track per-player cooldowns to prevent spam collection
+        private Dictionary<NetworkId, float> m_PlayerCooldowns = new Dictionary<NetworkId, float>();
 
         [Networked] public NetworkBool IsActive { get; set; } = true;
         [Networked] public PowerUpType CurrentCyclePower { get; set; }
@@ -275,25 +278,28 @@ namespace GV
 
             if (selected != PowerUpType.None)
             {
+                // Check per-player cooldown
+                NetworkObject targetNetObj = target.GetComponent<NetworkObject>();
+                if (targetNetObj == null) targetNetObj = target.GetComponentInParent<NetworkObject>();
+                if (targetNetObj != null)
+                {
+                    NetworkId playerId = targetNetObj.Id;
+                    if (m_PlayerCooldowns.ContainsKey(playerId) && Time.time < m_PlayerCooldowns[playerId])
+                    {
+                        return; // This player is still on cooldown
+                    }
+                    m_PlayerCooldowns[playerId] = Time.time + perPlayerCooldown;
+                }
+
                 Debug.Log($"[RandomPowerSphere] Mystery Sphere granted: {selected}");
-                
+
                 // IMPORTANT: ApplyPower calls Network Handler methods on the target
                 ApplyPower(selected, target);
 
-                // Feedback: Visuals set IsActive to false, which triggers Render() update on clients.
-                // We should also potentially RPC a sound? 
-                // Or just rely on IsActive change to spawn an effect locally in Render.
-                
-                // Consume
-                if (consumeOnPickup)
-                {
-                    IsActive = false;
-                    
-                    if (respawnTime > 0)
-                    {
-                        StartCoroutine(RespawnRoutine());
-                    }
-                }
+                // Temporarily deactivate the sphere, then reactivate after cooldown
+                // The sphere is NEVER destroyed — it always comes back
+                IsActive = false;
+                StartCoroutine(CooldownRoutine());
             }
         }
 
@@ -450,10 +456,11 @@ namespace GV
             }
         }
 
-        private IEnumerator RespawnRoutine()
+        private IEnumerator CooldownRoutine()
         {
-            yield return new WaitForSeconds(respawnTime);
+            yield return new WaitForSeconds(cooldownAfterPickup);
             IsActive = true;
+            Debug.Log("[RandomPowerSphere] Sphere reactivated after cooldown — ready for collection again.");
         }
 
         private void SetVisuals(bool active)

@@ -21,11 +21,11 @@ namespace GV
         }
 
         [Header("Global Sphere Settings")]
-        [Tooltip("If true, all spheres disappear after use.")]
-        public bool consumeOnPickup = true;
-        
-        [Tooltip("If > 0, spheres reappear after this many seconds.")]
-        public float respawnTime = -1f;
+        [Tooltip("Cooldown in seconds before spheres can be collected again after pickup.")]
+        public float cooldownAfterPickup = 5f;
+
+        [Tooltip("Per-player cooldown to prevent the same player from collecting again too quickly.")]
+        public float perPlayerCooldown = 2f;
 
         [Header("Global Cycling Settings")]
         [Tooltip("If true, all spheres cycle powers.")]
