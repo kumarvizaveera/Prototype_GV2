@@ -14,7 +14,7 @@ public class CheckpointNetwork : MonoBehaviour
     public static CheckpointNetwork Instance { get; private set; }
 
     [Header("Placement Mode")]
-    [Tooltip("Spline = use existing child transforms. Dispersed = randomly scatter in 3D space.")]
+    [Tooltip("Spline = use existing child transforms. Dispersed = randomly scatter inside the BattleZone sphere.")]
     public CheckpointPlacementMode placementMode = CheckpointPlacementMode.Spline;
 
     [Header("Source (optional manual assign)")]
@@ -25,18 +25,16 @@ public class CheckpointNetwork : MonoBehaviour
     [Header("Dispersed Settings")]
     [Tooltip("Number of checkpoints to generate in Dispersed mode.")]
     public int dispersedCount = 108;
-    [Tooltip("When true, auto-computes center and extents from the existing spline checkpoints.")]
-    public bool autoComputeBoundsFromSpline = true;
-    [Tooltip("Centre of the dispersal volume (world space). Only used when autoComputeBoundsFromSpline is OFF.")]
-    public Vector3 dispersedCenter = Vector3.zero;
-    [Tooltip("Half-extents of the dispersal bounding box. Only used when autoComputeBoundsFromSpline is OFF.")]
-    public Vector3 dispersedExtents = new Vector3(500f, 100f, 500f);
     [Tooltip("Minimum distance between any two dispersed checkpoints.")]
     public float dispersedMinSpacing = 10f;
     [Tooltip("Collider radius for each dispersed checkpoint trigger.")]
     public float dispersedColliderRadius = 5f;
     [Tooltip("Seed for deterministic placement. Use the SAME seed across all clients for multiplayer. 0 = random each time (single-player only).")]
     public int dispersedSeed = 42;
+
+    [Header("BattleZone Sphere Reference")]
+    [Tooltip("Reference to the BattleZoneController. If null, auto-finds in scene.")]
+    public GV.Network.BattleZoneController battleZone;
 
     [Header("Turret Prefabs (Dispersed Mode)")]
     [Tooltip("Turret prefabs to instantiate at each dispersed checkpoint. One is randomly chosen per checkpoint (seeded). Leave empty for no turret spawning.")]
@@ -72,10 +70,14 @@ public class CheckpointNetwork : MonoBehaviour
     readonly List<GameObject> _dispersedObjects = new List<GameObject>();
     Transform _dispersedParent;
 
+    // ─── Sphere-based proportional repositioning ──────────────────────
+    // Each checkpoint stores its position as a normalized offset from the sphere center.
+    // normalizedOffset = direction * (distance / initialRadius)
+    // Every frame: worldPos = sphereCenter + normalizedOffset * currentRadius
+    readonly List<Vector3> _normalizedOffsets = new List<Vector3>();
+    float _initialSphereRadius;
+
     // ─── Fusion awareness ─────────────────────────────────────────────
-    // Fusion's NetworkSceneManagerDefault.RegisterSceneObjects() deactivates
-    // non-networked GameObjects after scene registration. We detect when Fusion
-    // hosting starts and rebuild turrets AFTER registration is complete.
     bool _fusionWasConnected = false;
     bool _turretsNeedRebuildAfterFusion = false;
 
@@ -128,42 +130,84 @@ public class CheckpointNetwork : MonoBehaviour
     // ═══════════════════════════════════════════════════════════════════
     //  FUSION-AWARE REBUILD
     // ═══════════════════════════════════════════════════════════════════
-    // Detects when Fusion hosting/joining starts and rebuilds turrets
-    // after Fusion's scene registration has finished deactivating objects.
 
     void LateUpdate()
     {
         if (placementMode != CheckpointPlacementMode.Dispersed) return;
 
-        // Detect Fusion connection state change
+        // ── Detect Fusion connection and rebuild ──
         bool fusionConnected = IsFusionConnected();
 
         if (fusionConnected && !_fusionWasConnected)
         {
-            // Fusion just connected — scene registration may have deactivated our turrets
             Debug.Log("[CheckpointNetwork] Fusion connection detected — scheduling turret rebuild after scene registration...");
             _turretsNeedRebuildAfterFusion = true;
             StartCoroutine(RebuildAfterFusionSceneRegistration());
         }
 
         _fusionWasConnected = fusionConnected;
+
+        // ── Reposition checkpoints to follow shrinking BattleZone sphere ──
+        RepositionCheckpointsToSphere();
+    }
+
+    /// <summary>
+    /// Every frame, reposition all dispersed checkpoints proportionally
+    /// based on the BattleZone sphere's current radius and center.
+    /// </summary>
+    void RepositionCheckpointsToSphere()
+    {
+        if (_normalizedOffsets.Count == 0) return;
+        if (_dispersedObjects.Count == 0) return;
+
+        // Find BattleZone if not assigned
+        if (battleZone == null)
+            battleZone = FindFirstObjectByType<GV.Network.BattleZoneController>();
+        if (battleZone == null) return;
+
+        float currentRadius = GetBattleZoneRadius();
+        Vector3 sphereCenter = battleZone.transform.position;
+
+        for (int i = 0; i < _dispersedObjects.Count; i++)
+        {
+            if (_dispersedObjects[i] == null) continue;
+            if (i >= _normalizedOffsets.Count) break;
+
+            // World position = sphere center + normalized offset scaled by current radius
+            Vector3 newPos = sphereCenter + _normalizedOffsets[i] * currentRadius;
+            _dispersedObjects[i].transform.position = newPos;
+        }
+    }
+
+    /// <summary>
+    /// Safely reads the BattleZone's current radius.
+    /// CurrentRadius is a [Networked] property that throws before Fusion Spawned().
+    /// Falls back to InitialRadius (plain serialized field, always safe).
+    /// </summary>
+    float GetBattleZoneRadius()
+    {
+        if (battleZone == null) return 500f;
+
+        // Try the networked property first (only valid after Fusion Spawned)
+        try
+        {
+            float r = battleZone.CurrentRadius;
+            if (r > 0f) return r;
+        }
+        catch { /* Networked state not yet allocated — fall through */ }
+
+        // Fallback: read the serialized initialRadius (always safe)
+        return battleZone.InitialRadius;
     }
 
     bool IsFusionConnected()
     {
-        // Check if NetworkManager exists and is connected (without direct Fusion dependency)
         var nm = GV.Network.NetworkManager.Instance;
         return nm != null && nm.IsConnected;
     }
 
-    /// <summary>
-    /// Wait a few frames for Fusion's scene registration to finish,
-    /// then rebuild all dispersed checkpoints and turrets.
-    /// </summary>
     IEnumerator RebuildAfterFusionSceneRegistration()
     {
-        // Wait several frames for Fusion to finish RegisterSceneObjects()
-        // and any scene-load callbacks. 5 frames is plenty of margin.
         for (int i = 0; i < 5; i++)
             yield return null;
 
@@ -173,15 +217,10 @@ public class CheckpointNetwork : MonoBehaviour
         Debug.Log("[CheckpointNetwork] Rebuilding dispersed checkpoints + turrets AFTER Fusion scene registration...");
         Build();
 
-        // Force-ensure everything is active (belt-and-suspenders against Fusion deactivation)
         ForceEnableAllDispersedObjects();
         Debug.Log($"[CheckpointNetwork] Post-Fusion rebuild complete — {_checkpoints.Count} checkpoints, turrets force-enabled");
     }
 
-    /// <summary>
-    /// Re-activates all dispersed checkpoint GameObjects and their turret children.
-    /// Needed because Fusion's RegisterSceneObjects() can deactivate non-networked objects.
-    /// </summary>
     void ForceEnableAllDispersedObjects()
     {
         if (_dispersedParent != null)
@@ -192,8 +231,6 @@ public class CheckpointNetwork : MonoBehaviour
             if (go == null) continue;
             go.SetActive(true);
 
-            // Re-enable all children and weapon systems (but NOT renderers —
-            // respect the prefab's original renderer states so artists can toggle meshes off)
             foreach (Transform child in go.GetComponentsInChildren<Transform>(true))
                 child.gameObject.SetActive(true);
 
@@ -208,10 +245,6 @@ public class CheckpointNetwork : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Public method — can be called externally (e.g. from NetworkManager callbacks)
-    /// to force a rebuild of dispersed turrets after networking is ready.
-    /// </summary>
     public void ForceRebuild()
     {
         Debug.Log("[CheckpointNetwork] ForceRebuild() called externally");
@@ -228,6 +261,7 @@ public class CheckpointNetwork : MonoBehaviour
     public void Build()
     {
         _checkpoints.Clear();
+        _normalizedOffsets.Clear();
 
         if (placementMode == CheckpointPlacementMode.Dispersed)
         {
@@ -256,36 +290,7 @@ public class CheckpointNetwork : MonoBehaviour
         }
     }
 
-    // ─── Dispersed ────────────────────────────────────────────────────
-
-    void ComputeSplineBounds(out Vector3 center, out Vector3 extents)
-    {
-        if (_splineChildren.Count == 0)
-        {
-            center = transform.position;
-            extents = new Vector3(500f, 100f, 500f);
-            return;
-        }
-
-        Vector3 min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
-        Vector3 max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-
-        foreach (var child in _splineChildren)
-        {
-            if (child == null) continue;
-            Vector3 p = child.position;
-            min = Vector3.Min(min, p);
-            max = Vector3.Max(max, p);
-        }
-
-        center = (min + max) * 0.5f;
-        extents = (max - min) * 0.5f;
-
-        extents += Vector3.one * 20f;
-        extents.x = Mathf.Max(extents.x, 50f);
-        extents.y = Mathf.Max(extents.y, 30f);
-        extents.z = Mathf.Max(extents.z, 50f);
-    }
+    // ─── Dispersed (BattleZone Sphere) ────────────────────────────────
 
     void BuildDispersed()
     {
@@ -308,31 +313,38 @@ public class CheckpointNetwork : MonoBehaviour
         else if (checkpointsParent != null)
             targetLayer = checkpointsParent.gameObject.layer;
 
-        // Center and extents
-        Vector3 center;
-        Vector3 extents;
+        // ── Get sphere center and radius from BattleZoneController ──
+        if (battleZone == null)
+            battleZone = FindFirstObjectByType<GV.Network.BattleZoneController>();
 
-        if (autoComputeBoundsFromSpline)
+        Vector3 sphereCenter;
+        float sphereRadius;
+
+        if (battleZone != null)
         {
-            ComputeSplineBounds(out center, out extents);
-            Debug.Log($"[CheckpointNetwork] Auto-calculated bounds → center={center}, extents={extents}");
+            sphereCenter = battleZone.transform.position;
+            // Use InitialRadius (always safe, reads serialized field directly).
+            // CurrentRadius is [Networked] and throws before Fusion Spawned().
+            sphereRadius = battleZone.InitialRadius;
+            Debug.Log($"[CheckpointNetwork] Using BattleZone sphere → center={sphereCenter}, radius={sphereRadius}");
         }
         else
         {
-            center = dispersedCenter;
-            extents = dispersedExtents;
+            // Fallback: use transform position with a default radius
+            sphereCenter = transform.position;
+            sphereRadius = 500f;
+            Debug.LogWarning("[CheckpointNetwork] No BattleZoneController found! Using fallback sphere at transform.position with radius 500.");
         }
 
+        _initialSphereRadius = sphereRadius;
+
         // ═══ NETWORK-SAFE DETERMINISTIC RNG ═══
-        // Using System.Random (instance-based) instead of UnityEngine.Random (global static).
-        // UnityEngine.Random is global — ANY other script calling Random.Range() between
-        // our InitState and the end of this method would break determinism across clients.
-        // System.Random is isolated per-instance, so Host and Client always get identical results.
         int seed = dispersedSeed != 0 ? dispersedSeed : 42;
         System.Random rng = new System.Random(seed);
 
-        // ── Generate positions ──
+        // ── Generate positions inside the sphere ──
         List<Vector3> positions = new List<Vector3>(dispersedCount);
+        List<Vector3> normalizedOffsets = new List<Vector3>(dispersedCount);
         float minSqr = dispersedMinSpacing * dispersedMinSpacing;
         int maxAttempts = dispersedCount * 200;
         int attempts = 0;
@@ -340,11 +352,21 @@ public class CheckpointNetwork : MonoBehaviour
         while (positions.Count < dispersedCount && attempts < maxAttempts)
         {
             attempts++;
-            Vector3 candidate = center + new Vector3(
-                RngRange(rng, -extents.x, extents.x),
-                RngRange(rng, -extents.y, extents.y),
-                RngRange(rng, -extents.z, extents.z)
-            );
+
+            // Generate a random point inside a unit sphere using rejection sampling
+            Vector3 unitPoint;
+            do
+            {
+                unitPoint = new Vector3(
+                    RngRange(rng, -1f, 1f),
+                    RngRange(rng, -1f, 1f),
+                    RngRange(rng, -1f, 1f)
+                );
+            }
+            while (unitPoint.sqrMagnitude > 1f); // reject points outside unit sphere
+
+            // Scale to actual sphere
+            Vector3 candidate = sphereCenter + unitPoint * sphereRadius;
 
             bool tooClose = false;
             for (int i = 0; i < positions.Count; i++)
@@ -358,6 +380,7 @@ public class CheckpointNetwork : MonoBehaviour
             if (tooClose) continue;
 
             positions.Add(candidate);
+            normalizedOffsets.Add(unitPoint); // Store the unit-sphere offset (0..1 magnitude)
         }
 
         // ── Create checkpoint GameObjects and spawn turrets ──
@@ -396,26 +419,23 @@ public class CheckpointNetwork : MonoBehaviour
                         child.gameObject.SetActive(true);
                     }
 
-                    // NOTE: We do NOT force-enable renderers here — respect the prefab's
+                    // NOTE: We do NOT force-enable renderers — respect the prefab's
                     // original renderer states so meshes toggled off in the prefab stay off.
 
-                    // ── Prevent turrets from targeting each other ──
-                    // Disable all Trackable components so other turrets' TargetSelectors
-                    // can't see this turret as a valid target. Turrets can still fire at
-                    // players (who have their own Trackable on the player ship).
+                    // Prevent turrets from targeting each other
                     foreach (var trackable in turret.GetComponentsInChildren<VSX.RadarSystem.Trackable>(true))
                     {
                         trackable.enabled = false;
                     }
 
-                    // Activate any WeaponControllers (turret firing logic)
+                    // Activate WeaponControllers (turret firing logic)
                     foreach (var wc in turret.GetComponentsInChildren<VSX.Weapons.WeaponController>(true))
                     {
                         wc.enabled = true;
                         wc.Activated = true;
                     }
 
-                    // Activate any Weapons
+                    // Activate Weapons
                     foreach (var w in turret.GetComponentsInChildren<VSX.Weapons.Weapon>(true))
                     {
                         w.enabled = true;
@@ -429,20 +449,21 @@ public class CheckpointNetwork : MonoBehaviour
 
             _dispersedObjects.Add(cpGo);
             _checkpoints.Add(cpGo.transform);
+            _normalizedOffsets.Add(normalizedOffsets[i]);
         }
 
-        Debug.Log($"[CheckpointNetwork] Dispersed: placed {positions.Count}/{dispersedCount} (seed={seed}, center={center}, extents={extents}, turrets={hasTurrets})");
+        Debug.Log($"[CheckpointNetwork] Dispersed inside BattleZone sphere: placed {positions.Count}/{dispersedCount} " +
+                  $"(seed={seed}, center={sphereCenter}, radius={sphereRadius}, turrets={hasTurrets})");
 
         if (positions.Count < dispersedCount)
         {
             Debug.LogWarning($"[CheckpointNetwork] Only placed {positions.Count}/{dispersedCount} " +
                              $"dispersed checkpoints (minSpacing={dispersedMinSpacing}). " +
-                             "Reduce minSpacing or increase extents.");
+                             "Reduce minSpacing or wait for a larger sphere radius.");
         }
     }
 
     // ─── Network-safe RNG helper ─────────────────────────────────────
-    /// <summary>Returns a float in [min, max) using the isolated System.Random instance.</summary>
     static float RngRange(System.Random rng, float min, float max)
     {
         return min + (float)(rng.NextDouble() * (max - min));
@@ -462,6 +483,7 @@ public class CheckpointNetwork : MonoBehaviour
             }
         }
         _dispersedObjects.Clear();
+        _normalizedOffsets.Clear();
 
         if (_dispersedParent != null)
         {
@@ -572,7 +594,6 @@ public class CheckpointNetwork : MonoBehaviour
         return ToIndex(best);
     }
 
-    /// <summary>Point backDistance meters BEFORE the checkpoint along the checkpoint-chain path.</summary>
     public Vector3 GetPositionBehindOnPath(int index, float backDistance, out Vector3 forwardDir)
     {
         forwardDir = Vector3.forward;
@@ -858,21 +879,21 @@ public class CheckpointNetwork : MonoBehaviour
 #endif
         }
 
-        // Bounding box
-        Vector3 center;
-        Vector3 extents;
+        // Draw BattleZone sphere boundary (use InitialRadius — safe in editor/before Fusion)
+        Vector3 sphereCenter = transform.position;
+        float sphereRadius = 500f;
 
-        if (autoComputeBoundsFromSpline && _splineChildren.Count > 0)
+        var gizmoBz = battleZone;
+        if (gizmoBz == null)
+            gizmoBz = FindFirstObjectByType<GV.Network.BattleZoneController>();
+
+        if (gizmoBz != null)
         {
-            ComputeSplineBounds(out center, out extents);
-        }
-        else
-        {
-            center = dispersedCenter;
-            extents = dispersedExtents;
+            sphereCenter = gizmoBz.transform.position;
+            sphereRadius = gizmoBz.InitialRadius;
         }
 
         Gizmos.color = new Color(gizmoColor.r, gizmoColor.g, gizmoColor.b, 0.25f);
-        Gizmos.DrawWireCube(center, extents * 2f);
+        Gizmos.DrawWireSphere(sphereCenter, sphereRadius);
     }
 }

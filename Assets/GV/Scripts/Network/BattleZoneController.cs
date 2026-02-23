@@ -34,6 +34,12 @@ namespace GV.Network
         [Tooltip("Text shown before shrinking starts. Leave empty to show full duration.")]
         [SerializeField] private string timerIdleText = "";
 
+        /// <summary>
+        /// The initial radius set in the Inspector. Safe to read before Fusion Spawned().
+        /// Use this instead of CurrentRadius when Fusion is not yet running.
+        /// </summary>
+        public float InitialRadius => initialRadius;
+
         [Networked] public float CurrentRadius { get; set; }
         [Networked] public NetworkBool IsShrinking { get; set; }
         [Networked] private TickTimer ShrinkTimer { get; set; }
