@@ -109,23 +109,8 @@ namespace VSX.Engines3D
                 CycleCharacter();
             }
 
-            if (superWeaponTimer > 0)
-            {
-                superWeaponTimer -= Time.deltaTime;
-
-                if (superWeaponTimerText != null)
-                {
-                    superWeaponTimerText.text = string.Format(superWeaponTimerFormat, superWeaponTimer);
-                }
-
-                if (superWeaponTimer <= 0)
-                {
-                    superWeaponTimer = 0;
-                    currentSuperWeaponBonuses = null;
-                    if (superWeaponTimerText != null) superWeaponTimerText.gameObject.SetActive(false);
-                    RefreshStats();
-                }
-            }
+            // Super Weapon timer is now managed entirely by NetworkSuperWeaponHandler
+            // via networked TickTimer. No local countdown needed here.
         }
 
         private void CycleCharacter()
@@ -348,11 +333,10 @@ namespace VSX.Engines3D
             if (this.superWeaponTimerText != null) this.superWeaponTimerText.gameObject.SetActive(false);
         }
 
-        public void SetSuperWeapon(SuperWeaponBonuses bonuses, float duration)
+        public void SetSuperWeapon(SuperWeaponBonuses bonuses, float duration = 0f)
         {
             currentSuperWeaponBonuses = bonuses;
-            superWeaponTimer = duration;
-            if (superWeaponTimerText != null) superWeaponTimerText.gameObject.SetActive(true);
+            // duration param kept for signature compat but timer is managed by NetworkSuperWeaponHandler
             RefreshStats();
         }
 

@@ -1,5 +1,7 @@
 using UnityEngine;
 using GV;
+using GV.Network;
+using Fusion;
 using TMPro;
 
 namespace VSX.Engines3D
@@ -77,76 +79,94 @@ namespace VSX.Engines3D
 
         public void Apply(GameObject target)
         {
-             AircraftCharacterManager manager = target.GetComponent<AircraftCharacterManager>();
-             if (manager == null) manager = target.GetComponentInChildren<AircraftCharacterManager>();
-             if (manager == null) manager = target.GetComponentInParent<AircraftCharacterManager>();
-
-             if (manager != null)
+             // Register Collection
+             if (PowerUpManager.Instance != null)
              {
-                // Register Collection
-                if (PowerUpManager.Instance != null)
-                {
-                    PowerUpManager.Instance.RegisterCollection(powerUpType);
-                }
+                 PowerUpManager.Instance.RegisterCollection(powerUpType);
+             }
 
-                // Create the bonus object
-                AircraftCharacterManager.SuperWeaponBonuses bonuses = new AircraftCharacterManager.SuperWeaponBonuses();
-                
-                if (PowerSphereMasterController.Instance != null)
-                {
-                    var settings = PowerSphereMasterController.Instance.superWeaponSettings;
-                    duration = settings.duration;
-                    
-                    bonuses.projectileDamage = settings.projectileDamageMultiplier;
-                    bonuses.projectileRange = settings.projectileRangeMultiplier;
-                    bonuses.projectileSpeed = settings.projectileSpeedMultiplier;
-                    bonuses.projectileFireRate = settings.projectileFireRateMultiplier;
-                    bonuses.projectileReload = settings.projectileReloadMultiplier;
+             // Build bonuses
+             AircraftCharacterManager.SuperWeaponBonuses bonuses = new AircraftCharacterManager.SuperWeaponBonuses();
+             float dur = duration;
 
-                    bonuses.missileDamage = settings.missileDamageMultiplier;
-                    bonuses.missileRange = settings.missileRangeMultiplier;
-                    bonuses.missileSpeed = settings.missileSpeedMultiplier;
-                    bonuses.missileFireRate = settings.missileFireRateMultiplier;
-                    bonuses.missileReload = settings.missileReloadMultiplier;
-                }
-                else
-                {
-                    bonuses.projectileDamage = projectileDamageMultiplier;
-                    bonuses.projectileRange = projectileRangeMultiplier;
-                    bonuses.projectileSpeed = projectileSpeedMultiplier;
-                    bonuses.projectileFireRate = projectileFireRateMultiplier;
-                    bonuses.projectileReload = projectileReloadMultiplier;
+             if (PowerSphereMasterController.Instance != null)
+             {
+                 var settings = PowerSphereMasterController.Instance.superWeaponSettings;
+                 dur = settings.duration;
 
-                    bonuses.missileDamage = missileDamageMultiplier;
-                    bonuses.missileRange = missileRangeMultiplier;
-                    bonuses.missileSpeed = missileSpeedMultiplier;
-                    bonuses.missileFireRate = missileFireRateMultiplier;
-                    bonuses.missileReload = missileReloadMultiplier;
-                }
+                 bonuses.projectileDamage = settings.projectileDamageMultiplier;
+                 bonuses.projectileRange = settings.projectileRangeMultiplier;
+                 bonuses.projectileSpeed = settings.projectileSpeedMultiplier;
+                 bonuses.projectileFireRate = settings.projectileFireRateMultiplier;
+                 bonuses.projectileReload = settings.projectileReloadMultiplier;
 
-                // Pass UI settings
-                manager.SetSuperWeaponUI(timerText, timerFormat);
+                 bonuses.missileDamage = settings.missileDamageMultiplier;
+                 bonuses.missileRange = settings.missileRangeMultiplier;
+                 bonuses.missileSpeed = settings.missileSpeedMultiplier;
+                 bonuses.missileFireRate = settings.missileFireRateMultiplier;
+                 bonuses.missileReload = settings.missileReloadMultiplier;
+             }
+             else
+             {
+                 bonuses.projectileDamage = projectileDamageMultiplier;
+                 bonuses.projectileRange = projectileRangeMultiplier;
+                 bonuses.projectileSpeed = projectileSpeedMultiplier;
+                 bonuses.projectileFireRate = projectileFireRateMultiplier;
+                 bonuses.projectileReload = projectileReloadMultiplier;
 
-                // Apply
-                manager.SetSuperWeapon(bonuses, duration);
+                 bonuses.missileDamage = missileDamageMultiplier;
+                 bonuses.missileRange = missileRangeMultiplier;
+                 bonuses.missileSpeed = missileSpeedMultiplier;
+                 bonuses.missileFireRate = missileFireRateMultiplier;
+                 bonuses.missileReload = missileReloadMultiplier;
+             }
 
-                Debug.Log($"[SuperWeaponOrb] Applied Super Weapon bonuses for {duration} seconds.");
-                
-                // Audio
-                if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
-                if (pickupSoundObject != null) Instantiate(pickupSoundObject, transform.position, Quaternion.identity);
+             // Route through NetworkSuperWeaponHandler so it syncs to all clients
+             NetworkObject netObj = target.GetComponent<NetworkObject>();
+             if (netObj == null) netObj = target.GetComponentInParent<NetworkObject>();
 
-                // Visuals
-                if (pickupEffect != null)
-                {
-                    Instantiate(pickupEffect, transform.position, Quaternion.identity);
-                }
+             if (netObj != null)
+             {
+                 var swHandler = netObj.GetComponentInChildren<NetworkSuperWeaponHandler>();
+                 if (swHandler != null)
+                 {
+                     swHandler.ActivateSuperWeapon(dur, bonuses);
+                     Debug.Log($"[SuperWeaponOrb] Applied Super Weapon via NetworkSuperWeaponHandler for {dur}s.");
+                 }
+                 else
+                 {
+                     // Fallback: apply directly if handler is missing (non-networked testing)
+                     AircraftCharacterManager manager = target.GetComponent<AircraftCharacterManager>();
+                     if (manager == null) manager = target.GetComponentInChildren<AircraftCharacterManager>();
+                     if (manager == null) manager = target.GetComponentInParent<AircraftCharacterManager>();
+                     if (manager != null)
+                     {
+                         manager.SetSuperWeapon(bonuses, dur);
+                         Debug.LogWarning($"[SuperWeaponOrb] NetworkSuperWeaponHandler missing — applied locally only for {dur}s.");
+                     }
+                 }
+             }
+             else
+             {
+                 // No NetworkObject — pure local fallback
+                 AircraftCharacterManager manager = target.GetComponent<AircraftCharacterManager>();
+                 if (manager == null) manager = target.GetComponentInChildren<AircraftCharacterManager>();
+                 if (manager == null) manager = target.GetComponentInParent<AircraftCharacterManager>();
+                 if (manager != null)
+                 {
+                     manager.SetSuperWeapon(bonuses, dur);
+                     Debug.LogWarning($"[SuperWeaponOrb] No NetworkObject — applied locally only for {dur}s.");
+                 }
+             }
 
-                // Destroy the orb (only if not manual)
-                if (!manualTriggerOnly)
-                {
-                    Destroy(gameObject);
-                }
+             // Audio
+             if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
+             if (pickupSoundObject != null) Instantiate(pickupSoundObject, transform.position, Quaternion.identity);
+
+             // Visuals
+             if (pickupEffect != null)
+             {
+                 Instantiate(pickupEffect, transform.position, Quaternion.identity);
              }
         }
     }

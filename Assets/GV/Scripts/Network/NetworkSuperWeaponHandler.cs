@@ -77,7 +77,17 @@ namespace GV.Network
                 }
             }
 
-            // UI Update (local only)
+            // UI Update — only for the local player (input authority)
+            if (!Object.HasInputAuthority) return;
+
+            // Lazy resolve timerText if it wasn't available at Spawned() time
+            if (timerText == null && PowerSphereMasterController.Instance != null
+                && PowerSphereMasterController.Instance.superWeaponTimerText != null)
+            {
+                timerText = PowerSphereMasterController.Instance.superWeaponTimerText;
+                timerFormat = PowerSphereMasterController.Instance.superWeaponTimerFormat;
+            }
+
             if (IsSuperWeaponActive && timerText != null)
             {
                  float remaining = 0f;
@@ -86,12 +96,17 @@ namespace GV.Network
 
                  if (remaining > 0)
                  {
+                     timerText.gameObject.SetActive(true);
                      timerText.text = string.Format(timerFormat, remaining);
                  }
                  else
                  {
                      timerText.gameObject.SetActive(false);
                  }
+            }
+            else if (!IsSuperWeaponActive && timerText != null)
+            {
+                timerText.gameObject.SetActive(false);
             }
         }
 
@@ -165,15 +180,15 @@ namespace GV.Network
                 bonuses.missileFireRate = NetMissileRate;
                 bonuses.missileReload = NetMissileReload;
 
-                characterManager.SetSuperWeaponUI(timerText, timerFormat);
-                characterManager.SetSuperWeapon(bonuses, 999f); // Local timer handled by us via network update
-                
-                if (timerText != null) timerText.gameObject.SetActive(true);
+                // Apply bonuses to the character manager (timer UI is managed by Render())
+                characterManager.SetSuperWeapon(bonuses);
+
+                Debug.Log($"[NetworkSuperWeaponHandler] ApplyBonuses(true) on {gameObject.name}");
             }
             else
             {
-                characterManager.SetSuperWeapon(null, 0f);
-                if (timerText != null) timerText.gameObject.SetActive(false);
+                characterManager.SetSuperWeapon(null);
+                Debug.Log($"[NetworkSuperWeaponHandler] ApplyBonuses(false) on {gameObject.name}");
             }
         }
     }
