@@ -8,13 +8,21 @@ public enum CheckpointPlacementMode
     Dispersed
 }
 
+public enum DispersedSpawnShape
+{
+    [Tooltip("Spawn checkpoints inside the BattleZone sphere.")]
+    Sphere,
+    [Tooltip("Spawn checkpoints inside a box volume (GameObject). They still shrink with the BattleZone sphere.")]
+    Box
+}
+
 [DefaultExecutionOrder(-1000)]
 public class CheckpointNetwork : MonoBehaviour
 {
     public static CheckpointNetwork Instance { get; private set; }
 
     [Header("Placement Mode")]
-    [Tooltip("Spline = use existing child transforms. Dispersed = randomly scatter inside the BattleZone sphere.")]
+    [Tooltip("Spline = use existing child transforms. Dispersed = randomly scatter in 3D space.")]
     public CheckpointPlacementMode placementMode = CheckpointPlacementMode.Spline;
 
     [Header("Source (optional manual assign)")]
@@ -32,8 +40,15 @@ public class CheckpointNetwork : MonoBehaviour
     [Tooltip("Seed for deterministic placement. Use the SAME seed across all clients for multiplayer. 0 = random each time (single-player only).")]
     public int dispersedSeed = 42;
 
+    [Header("Spawn Shape")]
+    [Tooltip("Sphere = spawn inside the BattleZone sphere. Box = spawn inside a box volume GameObject. Either way, checkpoints shrink with the BattleZone sphere.")]
+    public DispersedSpawnShape spawnShape = DispersedSpawnShape.Sphere;
+
+    [Tooltip("Box volume GameObject for spawn shape Box. Uses this object's position and lossy scale as the bounding box. Leave null to use the BattleZone sphere.")]
+    public Transform spawnBoxVolume;
+
     [Header("BattleZone Sphere Reference")]
-    [Tooltip("Reference to the BattleZoneController. If null, auto-finds in scene.")]
+    [Tooltip("Reference to the BattleZoneController (drives shrinking). If null, auto-finds in scene.")]
     public GV.Network.BattleZoneController battleZone;
 
     [Header("Turret Prefabs (Dispersed Mode)")]
@@ -290,7 +305,9 @@ public class CheckpointNetwork : MonoBehaviour
         }
     }
 
-    // ─── Dispersed (BattleZone Sphere) ────────────────────────────────
+    // ─── Dispersed ──────────────────────────────────────────────────────
+    // Spawn shape: Sphere (inside BattleZone) or Box (inside a volume GameObject).
+    // Either way, checkpoints shrink proportionally with the BattleZone sphere.
 
     void BuildDispersed()
     {
@@ -313,7 +330,7 @@ public class CheckpointNetwork : MonoBehaviour
         else if (checkpointsParent != null)
             targetLayer = checkpointsParent.gameObject.layer;
 
-        // ── Get sphere center and radius from BattleZoneController ──
+        // ── Get BattleZone sphere (used for shrinking regardless of spawn shape) ──
         if (battleZone == null)
             battleZone = FindFirstObjectByType<GV.Network.BattleZoneController>();
 
@@ -323,14 +340,10 @@ public class CheckpointNetwork : MonoBehaviour
         if (battleZone != null)
         {
             sphereCenter = battleZone.transform.position;
-            // Use InitialRadius (always safe, reads serialized field directly).
-            // CurrentRadius is [Networked] and throws before Fusion Spawned().
             sphereRadius = battleZone.InitialRadius;
-            Debug.Log($"[CheckpointNetwork] Using BattleZone sphere → center={sphereCenter}, radius={sphereRadius}");
         }
         else
         {
-            // Fallback: use transform position with a default radius
             sphereCenter = transform.position;
             sphereRadius = 500f;
             Debug.LogWarning("[CheckpointNetwork] No BattleZoneController found! Using fallback sphere at transform.position with radius 500.");
@@ -342,32 +355,76 @@ public class CheckpointNetwork : MonoBehaviour
         int seed = dispersedSeed != 0 ? dispersedSeed : 42;
         System.Random rng = new System.Random(seed);
 
-        // ── Generate positions inside the sphere ──
+        // ── Generate positions based on spawn shape ──
         List<Vector3> positions = new List<Vector3>(dispersedCount);
         List<Vector3> normalizedOffsets = new List<Vector3>(dispersedCount);
         float minSqr = dispersedMinSpacing * dispersedMinSpacing;
         int maxAttempts = dispersedCount * 200;
         int attempts = 0;
 
+        // Box spawn shape: use the spawnBoxVolume's position and lossyScale as extents
+        Vector3 boxCenter = sphereCenter;
+        Vector3 boxHalfExtents = Vector3.one * sphereRadius;
+
+        if (spawnShape == DispersedSpawnShape.Box && spawnBoxVolume != null)
+        {
+            boxCenter = spawnBoxVolume.position;
+            boxHalfExtents = spawnBoxVolume.lossyScale * 0.5f;
+            Debug.Log($"[CheckpointNetwork] Spawn shape = Box → center={boxCenter}, halfExtents={boxHalfExtents}");
+        }
+        else if (spawnShape == DispersedSpawnShape.Sphere)
+        {
+            Debug.Log($"[CheckpointNetwork] Spawn shape = Sphere → center={sphereCenter}, radius={sphereRadius}");
+        }
+        else if (spawnShape == DispersedSpawnShape.Box && spawnBoxVolume == null)
+        {
+            Debug.LogWarning("[CheckpointNetwork] Spawn shape is Box but no spawnBoxVolume assigned! Falling back to Sphere.");
+        }
+
         while (positions.Count < dispersedCount && attempts < maxAttempts)
         {
             attempts++;
 
-            // Generate a random point inside a unit sphere using rejection sampling
-            Vector3 unitPoint;
-            do
+            Vector3 candidate;
+            Vector3 normalizedOffset;
+
+            if (spawnShape == DispersedSpawnShape.Box && spawnBoxVolume != null)
             {
-                unitPoint = new Vector3(
-                    RngRange(rng, -1f, 1f),
-                    RngRange(rng, -1f, 1f),
-                    RngRange(rng, -1f, 1f)
+                // ── Box spawn: random point inside the box volume ──
+                Vector3 localPoint = new Vector3(
+                    RngRange(rng, -boxHalfExtents.x, boxHalfExtents.x),
+                    RngRange(rng, -boxHalfExtents.y, boxHalfExtents.y),
+                    RngRange(rng, -boxHalfExtents.z, boxHalfExtents.z)
                 );
+                candidate = boxCenter + localPoint;
+
+                // Convert to a normalized offset relative to the BattleZone sphere center.
+                // This allows the checkpoints to shrink with the sphere even though
+                // they were spawned in a box shape.
+                Vector3 offsetFromSphereCenter = candidate - sphereCenter;
+                normalizedOffset = (sphereRadius > 0.01f)
+                    ? offsetFromSphereCenter / sphereRadius
+                    : Vector3.zero;
             }
-            while (unitPoint.sqrMagnitude > 1f); // reject points outside unit sphere
+            else
+            {
+                // ── Sphere spawn: random point inside a unit sphere (rejection sampling) ──
+                Vector3 unitPoint;
+                do
+                {
+                    unitPoint = new Vector3(
+                        RngRange(rng, -1f, 1f),
+                        RngRange(rng, -1f, 1f),
+                        RngRange(rng, -1f, 1f)
+                    );
+                }
+                while (unitPoint.sqrMagnitude > 1f);
 
-            // Scale to actual sphere
-            Vector3 candidate = sphereCenter + unitPoint * sphereRadius;
+                candidate = sphereCenter + unitPoint * sphereRadius;
+                normalizedOffset = unitPoint;
+            }
 
+            // Min-spacing check
             bool tooClose = false;
             for (int i = 0; i < positions.Count; i++)
             {
@@ -380,7 +437,7 @@ public class CheckpointNetwork : MonoBehaviour
             if (tooClose) continue;
 
             positions.Add(candidate);
-            normalizedOffsets.Add(unitPoint); // Store the unit-sphere offset (0..1 magnitude)
+            normalizedOffsets.Add(normalizedOffset);
         }
 
         // ── Create checkpoint GameObjects and spawn turrets ──
@@ -452,14 +509,15 @@ public class CheckpointNetwork : MonoBehaviour
             _normalizedOffsets.Add(normalizedOffsets[i]);
         }
 
-        Debug.Log($"[CheckpointNetwork] Dispersed inside BattleZone sphere: placed {positions.Count}/{dispersedCount} " +
-                  $"(seed={seed}, center={sphereCenter}, radius={sphereRadius}, turrets={hasTurrets})");
+        string shapeStr = (spawnShape == DispersedSpawnShape.Box && spawnBoxVolume != null) ? "Box" : "Sphere";
+        Debug.Log($"[CheckpointNetwork] Dispersed ({shapeStr}): placed {positions.Count}/{dispersedCount} " +
+                  $"(seed={seed}, sphereCenter={sphereCenter}, sphereRadius={sphereRadius}, turrets={hasTurrets})");
 
         if (positions.Count < dispersedCount)
         {
             Debug.LogWarning($"[CheckpointNetwork] Only placed {positions.Count}/{dispersedCount} " +
                              $"dispersed checkpoints (minSpacing={dispersedMinSpacing}). " +
-                             "Reduce minSpacing or wait for a larger sphere radius.");
+                             "Reduce minSpacing or increase volume size.");
         }
     }
 
@@ -895,5 +953,12 @@ public class CheckpointNetwork : MonoBehaviour
 
         Gizmos.color = new Color(gizmoColor.r, gizmoColor.g, gizmoColor.b, 0.25f);
         Gizmos.DrawWireSphere(sphereCenter, sphereRadius);
+
+        // If using Box spawn shape, also draw the box volume
+        if (spawnShape == DispersedSpawnShape.Box && spawnBoxVolume != null)
+        {
+            Gizmos.color = new Color(1f, 1f, 0f, 0.3f); // yellow
+            Gizmos.DrawWireCube(spawnBoxVolume.position, spawnBoxVolume.lossyScale);
+        }
     }
 }
