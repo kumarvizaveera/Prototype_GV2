@@ -192,12 +192,10 @@ public class CheckpointNetwork : MonoBehaviour
             if (go == null) continue;
             go.SetActive(true);
 
-            // Re-enable all children, renderers, and weapon systems
+            // Re-enable all children and weapon systems (but NOT renderers —
+            // respect the prefab's original renderer states so artists can toggle meshes off)
             foreach (Transform child in go.GetComponentsInChildren<Transform>(true))
                 child.gameObject.SetActive(true);
-
-            foreach (var renderer in go.GetComponentsInChildren<Renderer>(true))
-                renderer.enabled = true;
 
             foreach (var wc in go.GetComponentsInChildren<VSX.Weapons.WeaponController>(true))
             {
@@ -398,10 +396,16 @@ public class CheckpointNetwork : MonoBehaviour
                         child.gameObject.SetActive(true);
                     }
 
-                    // Force-enable all renderers
-                    foreach (var renderer in turret.GetComponentsInChildren<Renderer>(true))
+                    // NOTE: We do NOT force-enable renderers here — respect the prefab's
+                    // original renderer states so meshes toggled off in the prefab stay off.
+
+                    // ── Prevent turrets from targeting each other ──
+                    // Disable all Trackable components so other turrets' TargetSelectors
+                    // can't see this turret as a valid target. Turrets can still fire at
+                    // players (who have their own Trackable on the player ship).
+                    foreach (var trackable in turret.GetComponentsInChildren<VSX.RadarSystem.Trackable>(true))
                     {
-                        renderer.enabled = true;
+                        trackable.enabled = false;
                     }
 
                     // Activate any WeaponControllers (turret firing logic)
