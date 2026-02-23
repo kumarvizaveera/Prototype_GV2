@@ -54,7 +54,7 @@ namespace VSX.UniversalVehicleCombat
 
 		[Tooltip("Deterministic seed for multiplayer. Same seed = identical results on all clients. 0 = random each time.")]
 		[SerializeField]
-		protected int seed = 42;
+		protected int seed = 0;
 
 		[Header("Rotation")]
 
@@ -240,8 +240,8 @@ namespace VSX.UniversalVehicleCombat
 			Vector3 boxCenter = spawnBoxVolume.position;
 			Vector3 boxHalfExtents = spawnBoxVolume.lossyScale * 0.5f;
 
-			// Network-safe deterministic RNG
-			int s = seed != 0 ? seed : 42;
+			// Deterministic RNG – seed 0 means random each game
+			int s = seed != 0 ? seed : System.Environment.TickCount;
 			System.Random rng = new System.Random(s);
 
 			float minSqr = minSpacing * minSpacing;

@@ -35,7 +35,7 @@ namespace GV.Scripts
         public float minSpacing = 0f;
 
         [Tooltip("Deterministic seed for multiplayer. Same seed = identical results on all clients. 0 = random each time (Box mode only).")]
-        public int seed = 42;
+        public int seed = 0;
 
         [Header("Rotation")]
         [Range(0, 1)]
@@ -153,8 +153,8 @@ namespace GV.Scripts
             Vector3 boxCenter = spawnBoxVolume.position;
             Vector3 boxHalfExtents = spawnBoxVolume.lossyScale * 0.5f;
 
-            // Deterministic RNG for multiplayer
-            int s = seed != 0 ? seed : 42;
+            // Deterministic RNG – seed 0 means random each game
+            int s = seed != 0 ? seed : System.Environment.TickCount;
             System.Random rng = new System.Random(s);
 
             float minSqr = minSpacing * minSpacing;

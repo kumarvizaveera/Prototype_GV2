@@ -594,6 +594,12 @@ PrefabInstance:
       propertyPath: m_Name
       value: WeaponUnit_Gun_EnergyProjectile
       objectReference: {fileID: 0}
+    - target: {fileID: 4504876759202798356, guid: a5239f83bddb2c64687b04a1b8233e54,
+        type: 3}
+      propertyPath: 'objectsToSpawn.Array.data[0]'
+      value: 
+      objectReference: {fileID: 9169696766150175059, guid: 1ae17f7666bde8e4e896ff6673caa1c9,
+        type: 3}
     - target: {fileID: 6097698698304206934, guid: a5239f83bddb2c64687b04a1b8233e54,
         type: 3}
       propertyPath: m_RootOrder
