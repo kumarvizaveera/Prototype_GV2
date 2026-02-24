@@ -20427,17 +20427,17 @@ PrefabInstance:
     - target: {fileID: 6516859164063299191, guid: 39918afc914b5794a991bbe51b876a1e,
         type: 3}
       propertyPath: overrideGlowColor
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6516859164063299191, guid: 39918afc914b5794a991bbe51b876a1e,
         type: 3}
       propertyPath: overrideFlameColor
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6516859164063299191, guid: 39918afc914b5794a991bbe51b876a1e,
         type: 3}
       propertyPath: overrideLightColor
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6516859164063299191, guid: 39918afc914b5794a991bbe51b876a1e,
         type: 3}
