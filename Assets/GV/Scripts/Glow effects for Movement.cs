@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using VSX.Engines3D;
 using VSX.ResourceSystem;
+using Fusion;
 
 public class BoostGlow : MonoBehaviour
 {
@@ -35,6 +36,10 @@ public class BoostGlow : MonoBehaviour
     private float _currentIntensity;
     private Color _currentColor;
 
+    // Network awareness — only read keyboard for local player's ship
+    private NetworkObject _networkObject;
+    private bool _isLocalPlayer;
+
     public Color CurrentBaseColor => _currentColor;
     public float CurrentIntensity => _currentIntensity;
 
@@ -42,12 +47,17 @@ public class BoostGlow : MonoBehaviour
     {
         // Set default starting color
         _currentColor = forwardColor;
-        
+
         if (vehicleEngines == null)
             vehicleEngines = GetComponent<VehicleEngines3D>();
-            
+
         if (vehicleEngines == null)
             vehicleEngines = GetComponentInParent<VehicleEngines3D>();
+
+        // Find NetworkObject to determine local vs remote ship
+        _networkObject = transform.root.GetComponent<NetworkObject>();
+        if (_networkObject == null)
+            _networkObject = GetComponentInParent<NetworkObject>();
 
         // Find all renderers in all assigned parents
         foreach (GameObject parentObj in targetModelParents)
@@ -68,58 +78,108 @@ public class BoostGlow : MonoBehaviour
 
     void Update()
     {
-        float targetIntensity = 0f;
-        Color targetBaseColor = _currentColor; 
+        // Determine if this is the local player's ship
+        // If networked and not our ship, use engine state instead of keyboard input
+        _isLocalPlayer = (_networkObject == null) || _networkObject.HasInputAuthority;
 
-        // INPUT LOGIC (Priority Order)
-        
-        bool canBoost = true;
-        if (vehicleEngines != null)
+        float targetIntensity = 0f;
+        Color targetBaseColor = _currentColor;
+
+        if (_isLocalPlayer)
         {
-            foreach (var handler in vehicleEngines.BoostResourceHandlers)
+            // LOCAL PLAYER: read keyboard input (responsive, no lag)
+
+            bool canBoost = true;
+            if (vehicleEngines != null)
             {
-                if (!handler.Ready())
+                foreach (var handler in vehicleEngines.BoostResourceHandlers)
                 {
-                    canBoost = false;
-                    break;
+                    if (!handler.Ready())
+                    {
+                        canBoost = false;
+                        break;
+                    }
                 }
             }
-        }
 
-        // 1. Boost (Highest Priority) - NOW W KEY
-        if (Input.GetKey(boostKey) && canBoost)
-        {
-            targetIntensity = boostIntensity;
-            targetBaseColor = boostColor;
+            // 1. Boost (Highest Priority) - NOW W KEY
+            if (Input.GetKey(boostKey) && canBoost)
+            {
+                targetIntensity = boostIntensity;
+                targetBaseColor = boostColor;
+            }
+            // 2. Brake (S Key) - Turn OFF glow
+            else if (Input.GetKey(brakeKey))
+            {
+                targetIntensity = 0f;
+            }
+            // 3. Auto-Forward OR Manual Forward
+            else if (autoForwardGlow || Input.GetKey(forwardKey))
+            {
+                targetIntensity = forwardIntensity;
+                targetBaseColor = forwardColor;
+            }
+            // 4. Left (Q)
+            else if (Input.GetKey(leftKey))
+            {
+                targetIntensity = sideIntensity;
+                targetBaseColor = leftColor;
+            }
+            // 5. Right (E)
+            else if (Input.GetKey(rightKey))
+            {
+                targetIntensity = sideIntensity;
+                targetBaseColor = rightColor;
+            }
+            // 6. Idle (Only if auto-forward is OFF)
+            else
+            {
+                targetIntensity = 0f;
+            }
         }
-        // 2. Brake (S Key) - Turn OFF glow
-        else if (Input.GetKey(brakeKey))
-        {
-            targetIntensity = 0f;
-            // Fade out using last color
-        }
-        // 3. Auto-Forward OR Manual Forward
-        else if (autoForwardGlow || Input.GetKey(forwardKey))
-        {
-            targetIntensity = forwardIntensity;
-            targetBaseColor = forwardColor;
-        }
-        // 4. Left (Q)
-        else if (Input.GetKey(leftKey))
-        {
-            targetIntensity = sideIntensity;
-            targetBaseColor = leftColor;
-        }
-        // 5. Right (E)
-        else if (Input.GetKey(rightKey))
-        {
-            targetIntensity = sideIntensity;
-            targetBaseColor = rightColor;
-        }
-        // 6. Idle (Only if auto-forward is OFF)
         else
         {
-            targetIntensity = 0f;
+            // REMOTE PLAYER: derive glow from engine state (network-synced)
+            if (vehicleEngines != null)
+            {
+                Vector3 boostState = vehicleEngines.BoostInputs;
+                Vector3 moveState = vehicleEngines.MovementInputs;
+
+                // 1. Boost active
+                if (boostState.magnitude > 0.1f)
+                {
+                    targetIntensity = boostIntensity;
+                    targetBaseColor = boostColor;
+                }
+                // 2. Reverse / brake (negative Z movement)
+                else if (moveState.z < -0.1f)
+                {
+                    targetIntensity = 0f;
+                }
+                // 3. Forward movement
+                else if (moveState.z > 0.1f || autoForwardGlow)
+                {
+                    targetIntensity = forwardIntensity;
+                    targetBaseColor = forwardColor;
+                }
+                // 4. Left strafe
+                else if (moveState.x < -0.1f)
+                {
+                    targetIntensity = sideIntensity;
+                    targetBaseColor = leftColor;
+                }
+                // 5. Right strafe
+                else if (moveState.x > 0.1f)
+                {
+                    targetIntensity = sideIntensity;
+                    targetBaseColor = rightColor;
+                }
+                // 6. Idle
+                else
+                {
+                    targetIntensity = 0f;
+                }
+            }
         }
 
         // SMOOTHING
