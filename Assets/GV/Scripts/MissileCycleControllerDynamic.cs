@@ -51,6 +51,10 @@ namespace GV.Scripts
         
         private Coroutine activeHideCoroutine;
 
+        // Swap awareness — this controller is for Vimana (B), only show UI when B is active
+        private AircraftMeshSwapWithFX swapController;
+        private bool wasHiddenBySwap = false;
+
 
         public override void Spawned()
         {
@@ -197,6 +201,10 @@ namespace GV.Scripts
         {
             // Instance = this; // Moved to Spawned for network safety or keep if single local player
             if(Instance == null) Instance = this;
+
+            swapController = GetComponentInParent<AircraftMeshSwapWithFX>();
+            if (swapController == null)
+                swapController = transform.root.GetComponentInChildren<AircraftMeshSwapWithFX>();
         }
 
         private IEnumerator Start()
@@ -355,10 +363,30 @@ namespace GV.Scripts
         {
             // Only allow input if we have InputAuthority (and are spawned)
             if (Object != null && Object.IsValid && !Object.HasInputAuthority) return;
-            
+
             // Allow locally if offline/not networked yet
             if (Object != null && Object.IsValid == false) { /* Allow local testing */ }
 
+            // Swap awareness: this controller is for Vimana (B).
+            // When Spaceship (A) is active, hide UI and skip input.
+            if (swapController != null && swapController.IsAActive)
+            {
+                if (!wasHiddenBySwap)
+                {
+                    HideAllUI();
+                    wasHiddenBySwap = true;
+                }
+                return;
+            }
+
+            // Restore UI when swapping back to Vimana (B)
+            if (wasHiddenBySwap)
+            {
+                wasHiddenBySwap = false;
+                UpdateEquippedVisuals(currentIndex);
+                if (currentIndex >= 0 && currentIndex < missileMounts.Count)
+                    ShowActiveNotification(missileMounts[currentIndex].label);
+            }
 
             if (Input.GetKeyDown(cycleKey))
             {

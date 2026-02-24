@@ -62,6 +62,9 @@ namespace GV.Scripts
         private float timer;
         private Collider triggerCollider;
 
+        // Aircraft swap detection — Astra refill only applies to Vimana (B), not Spaceship (A)
+        private AircraftMeshSwapWithFX activeSwapController;
+
         // Boost fuel refill state
         private VehicleEngines3D activeEngines;
 
@@ -175,6 +178,10 @@ namespace GV.Scripts
                 Debug.Log($"[AstraRefill] Found Controller on {controller.gameObject.name}");
                 activeController = controller;
                 timer = refillInterval;
+
+                // Cache swap controller to check which aircraft is active each frame
+                activeSwapController = other.transform.root.GetComponentInChildren<AircraftMeshSwapWithFX>();
+
                 UpdateFeedbackUI();
             }
             else
@@ -229,6 +236,7 @@ namespace GV.Scripts
             {
                 Debug.Log($"[AstraRefill] Exited active controller zone.");
                 activeController = null;
+                activeSwapController = null;
                 if (feedbackText != null) feedbackText.gameObject.SetActive(false);
                 if (capacityFullText != null) capacityFullText.gameObject.SetActive(false);
             }
@@ -262,7 +270,15 @@ namespace GV.Scripts
         {
             if (activeController != null)
             {
-                if (IsAmmoFull())
+                // Astra refill only applies to Vimana (B). When Spaceship (A) is active, hide UI and skip.
+                bool isSpaceshipActive = activeSwapController != null && activeSwapController.IsAActive;
+
+                if (isSpaceshipActive)
+                {
+                    if (feedbackText != null) feedbackText.gameObject.SetActive(false);
+                    if (capacityFullText != null) capacityFullText.gameObject.SetActive(false);
+                }
+                else if (IsAmmoFull())
                 {
                     // Capacity is full — hide refill text, show full text
                     if (feedbackText != null) feedbackText.gameObject.SetActive(false);
