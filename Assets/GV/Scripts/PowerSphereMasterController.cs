@@ -208,6 +208,14 @@ namespace GV
         public TMP_Text activeNotificationText;
         public string activeMessagePrefix = "Power: ";
 
+        [Header("UI - First Collection Notification")]
+        [Tooltip("TMP text that briefly appears the first time any power is collected (e.g. 'Shield Collected!').")]
+        public TMP_Text firstCollectionText;
+        [Tooltip("Format string for first-collection popup. {0} is power label.")]
+        public string firstCollectionFormat = "{0} Collected!";
+        [Tooltip("How long the first-collection popup stays visible (seconds).")]
+        public float firstCollectionDisplayDuration = 3f;
+
         [Header("UI - Visuals")]
         [Tooltip("Material applied to the stats text of the currently selected power.")]
         public Material activeTextMaterial;
@@ -235,10 +243,18 @@ namespace GV
         private TeleportPowerUp cachedTeleportPowerUp;
 
         private Coroutine activeHideCoroutine;
+        private Coroutine firstCollectionHideCoroutine;
 
         // =====================================================================
         // UNITY LIFECYCLE
         // =====================================================================
+
+        private void Start()
+        {
+            // Hide the first-collection popup at the start so it only appears on actual collection
+            if (firstCollectionText != null)
+                firstCollectionText.gameObject.SetActive(false);
+        }
 
         private void Update()
         {
@@ -335,6 +351,7 @@ namespace GV
                     else
                     {
                         Debug.Log($"[PowerSphereMaster] Collected {type} — now available for use.");
+                        ShowFirstCollectionNotification(powerEntries[i].label);
                     }
 
                     // Auto-select the newly collected power (immediate feedback, like MissileCycleController unlocking)
@@ -521,6 +538,31 @@ namespace GV
             if (activeHideCoroutine != null) StopCoroutine(activeHideCoroutine);
         }
 
+        /// <summary>
+        /// Shows a brief popup the first time a power is collected (e.g. "Shield Collected!").
+        /// The popup auto-hides after <see cref="firstCollectionDisplayDuration"/> seconds.
+        /// </summary>
+        private void ShowFirstCollectionNotification(string label)
+        {
+            if (firstCollectionText == null) return;
+
+            string displayName = string.IsNullOrEmpty(label) ? "Power" : label;
+            firstCollectionText.text = string.Format(firstCollectionFormat, displayName);
+            firstCollectionText.gameObject.SetActive(true);
+
+            // Restart the auto-hide timer if another power is collected quickly
+            if (firstCollectionHideCoroutine != null) StopCoroutine(firstCollectionHideCoroutine);
+            firstCollectionHideCoroutine = StartCoroutine(HideFirstCollectionAfterDelay());
+        }
+
+        private IEnumerator HideFirstCollectionAfterDelay()
+        {
+            yield return new WaitForSeconds(firstCollectionDisplayDuration);
+            if (firstCollectionText != null)
+                firstCollectionText.gameObject.SetActive(false);
+            firstCollectionHideCoroutine = null;
+        }
+
         // =====================================================================
         // HELPERS
         // =====================================================================
@@ -598,6 +640,15 @@ namespace GV
             cachedPlayerNetObj = null;
             cachedTeleportPowerUp = null;
             ShowActiveNotification("None");
+
+            // Hide first-collection popup if visible
+            if (firstCollectionText != null)
+                firstCollectionText.gameObject.SetActive(false);
+            if (firstCollectionHideCoroutine != null)
+            {
+                StopCoroutine(firstCollectionHideCoroutine);
+                firstCollectionHideCoroutine = null;
+            }
         }
     }
 }
