@@ -84,6 +84,16 @@ public class CheckpointNetwork : MonoBehaviour
     [Tooltip("Add/Subtract to shift all indices. E.g. -1 if triggers are 1 too late.")]
     public int indexOffset = 0;
 
+    [Header("Turret Activation Range")]
+    [Tooltip("Turrets farther than this from ALL ships are disabled to save CPU. " +
+             "Their Tracker, TargetSelector, TurretController, and WeaponController Update loops won't run. " +
+             "Set to 0 to disable distance culling (all turrets always active).")]
+    public float turretActivationRange = 300f;
+
+    [Tooltip("How often (seconds) to re-evaluate which turrets are in range. " +
+             "Lower = more responsive but slightly more CPU. 0.5–1.0 is recommended.")]
+    public float turretCullingInterval = 0.5f;
+
     // ─── Internal ─────────────────────────────────────────────────────
     readonly List<Transform> _splineChildren = new List<Transform>();
     readonly List<GameObject> _dispersedObjects = new List<GameObject>();
@@ -99,6 +109,19 @@ public class CheckpointNetwork : MonoBehaviour
     // ─── Fusion awareness ─────────────────────────────────────────────
     bool _fusionWasConnected = false;
     bool _turretsNeedRebuildAfterFusion = false;
+
+    // ─── Cached turret components (avoid GetComponentsInChildren every rescan) ──
+    struct TurretCache
+    {
+        public VSX.RadarSystem.Tracker[] trackers;
+        public VSX.RadarSystem.TargetSelector[] targetSelectors;
+        public VSX.Weapons.TurretController[] turretControllers;
+        public VSX.Weapons.WeaponController[] weaponControllers;
+        public VSX.Weapons.Weapon[] weapons;
+        public bool isActive;
+    }
+    readonly List<TurretCache> _turretCaches = new List<TurretCache>();
+    float _lastCullingTime = -999f;
 
     void Awake()
     {
@@ -181,6 +204,13 @@ public class CheckpointNetwork : MonoBehaviour
 
         // ── Reposition checkpoints to follow shrinking BattleZone sphere ──
         RepositionCheckpointsToSphere();
+
+        // ── Distance-based turret culling ──
+        if (turretActivationRange > 0f && Time.time - _lastCullingTime >= turretCullingInterval)
+        {
+            _lastCullingTime = Time.time;
+            UpdateTurretCulling();
+        }
     }
 
     /// <summary>
@@ -209,6 +239,94 @@ public class CheckpointNetwork : MonoBehaviour
             Vector3 newPos = sphereCenter + _normalizedOffsets[i] * currentRadius;
             _dispersedObjects[i].transform.position = newPos;
         }
+    }
+
+    /// <summary>
+    /// Enables/disables turret components based on distance to any ship (Trackable).
+    /// Disabled turrets don't run Update loops (Tracker, TargetSelector, GunTurretController),
+    /// saving significant CPU when many turrets are far from all players.
+    /// </summary>
+    void UpdateTurretCulling()
+    {
+        if (_turretCaches.Count == 0) return;
+
+        // Gather ship positions from TrackableSceneManager
+        var tsm = VSX.RadarSystem.TrackableSceneManager.Instance;
+        if (tsm == null || tsm.Trackables.Count == 0) return;
+
+        // Cache trackable positions to avoid repeated property access
+        var trackablePositions = new Vector3[tsm.Trackables.Count];
+        for (int t = 0; t < tsm.Trackables.Count; t++)
+        {
+            trackablePositions[t] = tsm.Trackables[t].transform.position;
+        }
+
+        float rangeSqr = turretActivationRange * turretActivationRange;
+
+        for (int i = 0; i < _turretCaches.Count && i < _dispersedObjects.Count; i++)
+        {
+            if (_dispersedObjects[i] == null) continue;
+
+            Vector3 turretPos = _dispersedObjects[i].transform.position;
+
+            // Check distance to any trackable (ship)
+            bool inRange = false;
+            for (int t = 0; t < trackablePositions.Length; t++)
+            {
+                if ((turretPos - trackablePositions[t]).sqrMagnitude <= rangeSqr)
+                {
+                    inRange = true;
+                    break;
+                }
+            }
+
+            var cache = _turretCaches[i];
+
+            if (inRange && !cache.isActive)
+            {
+                // Activate turret
+                SetTurretActive(cache, true);
+                cache.isActive = true;
+                _turretCaches[i] = cache;
+            }
+            else if (!inRange && cache.isActive)
+            {
+                // Deactivate turret (stop all per-frame processing)
+                SetTurretActive(cache, false);
+                cache.isActive = false;
+                _turretCaches[i] = cache;
+            }
+        }
+    }
+
+    void SetTurretActive(TurretCache cache, bool active)
+    {
+        // Enable/disable Trackers (each runs UpdateTargets every frame)
+        if (cache.trackers != null)
+            foreach (var t in cache.trackers) { if (t != null) t.enabled = active; }
+
+        // Enable/disable TargetSelectors (each scans trackables every frame)
+        if (cache.targetSelectors != null)
+            foreach (var ts in cache.targetSelectors) { if (ts != null) ts.enabled = active; }
+
+        // Enable/disable TurretControllers (gimbal tracking every frame)
+        if (cache.turretControllers != null)
+            foreach (var tc in cache.turretControllers) { if (tc != null) tc.enabled = active; }
+
+        // Enable/disable WeaponControllers (firing logic)
+        if (cache.weaponControllers != null)
+            foreach (var wc in cache.weaponControllers)
+            {
+                if (wc != null)
+                {
+                    wc.enabled = active;
+                    wc.Activated = active;
+                }
+            }
+
+        // Enable/disable Weapons
+        if (cache.weapons != null)
+            foreach (var w in cache.weapons) { if (w != null) w.enabled = active; }
     }
 
     /// <summary>
@@ -285,25 +403,27 @@ public class CheckpointNetwork : MonoBehaviour
         if (tsm == null || tsm.Trackables.Count == 0)
             yield break;
 
-        foreach (var go in _dispersedObjects)
+        for (int i = 0; i < _turretCaches.Count; i++)
         {
-            if (go == null) continue;
+            var cache = _turretCaches[i];
 
             // Force Trackers to refresh their target list from TrackableSceneManager
-            foreach (var tracker in go.GetComponentsInChildren<VSX.RadarSystem.Tracker>(true))
+            if (cache.trackers != null)
             {
-                if (tracker.enabled && tracker.gameObject.activeInHierarchy)
+                foreach (var tracker in cache.trackers)
                 {
-                    tracker.UpdateTargets();
+                    if (tracker != null && tracker.enabled && tracker.gameObject.activeInHierarchy)
+                        tracker.UpdateTargets();
                 }
             }
 
             // Force TargetSelectors to re-scan if they have no target
-            foreach (var ts in go.GetComponentsInChildren<VSX.RadarSystem.TargetSelector>(true))
+            if (cache.targetSelectors != null)
             {
-                if (ts.enabled && ts.SelectedTarget == null)
+                foreach (var ts in cache.targetSelectors)
                 {
-                    ts.SelectFirstSelectableTarget();
+                    if (ts != null && ts.enabled && ts.SelectedTarget == null)
+                        ts.SelectFirstSelectableTarget();
                 }
             }
         }
@@ -333,11 +453,12 @@ public class CheckpointNetwork : MonoBehaviour
             if (tsm == null || tsm.Trackables.Count < 2)
                 continue; // Only matters when there are 2+ targets
 
-            foreach (var go in _dispersedObjects)
+            for (int i = 0; i < _turretCaches.Count; i++)
             {
-                if (go == null) continue;
+                var cache = _turretCaches[i];
+                if (cache.targetSelectors == null) continue;
 
-                foreach (var ts in go.GetComponentsInChildren<VSX.RadarSystem.TargetSelector>(true))
+                foreach (var ts in cache.targetSelectors)
                 {
                     if (ts == null || !ts.enabled) continue;
 
@@ -353,8 +474,9 @@ public class CheckpointNetwork : MonoBehaviour
         if (_dispersedParent != null)
             _dispersedParent.gameObject.SetActive(true);
 
-        foreach (var go in _dispersedObjects)
+        for (int i = 0; i < _dispersedObjects.Count; i++)
         {
+            var go = _dispersedObjects[i];
             if (go == null) continue;
 
             go.SetActive(true);
@@ -362,15 +484,36 @@ public class CheckpointNetwork : MonoBehaviour
             foreach (Transform child in go.GetComponentsInChildren<Transform>(true))
                 child.gameObject.SetActive(true);
 
-            foreach (var wc in go.GetComponentsInChildren<VSX.Weapons.WeaponController>(true))
+            // Use cached components if available, fallback to GetComponents
+            if (i < _turretCaches.Count)
             {
-                wc.enabled = true;
-                wc.Activated = true;
-            }
+                var cache = _turretCaches[i];
+                if (cache.weaponControllers != null)
+                    foreach (var wc in cache.weaponControllers)
+                    {
+                        if (wc != null) { wc.enabled = true; wc.Activated = true; }
+                    }
+                if (cache.weapons != null)
+                    foreach (var w in cache.weapons)
+                    {
+                        if (w != null) w.enabled = true;
+                    }
 
-            foreach (var w in go.GetComponentsInChildren<VSX.Weapons.Weapon>(true))
+                // Mark as active in cache
+                cache.isActive = true;
+                _turretCaches[i] = cache;
+            }
+            else
             {
-                w.enabled = true;
+                foreach (var wc in go.GetComponentsInChildren<VSX.Weapons.WeaponController>(true))
+                {
+                    wc.enabled = true;
+                    wc.Activated = true;
+                }
+                foreach (var w in go.GetComponentsInChildren<VSX.Weapons.Weapon>(true))
+                {
+                    w.enabled = true;
+                }
             }
         }
     }
@@ -623,6 +766,18 @@ public class CheckpointNetwork : MonoBehaviour
                 }
             }
 
+            // Cache turret components for this checkpoint (avoids GetComponentsInChildren later)
+            var cache = new TurretCache
+            {
+                trackers = cpGo.GetComponentsInChildren<VSX.RadarSystem.Tracker>(true),
+                targetSelectors = cpGo.GetComponentsInChildren<VSX.RadarSystem.TargetSelector>(true),
+                turretControllers = cpGo.GetComponentsInChildren<VSX.Weapons.TurretController>(true),
+                weaponControllers = cpGo.GetComponentsInChildren<VSX.Weapons.WeaponController>(true),
+                weapons = cpGo.GetComponentsInChildren<VSX.Weapons.Weapon>(true),
+                isActive = true
+            };
+            _turretCaches.Add(cache);
+
             _dispersedObjects.Add(cpGo);
             _checkpoints.Add(cpGo.transform);
             _normalizedOffsets.Add(normalizedOffsets[i]);
@@ -657,6 +812,7 @@ public class CheckpointNetwork : MonoBehaviour
         }
         _dispersedObjects.Clear();
         _normalizedOffsets.Clear();
+        _turretCaches.Clear();
 
         if (_dispersedParent != null)
         {
