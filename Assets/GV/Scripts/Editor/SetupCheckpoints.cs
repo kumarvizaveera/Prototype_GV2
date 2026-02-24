@@ -34,4 +34,31 @@ public class SetupCheckpoints : MonoBehaviour
         
         Debug.Log($"Added CheckpointFuel to {count} checkpoints under Spline_2.");
     }
+
+    [MenuItem("GV/Clear Checkpoint Fuels")]
+    public static void ClearCheckpointFuels()
+    {
+        GameObject spline2 = GameObject.Find("Spline_2");
+        if (spline2 == null)
+        {
+            Debug.LogError("Spline_2 not found!");
+            return;
+        }
+
+        CheckpointFuel[] fuels = spline2.GetComponentsInChildren<CheckpointFuel>(true);
+
+        if (fuels.Length == 0)
+        {
+            Debug.Log("No CheckpointFuel components found under Spline_2.");
+            return;
+        }
+
+        int count = fuels.Length;
+        foreach (var fuel in fuels)
+        {
+            Undo.DestroyObjectImmediate(fuel);
+        }
+
+        Debug.Log($"Removed {count} CheckpointFuel components from checkpoints under Spline_2.");
+    }
 }

@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using VSX.Weapons;
+using VSX.Engines3D;
 using Fusion;
 using GV.Scripts;
 
@@ -34,9 +35,35 @@ namespace GV.Scripts
         [Tooltip("Message to display when ammo is at full capacity.")]
         public string capacityFullMessage = "Character Astra energy is full";
 
+        [Header("Boost Fuel Refill")]
+        [Tooltip("Enable boost fuel refill in this zone.")]
+        public bool enableBoostRefill = true;
+
+        [Tooltip("Amount of boost fuel added per second (fills gradually).")]
+        public float boostFuelPerSecond = 5f;
+
+        [Tooltip("Sound to play on each boost refill (optional). Uses refillSound if not set.")]
+        public AudioClip boostRefillSound;
+
+        [Header("Boost Fuel UI")]
+        [Tooltip("Text component to display boost recharging status.")]
+        public TMP_Text boostFeedbackText;
+
+        [Tooltip("Message to display during boost fuel recharge.")]
+        public string boostRefillMessage = "Boost fuel recharging...";
+
+        [Tooltip("Text component to display when boost fuel is full.")]
+        public TMP_Text boostCapacityFullText;
+
+        [Tooltip("Message to display when boost fuel is at full capacity.")]
+        public string boostCapacityFullMessage = "Boost fuel is full";
+
         private MissileCycleControllerDynamic activeController;
         private float timer;
         private Collider triggerCollider;
+
+        // Boost fuel refill state
+        private VehicleEngines3D activeEngines;
 
         private void OnValidate()
         {
@@ -77,6 +104,8 @@ namespace GV.Scripts
             
             if (feedbackText != null) feedbackText.gameObject.SetActive(false);
             if (capacityFullText != null) capacityFullText.gameObject.SetActive(false);
+            if (boostFeedbackText != null) boostFeedbackText.gameObject.SetActive(false);
+            if (boostCapacityFullText != null) boostCapacityFullText.gameObject.SetActive(false);
         }
 
         /// <summary>
@@ -152,6 +181,29 @@ namespace GV.Scripts
             {
                  Debug.Log($"[AstraRefill] No MissileCycleControllerDynamic found on {other.name}, its Rigidbody, or parents.");
             }
+
+            // Boost fuel: find VehicleEngines3D on the vehicle
+            if (enableBoostRefill)
+            {
+                VehicleEngines3D engines = null;
+
+                if (other.attachedRigidbody != null)
+                {
+                    engines = other.attachedRigidbody.GetComponent<VehicleEngines3D>();
+                    if (engines == null) engines = other.attachedRigidbody.GetComponentInChildren<VehicleEngines3D>();
+                }
+                if (engines == null) engines = other.GetComponent<VehicleEngines3D>();
+                if (engines == null) engines = other.GetComponentInParent<VehicleEngines3D>();
+                if (engines == null && other.transform.root != other.transform)
+                    engines = other.transform.root.GetComponentInChildren<VehicleEngines3D>();
+
+                if (engines != null && engines.BoostResourceHandlers != null && engines.BoostResourceHandlers.Count > 0)
+                {
+                    Debug.Log($"[AstraRefill] Found VehicleEngines3D for boost refill on {engines.gameObject.name}");
+                    activeEngines = engines;
+                    UpdateBoostFeedbackUI();
+                }
+            }
         }
 
         private void OnTriggerExit(Collider other)
@@ -179,6 +231,30 @@ namespace GV.Scripts
                 activeController = null;
                 if (feedbackText != null) feedbackText.gameObject.SetActive(false);
                 if (capacityFullText != null) capacityFullText.gameObject.SetActive(false);
+            }
+
+            // Clear boost refill on exit
+            if (enableBoostRefill)
+            {
+                VehicleEngines3D engines = null;
+
+                if (other.attachedRigidbody != null)
+                {
+                    engines = other.attachedRigidbody.GetComponent<VehicleEngines3D>();
+                    if (engines == null) engines = other.attachedRigidbody.GetComponentInChildren<VehicleEngines3D>();
+                }
+                if (engines == null) engines = other.GetComponent<VehicleEngines3D>();
+                if (engines == null) engines = other.GetComponentInParent<VehicleEngines3D>();
+                if (engines == null && other.transform.root != other.transform)
+                    engines = other.transform.root.GetComponentInChildren<VehicleEngines3D>();
+
+                if (engines != null && engines == activeEngines)
+                {
+                    Debug.Log($"[AstraRefill] Exited boost refill zone.");
+                    activeEngines = null;
+                    if (boostFeedbackText != null) boostFeedbackText.gameObject.SetActive(false);
+                    if (boostCapacityFullText != null) boostCapacityFullText.gameObject.SetActive(false);
+                }
             }
         }
 
@@ -209,6 +285,27 @@ namespace GV.Scripts
                         PerformRefill();
                         timer = refillInterval;
                     }
+                }
+            }
+
+            // Boost fuel refill — adds fuel gradually every frame
+            if (enableBoostRefill && activeEngines != null)
+            {
+                if (IsBoostFuelFull())
+                {
+                    if (boostFeedbackText != null) boostFeedbackText.gameObject.SetActive(false);
+                    if (boostCapacityFullText != null)
+                    {
+                        boostCapacityFullText.gameObject.SetActive(true);
+                        boostCapacityFullText.text = boostCapacityFullMessage;
+                    }
+                }
+                else
+                {
+                    if (boostCapacityFullText != null) boostCapacityFullText.gameObject.SetActive(false);
+
+                    PerformBoostRefill();
+                    UpdateBoostFeedbackUI();
                 }
             }
         }
@@ -264,6 +361,62 @@ namespace GV.Scripts
                 if (refillSound != null)
                 {
                     AudioSource.PlayClipAtPoint(refillSound, transform.position);
+                }
+            }
+        }
+
+        // ── Boost Fuel Refill ──────────────────────────────────────────
+
+        /// <summary>
+        /// Checks if all boost fuel containers on the vehicle are full.
+        /// </summary>
+        private bool IsBoostFuelFull()
+        {
+            if (activeEngines == null) return false;
+
+            foreach (var handler in activeEngines.BoostResourceHandlers)
+            {
+                if (handler != null && handler.resourceContainer != null)
+                {
+                    if (!handler.resourceContainer.IsFull)
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        private void UpdateBoostFeedbackUI()
+        {
+            if (boostFeedbackText != null && activeEngines != null)
+            {
+                boostFeedbackText.gameObject.SetActive(true);
+
+                // Show current / capacity for the first boost resource container
+                foreach (var handler in activeEngines.BoostResourceHandlers)
+                {
+                    if (handler != null && handler.resourceContainer != null)
+                    {
+                        float current = handler.resourceContainer.CurrentAmountFloat;
+                        float capacity = handler.resourceContainer.CapacityFloat;
+                        int percent = Mathf.RoundToInt((current / capacity) * 100f);
+                        boostFeedbackText.text = $"{boostRefillMessage} {percent}%";
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void PerformBoostRefill()
+        {
+            if (activeEngines == null) return;
+
+            float amount = boostFuelPerSecond * Time.deltaTime;
+
+            foreach (var handler in activeEngines.BoostResourceHandlers)
+            {
+                if (handler != null && handler.resourceContainer != null)
+                {
+                    handler.resourceContainer.AddRemove(amount);
                 }
             }
         }
