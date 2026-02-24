@@ -19,8 +19,17 @@ namespace GV
         public PowerUpType powerType;
         public TMP_Text statsText;
         public string label;
+
+        [Tooltip("Seconds the player must wait between activations of this power.")]
+        public float activationCooldown = 5f;
+
         [HideInInspector] public bool isCollected = false;
-        [HideInInspector] public int count = 0;
+
+        /// <summary>Remaining time the power effect is still active. 0 = effect finished.</summary>
+        [HideInInspector] public float effectRemaining = 0f;
+
+        /// <summary>Remaining use-cooldown. Only ticks down AFTER effectRemaining reaches 0.</summary>
+        [HideInInspector] public float cooldownRemaining = 0f;
     }
 
     public class PowerSphereMasterController : MonoBehaviour
@@ -206,6 +215,8 @@ namespace GV
         public Material inactiveTextMaterial;
         [Tooltip("Material applied to stats text of uncollected (empty) power slots.")]
         public Material emptyTextMaterial;
+        [Tooltip("Material applied to stats text when the power is on cooldown (collected but temporarily unavailable).")]
+        public Material cooldownTextMaterial;
 
         // =====================================================================
         // RUNTIME STATE
@@ -231,6 +242,9 @@ namespace GV
 
         private void Update()
         {
+            // Tick down all cooldowns each frame
+            TickCooldowns();
+
             // Cycle input
             if (Input.GetKeyDown(cycleKey))
             {
@@ -245,6 +259,34 @@ namespace GV
 
             // Update UI every frame (matches MissileCycleController pattern)
             UpdatePowerUI();
+        }
+
+        /// <summary>
+        /// Ticks down timers each frame. Effect duration counts down first;
+        /// the use-cooldown only begins once the effect has fully expired.
+        /// </summary>
+        private void TickCooldowns()
+        {
+            float dt = Time.deltaTime;
+            for (int i = 0; i < powerEntries.Count; i++)
+            {
+                var entry = powerEntries[i];
+
+                // Phase 1: power effect is still active
+                if (entry.effectRemaining > 0f)
+                {
+                    entry.effectRemaining -= dt;
+                    if (entry.effectRemaining < 0f)
+                        entry.effectRemaining = 0f;
+                }
+                // Phase 2: effect done → tick the use-cooldown
+                else if (entry.cooldownRemaining > 0f)
+                {
+                    entry.cooldownRemaining -= dt;
+                    if (entry.cooldownRemaining < 0f)
+                        entry.cooldownRemaining = 0f;
+                }
+            }
         }
 
         // =====================================================================
@@ -280,9 +322,20 @@ namespace GV
             {
                 if (powerEntries[i].powerType == type)
                 {
+                    bool wasAlreadyCollected = powerEntries[i].isCollected;
                     powerEntries[i].isCollected = true;
-                    powerEntries[i].count++;
-                    Debug.Log($"[PowerSphereMaster] Collected {type} (count: {powerEntries[i].count})");
+
+                    if (wasAlreadyCollected)
+                    {
+                        // Already had this power — reset both timers as a bonus for re-collecting
+                        powerEntries[i].effectRemaining = 0f;
+                        powerEntries[i].cooldownRemaining = 0f;
+                        Debug.Log($"[PowerSphereMaster] Re-collected {type} — cooldown reset!");
+                    }
+                    else
+                    {
+                        Debug.Log($"[PowerSphereMaster] Collected {type} — now available for use.");
+                    }
 
                     // Auto-select the newly collected power (immediate feedback, like MissileCycleController unlocking)
                     currentIndex = i;
@@ -297,8 +350,8 @@ namespace GV
         // =====================================================================
 
         /// <summary>
-        /// Activates the currently selected power from the inventory.
-        /// Mirrors MissileCycleController's equip logic but triggers the actual power effect.
+        /// Activates the currently selected power. The power is NOT consumed —
+        /// it stays collected permanently but goes on cooldown before it can be used again.
         /// </summary>
         public void ActivateCurrentPower()
         {
@@ -306,9 +359,21 @@ namespace GV
 
             var entry = powerEntries[currentIndex];
 
-            if (!entry.isCollected || entry.count <= 0)
+            if (!entry.isCollected)
             {
                 Debug.Log("[PowerSphereMaster] No collected power in this slot to activate.");
+                return;
+            }
+
+            // Block if effect is still active or still on cooldown
+            if (entry.effectRemaining > 0f)
+            {
+                Debug.Log($"[PowerSphereMaster] {entry.label} is still active ({entry.effectRemaining:F1}s remaining).");
+                return;
+            }
+            if (entry.cooldownRemaining > 0f)
+            {
+                Debug.Log($"[PowerSphereMaster] {entry.label} is on cooldown ({entry.cooldownRemaining:F1}s remaining).");
                 return;
             }
 
@@ -318,27 +383,20 @@ namespace GV
                 return;
             }
 
-            // Consume one charge
-            entry.count--;
-            if (entry.count <= 0)
-            {
-                entry.isCollected = false;
-                entry.count = 0;
-            }
+            // Set effect duration and cooldown as SEPARATE timers.
+            // TickCooldowns will count down effectRemaining first,
+            // then cooldownRemaining only starts after effect expires.
+            float effectDuration = GetPowerEffectDuration(entry.powerType);
+            entry.effectRemaining = effectDuration;
+            entry.cooldownRemaining = entry.activationCooldown;
 
-            Debug.Log($"[PowerSphereMaster] Activating {entry.powerType} (remaining: {entry.count})");
+            Debug.Log($"[PowerSphereMaster] Activating {entry.powerType} — effect {effectDuration}s, then cooldown {entry.activationCooldown}s.");
 
             // Apply the power effect through the appropriate network handler
             ApplyPowerToPlayer(entry.powerType);
 
             // Update UI immediately
             UpdatePowerUI();
-
-            // If the slot is now empty, try to auto-select the next collected power
-            if (!entry.isCollected)
-            {
-                AutoSelectNextCollected();
-            }
         }
 
         private void ApplyPowerToPlayer(PowerUpType type)
@@ -452,46 +510,17 @@ namespace GV
             }
         }
 
-        /// <summary>
-        /// After using a power and the slot becomes empty, auto-select the next collected power.
-        /// </summary>
-        private void AutoSelectNextCollected()
-        {
-            // If there are still collected powers, find the next one
-            if (GetCollectedCount() > 0)
-            {
-                int attempts = 0;
-                int nextIndex = currentIndex;
-
-                do
-                {
-                    nextIndex = (nextIndex + 1) % powerEntries.Count;
-                    attempts++;
-                }
-                while (!powerEntries[nextIndex].isCollected && attempts < powerEntries.Count);
-
-                if (powerEntries[nextIndex].isCollected)
-                {
-                    currentIndex = nextIndex;
-                    ShowActiveNotification(powerEntries[currentIndex].label);
-                    return;
-                }
-            }
-
-            // Nothing collected — reset
-            currentIndex = -1;
-            ShowActiveNotification("None");
-        }
-
         // =====================================================================
         // UI — mirrors MissileCycleController.UpdateStatsUI()
         // =====================================================================
 
         /// <summary>
         /// Updates per-slot stats text and applies the correct material based on state:
-        ///   - Empty (uncollected): emptyTextMaterial
-        ///   - Collected but not selected: inactiveTextMaterial
-        ///   - Currently selected: activeTextMaterial
+        ///   - Empty (uncollected):                      emptyTextMaterial       — "Label"
+        ///   - Collected, effect active:                  activeTextMaterial      — "Label (Active 8.2s)"
+        ///   - Collected, on cooldown (effect done):      cooldownTextMaterial    — "Label (CD 3.2s)"
+        ///   - Collected, ready, not selected:            inactiveTextMaterial    — "Label (Ready)"
+        ///   - Collected, ready, currently selected:      activeTextMaterial      — "Label (Ready)"
         /// </summary>
         private void UpdatePowerUI()
         {
@@ -500,25 +529,36 @@ namespace GV
                 var entry = powerEntries[i];
                 if (entry.statsText == null) continue;
 
-                // Build display string: label + count if collected
                 string displayText = entry.label;
-                if (entry.isCollected && entry.count > 0)
-                {
-                    displayText += " (" + entry.count + ")";
-                }
-
-                // Determine material based on state (same priority as MissileCycleController: empty > active > inactive)
                 Material targetMat = emptyTextMaterial; // default = not collected
 
-                if (entry.isCollected && entry.count > 0)
+                if (entry.isCollected)
                 {
-                    // Collected — inactive by default
-                    targetMat = inactiveTextMaterial;
-
-                    // If this is the currently selected slot, use active material
-                    if (i == currentIndex)
+                    if (entry.effectRemaining > 0f)
                     {
-                        if (activeTextMaterial != null) targetMat = activeTextMaterial;
+                        // Power effect is still active
+                        displayText += " (Active " + entry.effectRemaining.ToString("F1") + "s)";
+                        targetMat = activeTextMaterial != null ? activeTextMaterial : inactiveTextMaterial;
+                    }
+                    else if (entry.cooldownRemaining > 0f)
+                    {
+                        // Effect done, on use-cooldown
+                        displayText += " (CD " + entry.cooldownRemaining.ToString("F1") + "s)";
+                        targetMat = cooldownTextMaterial != null ? cooldownTextMaterial : inactiveTextMaterial;
+                    }
+                    else
+                    {
+                        // Ready to use
+                        displayText += " (Ready)";
+
+                        if (i == currentIndex)
+                        {
+                            targetMat = activeTextMaterial != null ? activeTextMaterial : inactiveTextMaterial;
+                        }
+                        else
+                        {
+                            targetMat = inactiveTextMaterial;
+                        }
                     }
                 }
                 else
@@ -548,6 +588,27 @@ namespace GV
         // HELPERS
         // =====================================================================
 
+        /// <summary>
+        /// Returns the effect duration for a given power type, pulled from
+        /// the settings structs. Teleport uses autoPilotSeconds as its
+        /// "active" duration. This is used so the use-cooldown only starts
+        /// ticking AFTER the power's effect has fully expired.
+        /// </summary>
+        private float GetPowerEffectDuration(PowerUpType type)
+        {
+            switch (type)
+            {
+                case PowerUpType.Shield:       return shieldSettings.duration;
+                case PowerUpType.Invisibility:  return invisibilitySettings.duration;
+                case PowerUpType.SuperBoost:    return superBoostSettings.boostDuration;
+                case PowerUpType.SuperWeapon:   return superWeaponSettings.duration;
+                case PowerUpType.Teleport:      return teleportSettings.autoPilotAfterTeleport
+                                                       ? teleportSettings.autoPilotSeconds
+                                                       : 0f;
+                default:                        return 0f;
+            }
+        }
+
         private int GetCollectedCount()
         {
             int count = 0;
@@ -575,6 +636,16 @@ namespace GV
         }
 
         /// <summary>
+        /// Returns true if the currently selected power is off cooldown and ready to fire.
+        /// </summary>
+        public bool IsCurrentPowerReady()
+        {
+            if (currentIndex < 0 || currentIndex >= powerEntries.Count) return false;
+            var entry = powerEntries[currentIndex];
+            return entry.isCollected && entry.effectRemaining <= 0f && entry.cooldownRemaining <= 0f;
+        }
+
+        /// <summary>
         /// Resets all power inventory (e.g., on race restart).
         /// </summary>
         public void ResetAllPowers()
@@ -582,7 +653,8 @@ namespace GV
             foreach (var entry in powerEntries)
             {
                 entry.isCollected = false;
-                entry.count = 0;
+                entry.effectRemaining = 0f;
+                entry.cooldownRemaining = 0f;
             }
             currentIndex = -1;
             cachedPlayerRoot = null;
