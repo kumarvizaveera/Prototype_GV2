@@ -187,7 +187,6 @@ namespace VSX.Weapons
         /// </summary>
         private static NetworkRunner _cachedRunner;
         private static float _lastRunnerLookup;
-        private static bool _damageAuthorityLogged = false;
 
         protected bool IsDamageAuthority
         {
@@ -205,24 +204,8 @@ namespace VSX.Weapons
                     _lastRunnerLookup = Time.time;
                 }
                 if (_cachedRunner != null && _cachedRunner.IsRunning)
-                {
-                    bool result = _cachedRunner.IsServer;
-                    if (!_damageAuthorityLogged)
-                    {
-                        _damageAuthorityLogged = true;
-                        Debug.Log($"[PROJ-DBG] IsDamageAuthority (non-networked projectile): " +
-                                  $"runner={_cachedRunner.name}, isRunning={_cachedRunner.IsRunning}, " +
-                                  $"isServer={_cachedRunner.IsServer}, isClient={_cachedRunner.IsClient}, " +
-                                  $"result={result} | Object==null (turret projectile)");
-                    }
-                    return result;
-                }
+                    return _cachedRunner.IsServer;
                 // Single-player / no Fusion — always apply damage
-                if (!_damageAuthorityLogged)
-                {
-                    _damageAuthorityLogged = true;
-                    Debug.Log($"[PROJ-DBG] IsDamageAuthority: No runner or not running — returning true (single-player path)");
-                }
                 return true;
             }
         }

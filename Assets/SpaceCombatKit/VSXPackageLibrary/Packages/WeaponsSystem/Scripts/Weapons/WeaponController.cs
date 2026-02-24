@@ -33,11 +33,6 @@ namespace VSX.Weapons
             get { return activated; }
             set
             {
-                if (value != activated)
-                {
-                    Debug.Log($"[WC-DBG] {gameObject.name} — Activated changing: {activated} → {value} (caller={new System.Diagnostics.StackTrace().GetFrame(1)?.GetMethod()?.Name ?? "unknown"})");
-                }
-
                 if (value && !activated)
                 {
                     OnActivated();
@@ -55,7 +50,7 @@ namespace VSX.Weapons
 
 
         // Called when the weapon controller is deactivated.
-        protected virtual void OnDeactivated() 
+        protected virtual void OnDeactivated()
         {
             if (weapon != null) weapon.Triggerable.StopTriggering();
         }

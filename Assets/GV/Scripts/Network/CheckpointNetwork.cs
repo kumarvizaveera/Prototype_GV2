@@ -156,12 +156,7 @@ public class CheckpointNetwork : MonoBehaviour
         // Rebuilding here would destroy turrets that already acquired targets and were firing.
         if (_checkpoints.Count == 0)
         {
-            Debug.Log("[CheckpointNetwork] BuildAfterSpawn: no checkpoints yet, building...");
             Build();
-        }
-        else
-        {
-            Debug.Log($"[CheckpointNetwork] BuildAfterSpawn: already have {_checkpoints.Count} checkpoints, skipping rebuild.");
         }
     }
 
@@ -178,7 +173,6 @@ public class CheckpointNetwork : MonoBehaviour
 
         if (fusionConnected && !_fusionWasConnected)
         {
-            Debug.Log("[CheckpointNetwork] Fusion connection detected — scheduling turret rebuild after scene registration...");
             _turretsNeedRebuildAfterFusion = true;
             StartCoroutine(RebuildAfterFusionSceneRegistration());
         }
@@ -260,105 +254,22 @@ public class CheckpointNetwork : MonoBehaviour
 
     IEnumerator RebuildAfterFusionSceneRegistration()
     {
-        Debug.Log($"[CPNET-DBG] RebuildAfterFusion STARTED — waiting 15 frames...");
-
-        // Wait 15 frames (up from 5) to ensure Fusion scene registration is fully complete
+        // Wait 15 frames to ensure Fusion scene registration is fully complete
         for (int i = 0; i < 15; i++)
             yield return null;
 
-        if (!_turretsNeedRebuildAfterFusion)
-        {
-            Debug.LogWarning($"[CPNET-DBG] RebuildAfterFusion ABORTED — _turretsNeedRebuildAfterFusion was already false!");
-            yield break;
-        }
+        if (!_turretsNeedRebuildAfterFusion) yield break;
         _turretsNeedRebuildAfterFusion = false;
 
-        // ═══ KEY FIX: Do NOT destroy and rebuild turrets. ═══
-        // The old approach (Build()) destroyed all existing turrets — including ones that
-        // had already acquired targets and were firing — then recreated them from scratch.
-        // The new turrets couldn't find targets because the ship's Trackable was temporarily
-        // inactive during Fusion scene registration.
-        //
-        // Instead, just force-enable the existing turrets that Fusion may have deactivated.
-        Debug.Log("[CheckpointNetwork] Post-Fusion: force-enabling existing turrets (no rebuild)...");
+        // Do NOT destroy and rebuild turrets — just force-enable existing ones
+        // that Fusion's scene registration may have deactivated.
         ForceEnableAllDispersedObjects();
 
-        Debug.Log($"[CheckpointNetwork] Post-Fusion force-enable complete — {_checkpoints.Count} checkpoints, {_dispersedObjects.Count} dispersed objects");
-
-        // ─── Delayed target re-acquisition ───
         // The ship's Trackable may still be inactive right now. Wait a bit, then
         // kick turrets that don't have a target by refreshing their Tracker.
         StartCoroutine(DelayedTargetReacquisition(1f));
         StartCoroutine(DelayedTargetReacquisition(3f));
         StartCoroutine(DelayedTargetReacquisition(6f));
-
-        // ─── DEBUG: Delayed diagnostics ───
-        StartCoroutine(DelayedTargetDiagnostic(5f));
-        StartCoroutine(DelayedTargetDiagnostic(10f));
-    }
-
-    IEnumerator DelayedTargetDiagnostic(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-
-        Debug.Log($"[CPNET-DBG] ═══ DELAYED DIAGNOSTIC ({delay}s after rebuild) ═══");
-
-        // 1. What's in TrackableSceneManager?
-        var tsm = VSX.RadarSystem.TrackableSceneManager.Instance;
-        if (tsm != null)
-        {
-            Debug.Log($"[CPNET-DBG] TrackableSceneManager: {tsm.Trackables.Count} trackables registered:");
-            foreach (var t in tsm.Trackables)
-            {
-                Debug.Log($"[CPNET-DBG]   → {t.gameObject.name} | team={t.Team?.name ?? "NULL"} | " +
-                          $"active={t.gameObject.activeInHierarchy} | enabled={t.enabled} | " +
-                          $"activated={t.Activated}");
-            }
-        }
-        else
-        {
-            Debug.LogError($"[CPNET-DBG] TrackableSceneManager.Instance is NULL!");
-        }
-
-        // 2. Check first 3 turrets' TargetSelector state
-        int checked_count = 0;
-        foreach (var go in _dispersedObjects)
-        {
-            if (go == null) continue;
-            if (checked_count >= 3) break;
-
-            foreach (var tc in go.GetComponentsInChildren<VSX.Weapons.TurretController>(true))
-            {
-                var ts = tc.TargetSelector;
-                if (ts != null)
-                {
-                    string selTeams = ts.SelectableTeams != null
-                        ? string.Join(", ", ts.SelectableTeams.ConvertAll(t => t != null ? t.name : "null"))
-                        : "EMPTY";
-                    string selTarget = ts.SelectedTarget != null ? ts.SelectedTarget.gameObject.name : "NULL";
-
-                    // Check if it's a TrackerTargetSelector and inspect the Tracker
-                    var trackerTS = ts as VSX.RadarSystem.TrackerTargetSelector;
-                    string trackerInfo = "N/A (base TargetSelector)";
-                    if (trackerTS != null)
-                    {
-                        var trackerField = trackerTS.GetType().GetField("tracker",
-                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        var tracker = trackerField?.GetValue(trackerTS) as VSX.RadarSystem.Tracker;
-                        if (tracker != null)
-                            trackerInfo = $"Tracker found, targets={tracker.Targets.Count}";
-                        else
-                            trackerInfo = "Tracker is NULL!";
-                    }
-
-                    Debug.Log($"[CPNET-DBG] Turret '{tc.gameObject.name}': " +
-                              $"selectableTeams=[{selTeams}], selectedTarget={selTarget}, " +
-                              $"scanEveryFrame={ts.ScanEveryFrame}, " +
-                              $"trackerInfo={trackerInfo}");
-                }
-                checked_count++;
-            }
-        }
     }
 
     /// <summary>
@@ -371,15 +282,9 @@ public class CheckpointNetwork : MonoBehaviour
         yield return new WaitForSeconds(delay);
 
         var tsm = VSX.RadarSystem.TrackableSceneManager.Instance;
-        int trackableCount = tsm != null ? tsm.Trackables.Count : 0;
-
-        if (trackableCount == 0)
-        {
-            Debug.Log($"[CPNET-DBG] TargetReacquisition ({delay}s): TrackableSceneManager has 0 trackables — skipping (will retry later)");
+        if (tsm == null || tsm.Trackables.Count == 0)
             yield break;
-        }
 
-        int kicked = 0;
         foreach (var go in _dispersedObjects)
         {
             if (go == null) continue;
@@ -399,13 +304,9 @@ public class CheckpointNetwork : MonoBehaviour
                 if (ts.enabled && ts.SelectedTarget == null)
                 {
                     ts.SelectFirstSelectableTarget();
-                    kicked++;
                 }
             }
         }
-
-        Debug.Log($"[CPNET-DBG] TargetReacquisition ({delay}s): kicked {kicked} targetless turrets, " +
-                  $"trackablesInScene={trackableCount}");
     }
 
     [Header("Turret Targeting")]
@@ -432,7 +333,6 @@ public class CheckpointNetwork : MonoBehaviour
             if (tsm == null || tsm.Trackables.Count < 2)
                 continue; // Only matters when there are 2+ targets
 
-            int switched = 0;
             foreach (var go in _dispersedObjects)
             {
                 if (go == null) continue;
@@ -441,40 +341,22 @@ public class CheckpointNetwork : MonoBehaviour
                 {
                     if (ts == null || !ts.enabled) continue;
 
-                    // Remember old target
-                    var oldTarget = ts.SelectedTarget;
-
                     // Force a nearest-target scan (this picks the closest selectable trackable)
                     ts.SelectNearest();
-
-                    if (ts.SelectedTarget != oldTarget && ts.SelectedTarget != null)
-                    {
-                        switched++;
-                    }
                 }
-            }
-
-            if (switched > 0)
-            {
-                Debug.Log($"[CPNET-DBG] PeriodicRescan: {switched} turrets switched to a nearer target");
             }
         }
     }
 
     void ForceEnableAllDispersedObjects()
     {
-        Debug.Log($"[CPNET-DBG] ForceEnableAllDispersedObjects — dispersedObjects={_dispersedObjects.Count}, " +
-                  $"fusionConnected={IsFusionConnected()}, isHostOrOffline={IsHostOrOffline()}");
-
         if (_dispersedParent != null)
             _dispersedParent.gameObject.SetActive(true);
 
-        int wcCount = 0, weaponCount = 0, disabledGO = 0;
         foreach (var go in _dispersedObjects)
         {
             if (go == null) continue;
 
-            if (!go.activeInHierarchy) disabledGO++;
             go.SetActive(true);
 
             foreach (Transform child in go.GetComponentsInChildren<Transform>(true))
@@ -482,28 +364,19 @@ public class CheckpointNetwork : MonoBehaviour
 
             foreach (var wc in go.GetComponentsInChildren<VSX.Weapons.WeaponController>(true))
             {
-                bool wasBefore = wc.Activated;
                 wc.enabled = true;
                 wc.Activated = true;
-                wcCount++;
-                if (!wasBefore)
-                    Debug.Log($"[CPNET-DBG]   WeaponController '{wc.gameObject.name}' was DEACTIVATED, now forced ON");
             }
 
             foreach (var w in go.GetComponentsInChildren<VSX.Weapons.Weapon>(true))
             {
                 w.enabled = true;
-                weaponCount++;
             }
         }
-
-        Debug.Log($"[CPNET-DBG] ForceEnable DONE — enabled {wcCount} WeaponControllers, {weaponCount} Weapons, " +
-                  $"reactivated {disabledGO} disabled GameObjects");
     }
 
     public void ForceRebuild()
     {
-        Debug.Log("[CheckpointNetwork] ForceRebuild() called externally");
         Build();
         if (placementMode == CheckpointPlacementMode.Dispersed)
             ForceEnableAllDispersedObjects();
@@ -532,7 +405,6 @@ public class CheckpointNetwork : MonoBehaviour
         }
 
         ConfigureRaceCheckpoints();
-        Debug.Log($"[CheckpointNetwork] Build complete — mode={placementMode}, count={_checkpoints.Count}");
     }
 
     // ─── Spline ───────────────────────────────────────────────────────
@@ -611,11 +483,6 @@ public class CheckpointNetwork : MonoBehaviour
         {
             boxCenter = spawnBoxVolume.position;
             boxHalfExtents = spawnBoxVolume.lossyScale * 0.5f;
-            Debug.Log($"[CheckpointNetwork] Spawn shape = Box → center={boxCenter}, halfExtents={boxHalfExtents}");
-        }
-        else if (spawnShape == DispersedSpawnShape.Sphere)
-        {
-            Debug.Log($"[CheckpointNetwork] Spawn shape = Sphere → center={sphereCenter}, radius={sphereRadius}");
         }
         else if (spawnShape == DispersedSpawnShape.Box && spawnBoxVolume == null)
         {
@@ -753,9 +620,6 @@ public class CheckpointNetwork : MonoBehaviour
                         w.enabled = true;
                     }
 
-                    Debug.Log($"[CheckpointNetwork] Spawned turret '{prefab.name}' at CP {i}, " +
-                              $"renderers={turret.GetComponentsInChildren<Renderer>(true).Length}, " +
-                              $"weaponControllers={turret.GetComponentsInChildren<VSX.Weapons.WeaponController>(true).Length}");
                 }
             }
 
@@ -763,10 +627,6 @@ public class CheckpointNetwork : MonoBehaviour
             _checkpoints.Add(cpGo.transform);
             _normalizedOffsets.Add(normalizedOffsets[i]);
         }
-
-        string shapeStr = (spawnShape == DispersedSpawnShape.Box && spawnBoxVolume != null) ? "Box" : "Sphere";
-        Debug.Log($"[CheckpointNetwork] Dispersed ({shapeStr}): placed {positions.Count}/{dispersedCount} " +
-                  $"(seed={seed}, sphereCenter={sphereCenter}, sphereRadius={sphereRadius}, turrets={hasTurrets})");
 
         if (positions.Count < dispersedCount)
         {
