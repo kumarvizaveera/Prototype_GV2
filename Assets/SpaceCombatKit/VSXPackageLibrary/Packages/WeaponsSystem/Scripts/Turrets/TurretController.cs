@@ -68,15 +68,46 @@ namespace VSX.Weapons
             if (targetSelector != null)
             {
                 targetSelector.onSelectedTargetChanged.AddListener(SetTarget);
+                Debug.Log($"[TURRET-DBG] {gameObject.name} — Awake: TargetSelector FOUND ({targetSelector.gameObject.name}), listener wired");
+            }
+            else
+            {
+                Debug.LogWarning($"[TURRET-DBG] {gameObject.name} — Awake: TargetSelector is NULL! Turret cannot acquire targets.");
             }
 
             selfTrackables = new List<Trackable>(GetComponentsInChildren<Trackable>());
+            Debug.Log($"[TURRET-DBG] {gameObject.name} — Awake: weapon={weapon?.name ?? "NULL"}, selfTrackables={selfTrackables.Count}");
         }
 
 
         protected virtual void Start()
         {
             if (!teamInitialized) SetTeam(team);
+
+            // ─── DEBUG: dump targeting setup ───
+            if (targetSelector != null)
+            {
+                string selTeams = targetSelector.SelectableTeams != null
+                    ? string.Join(", ", targetSelector.SelectableTeams.ConvertAll(t => t != null ? t.name : "null"))
+                    : "EMPTY";
+                Debug.Log($"[TURRET-DBG] {gameObject.name} — Start: team={team?.name ?? "NULL"}, " +
+                          $"selectableTeams=[{selTeams}], scanEveryFrame={targetSelector.ScanEveryFrame}");
+            }
+
+            // ─── DEBUG: check TrackableSceneManager ───
+            var tsm = TrackableSceneManager.Instance;
+            if (tsm != null)
+            {
+                Debug.Log($"[TURRET-DBG] {gameObject.name} — Start: TrackableSceneManager has {tsm.Trackables.Count} registered trackables:");
+                foreach (var t in tsm.Trackables)
+                {
+                    Debug.Log($"  [TURRET-DBG]   → {t.gameObject.name} | team={t.Team?.name ?? "NULL"} | active={t.gameObject.activeInHierarchy} | enabled={t.enabled}");
+                }
+            }
+            else
+            {
+                Debug.LogError($"[TURRET-DBG] {gameObject.name} — Start: TrackableSceneManager.Instance is NULL! No targets can be found.");
+            }
         }
 
 
@@ -94,7 +125,12 @@ namespace VSX.Weapons
                 if (targetSelector != null)
                 {
                     targetSelector.SelectableTeams = new List<Team>(team.HostileTeams);
+                    Debug.Log($"[TURRET-DBG] {gameObject.name} — SetTeam: team={team.name}, hostileTeams=[{string.Join(", ", team.HostileTeams.ConvertAll(t => t != null ? t.name : "null"))}]");
                 }
+            }
+            else
+            {
+                Debug.LogWarning($"[TURRET-DBG] {gameObject.name} — SetTeam: team is NULL! TargetSelector won't know which teams are hostile.");
             }
 
             teamInitialized = true;
@@ -145,6 +181,14 @@ namespace VSX.Weapons
         public override void SetTarget(Trackable target)
         {
             base.SetTarget(target);
+
+            string prevName = this.target != null ? this.target.gameObject.name : "NULL";
+            string newName = target != null ? target.gameObject.name : "NULL";
+            if (prevName != newName)
+            {
+                Debug.Log($"[TURRET-DBG] {gameObject.name} — SetTarget: {prevName} → {newName}" +
+                          (target != null ? $" | team={target.Team?.name ?? "NULL"} | active={target.gameObject.activeInHierarchy}" : ""));
+            }
 
             this.target = target;
         }

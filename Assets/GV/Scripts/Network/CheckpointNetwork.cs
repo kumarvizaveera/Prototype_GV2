@@ -59,6 +59,10 @@ public class CheckpointNetwork : MonoBehaviour
     [Tooltip("If true, turrets face a random Y rotation. If false, they use identity rotation.")]
     public bool randomTurretYRotation = true;
 
+    [Header("Turret Team")]
+    [Tooltip("Team to assign to spawned turrets. If set, turrets will target ships on hostile teams. Drag the 'Enemy' Team asset here.")]
+    public VSX.Teams.Team turretTeam;
+
     [Header("Gizmos")]
     [Tooltip("Show debug spheres at each dispersed checkpoint in Scene view.")]
     public bool showDebugGizmos = true;
@@ -107,6 +111,14 @@ public class CheckpointNetwork : MonoBehaviour
     void Start()
     {
         if (autoBuild) StartCoroutine(BuildAfterSpawn());
+
+        // Give turrets a chance to acquire targets after everything is initialized.
+        // The ship's Trackable may not be registered yet when turrets spawn in Awake().
+        if (placementMode == CheckpointPlacementMode.Dispersed)
+        {
+            StartCoroutine(DelayedTargetReacquisition(1f));
+            StartCoroutine(DelayedTargetReacquisition(3f));
+        }
     }
 
     void TryAutoAssignParent()
@@ -139,7 +151,17 @@ public class CheckpointNetwork : MonoBehaviour
         if (_splineChildren.Count == 0)
             CacheSplineChildren();
 
-        Build();
+        // Only rebuild if we don't already have checkpoints (Awake already built them).
+        // Rebuilding here would destroy turrets that already acquired targets and were firing.
+        if (_checkpoints.Count == 0)
+        {
+            Debug.Log("[CheckpointNetwork] BuildAfterSpawn: no checkpoints yet, building...");
+            Build();
+        }
+        else
+        {
+            Debug.Log($"[CheckpointNetwork] BuildAfterSpawn: already have {_checkpoints.Count} checkpoints, skipping rebuild.");
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -203,6 +225,8 @@ public class CheckpointNetwork : MonoBehaviour
     {
         if (battleZone == null) return 500f;
 
+        float fallback = battleZone.InitialRadius > 0f ? battleZone.InitialRadius : 500f;
+
         // Try the networked property first (only valid after Fusion Spawned)
         try
         {
@@ -211,8 +235,9 @@ public class CheckpointNetwork : MonoBehaviour
         }
         catch { /* Networked state not yet allocated — fall through */ }
 
-        // Fallback: read the serialized initialRadius (always safe)
-        return battleZone.InitialRadius;
+        // Fallback: read the serialized initialRadius (always safe).
+        // NEVER return 0 — that collapses all checkpoints to the sphere center.
+        return fallback;
     }
 
     bool IsFusionConnected()
@@ -221,29 +246,181 @@ public class CheckpointNetwork : MonoBehaviour
         return nm != null && nm.IsConnected;
     }
 
+    /// <summary>
+    /// Returns true if Fusion is NOT connected (single-player) or if we are the server/host.
+    /// Turret weapons should only fire on the host; clients get damage via NetworkedHealthSync.
+    /// </summary>
+    bool IsHostOrOffline()
+    {
+        var nm = GV.Network.NetworkManager.Instance;
+        if (nm == null || !nm.IsConnected || nm.Runner == null) return true; // offline / single-player
+        return nm.Runner.IsServer;
+    }
+
     IEnumerator RebuildAfterFusionSceneRegistration()
     {
-        for (int i = 0; i < 5; i++)
+        Debug.Log($"[CPNET-DBG] RebuildAfterFusion STARTED — waiting 15 frames...");
+
+        // Wait 15 frames (up from 5) to ensure Fusion scene registration is fully complete
+        for (int i = 0; i < 15; i++)
             yield return null;
 
-        if (!_turretsNeedRebuildAfterFusion) yield break;
+        if (!_turretsNeedRebuildAfterFusion)
+        {
+            Debug.LogWarning($"[CPNET-DBG] RebuildAfterFusion ABORTED — _turretsNeedRebuildAfterFusion was already false!");
+            yield break;
+        }
         _turretsNeedRebuildAfterFusion = false;
 
-        Debug.Log("[CheckpointNetwork] Rebuilding dispersed checkpoints + turrets AFTER Fusion scene registration...");
-        Build();
-
+        // ═══ KEY FIX: Do NOT destroy and rebuild turrets. ═══
+        // The old approach (Build()) destroyed all existing turrets — including ones that
+        // had already acquired targets and were firing — then recreated them from scratch.
+        // The new turrets couldn't find targets because the ship's Trackable was temporarily
+        // inactive during Fusion scene registration.
+        //
+        // Instead, just force-enable the existing turrets that Fusion may have deactivated.
+        Debug.Log("[CheckpointNetwork] Post-Fusion: force-enabling existing turrets (no rebuild)...");
         ForceEnableAllDispersedObjects();
-        Debug.Log($"[CheckpointNetwork] Post-Fusion rebuild complete — {_checkpoints.Count} checkpoints, turrets force-enabled");
+
+        Debug.Log($"[CheckpointNetwork] Post-Fusion force-enable complete — {_checkpoints.Count} checkpoints, {_dispersedObjects.Count} dispersed objects");
+
+        // ─── Delayed target re-acquisition ───
+        // The ship's Trackable may still be inactive right now. Wait a bit, then
+        // kick turrets that don't have a target by refreshing their Tracker.
+        StartCoroutine(DelayedTargetReacquisition(1f));
+        StartCoroutine(DelayedTargetReacquisition(3f));
+        StartCoroutine(DelayedTargetReacquisition(6f));
+
+        // ─── DEBUG: Delayed diagnostics ───
+        StartCoroutine(DelayedTargetDiagnostic(5f));
+        StartCoroutine(DelayedTargetDiagnostic(10f));
+    }
+
+    IEnumerator DelayedTargetDiagnostic(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        Debug.Log($"[CPNET-DBG] ═══ DELAYED DIAGNOSTIC ({delay}s after rebuild) ═══");
+
+        // 1. What's in TrackableSceneManager?
+        var tsm = VSX.RadarSystem.TrackableSceneManager.Instance;
+        if (tsm != null)
+        {
+            Debug.Log($"[CPNET-DBG] TrackableSceneManager: {tsm.Trackables.Count} trackables registered:");
+            foreach (var t in tsm.Trackables)
+            {
+                Debug.Log($"[CPNET-DBG]   → {t.gameObject.name} | team={t.Team?.name ?? "NULL"} | " +
+                          $"active={t.gameObject.activeInHierarchy} | enabled={t.enabled} | " +
+                          $"activated={t.Activated}");
+            }
+        }
+        else
+        {
+            Debug.LogError($"[CPNET-DBG] TrackableSceneManager.Instance is NULL!");
+        }
+
+        // 2. Check first 3 turrets' TargetSelector state
+        int checked_count = 0;
+        foreach (var go in _dispersedObjects)
+        {
+            if (go == null) continue;
+            if (checked_count >= 3) break;
+
+            foreach (var tc in go.GetComponentsInChildren<VSX.Weapons.TurretController>(true))
+            {
+                var ts = tc.TargetSelector;
+                if (ts != null)
+                {
+                    string selTeams = ts.SelectableTeams != null
+                        ? string.Join(", ", ts.SelectableTeams.ConvertAll(t => t != null ? t.name : "null"))
+                        : "EMPTY";
+                    string selTarget = ts.SelectedTarget != null ? ts.SelectedTarget.gameObject.name : "NULL";
+
+                    // Check if it's a TrackerTargetSelector and inspect the Tracker
+                    var trackerTS = ts as VSX.RadarSystem.TrackerTargetSelector;
+                    string trackerInfo = "N/A (base TargetSelector)";
+                    if (trackerTS != null)
+                    {
+                        var trackerField = trackerTS.GetType().GetField("tracker",
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var tracker = trackerField?.GetValue(trackerTS) as VSX.RadarSystem.Tracker;
+                        if (tracker != null)
+                            trackerInfo = $"Tracker found, targets={tracker.Targets.Count}";
+                        else
+                            trackerInfo = "Tracker is NULL!";
+                    }
+
+                    Debug.Log($"[CPNET-DBG] Turret '{tc.gameObject.name}': " +
+                              $"selectableTeams=[{selTeams}], selectedTarget={selTarget}, " +
+                              $"scanEveryFrame={ts.ScanEveryFrame}, " +
+                              $"trackerInfo={trackerInfo}");
+                }
+                checked_count++;
+            }
+        }
+    }
+
+    /// <summary>
+    /// After Fusion connects, the ship's Trackable may be temporarily inactive.
+    /// This coroutine waits, then forces all turret Trackers to re-query TrackableSceneManager
+    /// so they can re-acquire the ship once its Trackable comes back online.
+    /// </summary>
+    IEnumerator DelayedTargetReacquisition(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        var tsm = VSX.RadarSystem.TrackableSceneManager.Instance;
+        int trackableCount = tsm != null ? tsm.Trackables.Count : 0;
+
+        if (trackableCount == 0)
+        {
+            Debug.Log($"[CPNET-DBG] TargetReacquisition ({delay}s): TrackableSceneManager has 0 trackables — skipping (will retry later)");
+            yield break;
+        }
+
+        int kicked = 0;
+        foreach (var go in _dispersedObjects)
+        {
+            if (go == null) continue;
+
+            // Force Trackers to refresh their target list from TrackableSceneManager
+            foreach (var tracker in go.GetComponentsInChildren<VSX.RadarSystem.Tracker>(true))
+            {
+                if (tracker.enabled && tracker.gameObject.activeInHierarchy)
+                {
+                    tracker.UpdateTargets();
+                }
+            }
+
+            // Force TargetSelectors to re-scan if they have no target
+            foreach (var ts in go.GetComponentsInChildren<VSX.RadarSystem.TargetSelector>(true))
+            {
+                if (ts.enabled && ts.SelectedTarget == null)
+                {
+                    ts.SelectFirstSelectableTarget();
+                    kicked++;
+                }
+            }
+        }
+
+        Debug.Log($"[CPNET-DBG] TargetReacquisition ({delay}s): kicked {kicked} targetless turrets, " +
+                  $"trackablesInScene={trackableCount}");
     }
 
     void ForceEnableAllDispersedObjects()
     {
+        Debug.Log($"[CPNET-DBG] ForceEnableAllDispersedObjects — dispersedObjects={_dispersedObjects.Count}, " +
+                  $"fusionConnected={IsFusionConnected()}, isHostOrOffline={IsHostOrOffline()}");
+
         if (_dispersedParent != null)
             _dispersedParent.gameObject.SetActive(true);
 
+        int wcCount = 0, weaponCount = 0, disabledGO = 0;
         foreach (var go in _dispersedObjects)
         {
             if (go == null) continue;
+
+            if (!go.activeInHierarchy) disabledGO++;
             go.SetActive(true);
 
             foreach (Transform child in go.GetComponentsInChildren<Transform>(true))
@@ -251,13 +428,23 @@ public class CheckpointNetwork : MonoBehaviour
 
             foreach (var wc in go.GetComponentsInChildren<VSX.Weapons.WeaponController>(true))
             {
+                bool wasBefore = wc.Activated;
                 wc.enabled = true;
                 wc.Activated = true;
+                wcCount++;
+                if (!wasBefore)
+                    Debug.Log($"[CPNET-DBG]   WeaponController '{wc.gameObject.name}' was DEACTIVATED, now forced ON");
             }
 
             foreach (var w in go.GetComponentsInChildren<VSX.Weapons.Weapon>(true))
+            {
                 w.enabled = true;
+                weaponCount++;
+            }
         }
+
+        Debug.Log($"[CPNET-DBG] ForceEnable DONE — enabled {wcCount} WeaponControllers, {weaponCount} Weapons, " +
+                  $"reactivated {disabledGO} disabled GameObjects");
     }
 
     public void ForceRebuild()
@@ -483,6 +670,20 @@ public class CheckpointNetwork : MonoBehaviour
                     foreach (var trackable in turret.GetComponentsInChildren<VSX.RadarSystem.Trackable>(true))
                     {
                         trackable.enabled = false;
+                    }
+
+                    // Assign team to turret (so TargetSelector knows which teams are hostile)
+                    if (turretTeam != null)
+                    {
+                        foreach (var tc in turret.GetComponentsInChildren<VSX.Weapons.TurretController>(true))
+                        {
+                            tc.SetTeam(turretTeam);
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[CheckpointNetwork] turretTeam is not assigned! Turrets won't know which teams are hostile. " +
+                                         "Drag the 'Enemy' Team asset into CheckpointNetwork → Turret Team in the Inspector.");
                     }
 
                     // Activate WeaponControllers (turret firing logic)

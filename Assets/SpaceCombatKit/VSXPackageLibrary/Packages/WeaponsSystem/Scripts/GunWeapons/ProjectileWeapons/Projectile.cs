@@ -178,6 +178,55 @@ namespace VSX.Weapons
             IsVisualDummy = true;
         }
 
+        /// <summary>
+        /// Returns true if this projectile should apply damage/healing.
+        /// Networked projectiles: only on state authority (host).
+        /// Non-networked projectiles (turret-spawned): only on host or single-player.
+        /// Without this, turret projectiles apply damage on every machine, causing
+        /// double damage since NetworkedHealthSync also syncs from host to clients.
+        /// </summary>
+        private static NetworkRunner _cachedRunner;
+        private static float _lastRunnerLookup;
+        private static bool _damageAuthorityLogged = false;
+
+        protected bool IsDamageAuthority
+        {
+            get
+            {
+                if (IsVisualDummy) return false;
+                // Networked projectile — standard Fusion authority check
+                if (Object != null) return Object.HasStateAuthority;
+                // Non-networked projectile (e.g. turret-spawned via Instantiate).
+                // If Fusion is running, only the server/host should apply damage.
+                // Cache the runner lookup to avoid FindObjectOfType every collision.
+                if (_cachedRunner == null || Time.time - _lastRunnerLookup > 2f)
+                {
+                    _cachedRunner = FindFirstObjectByType<NetworkRunner>();
+                    _lastRunnerLookup = Time.time;
+                }
+                if (_cachedRunner != null && _cachedRunner.IsRunning)
+                {
+                    bool result = _cachedRunner.IsServer;
+                    if (!_damageAuthorityLogged)
+                    {
+                        _damageAuthorityLogged = true;
+                        Debug.Log($"[PROJ-DBG] IsDamageAuthority (non-networked projectile): " +
+                                  $"runner={_cachedRunner.name}, isRunning={_cachedRunner.IsRunning}, " +
+                                  $"isServer={_cachedRunner.IsServer}, isClient={_cachedRunner.IsClient}, " +
+                                  $"result={result} | Object==null (turret projectile)");
+                    }
+                    return result;
+                }
+                // Single-player / no Fusion — always apply damage
+                if (!_damageAuthorityLogged)
+                {
+                    _damageAuthorityLogged = true;
+                    Debug.Log($"[PROJ-DBG] IsDamageAuthority: No runner or not running — returning true (single-player path)");
+                }
+                return true;
+            }
+        }
+
         private bool _proxyFirstRenderLogged = false;
 
         public override void Render()
@@ -522,11 +571,10 @@ namespace VSX.Weapons
 
         public virtual void Detonate()
         {
-            // Area damage should ONLY run on the State Authority (host).
-            // Proxies should not apply damage — health is synced from the host via NetworkedHealthSync.
-            // Running AreaEffect on proxies would cause double damage and fight the health sync.
-            bool isAuthority = Object == null || Object.HasStateAuthority;
-            string role = isAuthority ? (Object == null ? "LOCAL" : "HOST") : "PROXY";
+            // Area damage should ONLY run on the damage authority (host / single-player).
+            // Proxies and client turret projectiles should not apply damage.
+            bool isAuthority = IsDamageAuthority;
+            string role = isAuthority ? (Object == null ? "LOCAL/HOST" : "HOST") : "PROXY/CLIENT";
             Debug.Log($"[Projectile] DETONATE ({role}) | type={GetType().Name} | pos={transform.position} | " +
                       $"areaEffect={areaEffect} | willApplyAreaDmg={areaEffect && isAuthority} | " +
                       $"detonated={detonated} | IsVisualDummy={IsVisualDummy} | " +
@@ -662,20 +710,20 @@ namespace VSX.Weapons
 
             DamageReceiver damageReceiver = null;
 
-            // Direct damage should ONLY be applied on the State Authority (host).
-            // Proxies just show visual effects — health is synced from the host via NetworkedHealthSync.
-            bool isAuthority = Object == null || Object.HasStateAuthority;
-            string role = isAuthority ? (Object == null ? "LOCAL" : "HOST") : "PROXY";
+            // Only the damage authority (host / single-player) applies damage.
+            // Non-networked turret projectiles also respect this — clients just show visuals.
+            bool isAuthority = IsDamageAuthority;
+            string role = isAuthority ? (Object == null ? "LOCAL/HOST" : "HOST") : "PROXY/CLIENT";
             Debug.Log($"[Projectile] OnCollision ({role}) | type={GetType().Name} | hitPoint={hit.point} | " +
                       $"hitCollider={hit.collider.name} | hitObj={hit.collider.transform.root.name} | " +
-                      $"areaEffect={areaEffect} | willApplyDmg={isAuthority && !IsVisualDummy}");
+                      $"areaEffect={areaEffect} | willApplyDmg={isAuthority}");
 
             if (!areaEffect)
             {
                 damageReceiver = hit.collider.GetComponent<DamageReceiver>();
-                // Only apply damage/healing on the State Authority (host).
-                // Proxies show visual effects only — health is synced via NetworkedHealthSync.
-                if (damageReceiver != null && !IsVisualDummy && isAuthority)
+                // Only apply damage/healing on the damage authority (host).
+                // Proxies and client turret projectiles show visual effects only.
+                if (damageReceiver != null && isAuthority)
                 {
                     HealthEffectInfo info = new HealthEffectInfo();
                     info.worldPosition = hit.point;
@@ -774,7 +822,7 @@ namespace VSX.Weapons
         protected virtual void AreaEffect()
         {
             if (!areaEffect) return;
-            if (IsVisualDummy) return;
+            if (!IsDamageAuthority) return;
 
             if (Mathf.Approximately(areaEffectRadius, 0)) return;
 

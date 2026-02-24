@@ -138,11 +138,41 @@ namespace VSX.Weapons
 
 
 
+        // ─── DEBUG: throttle logs to once per second per turret ───
+        private float _dbgNextLogTime = 0f;
+        private const float _dbgLogInterval = 2f; // seconds between periodic logs
+
         protected virtual void Update()
         {
+            bool shouldLog = Time.time >= _dbgNextLogTime;
+
+            if (!activated)
+            {
+                if (shouldLog)
+                {
+                    Debug.LogWarning($"[TURRET-DBG] {gameObject.name} — UPDATE SKIPPED: activated=FALSE. " +
+                                     $"WeaponController.enabled={enabled}, gameObject.active={gameObject.activeInHierarchy}");
+                    _dbgNextLogTime = Time.time + _dbgLogInterval;
+                }
+                return;
+            }
+
             if (activated)
             {
                 Vector3 targetPosition = GetAimPosition();
+
+                if (shouldLog)
+                {
+                    string targetName = target != null ? target.gameObject.name : "NULL";
+                    bool targetActive = target != null && target.gameObject.activeInHierarchy;
+                    bool targetEnabled = target != null && target.enabled;
+                    Debug.Log($"[TURRET-DBG] {gameObject.name} — state={turretState}, target={targetName}, " +
+                              $"targetActive={targetActive}, targetEnabled={targetEnabled}, " +
+                              $"angle={AngleToTarget(targetPosition):F1}°, minFiringAngle={minFiringAngle}°, " +
+                              $"isFiring={isFiring}, weapon={weapon?.name ?? "NULL"}, " +
+                              $"weaponEnabled={weapon?.enabled}, gimbal={weapon?.Gimbal != null}");
+                    _dbgNextLogTime = Time.time + _dbgLogInterval;
+                }
 
                 switch (turretState)
                 {
@@ -248,6 +278,8 @@ namespace VSX.Weapons
 
             if (this.turretState == turretState) return;
 
+            Debug.Log($"[TURRET-DBG] {gameObject.name} — STATE CHANGE: {this.turretState} → {turretState}");
+
             turretStateStartTime = Time.time;
 
             switch (turretState)
@@ -288,6 +320,10 @@ namespace VSX.Weapons
             isFiring = true;
             firingStateStartTime = Time.time;
             nextFiringStatePeriod = Random.Range(minFiringPeriod, maxFiringPeriod);
+
+            Debug.Log($"[TURRET-DBG] {gameObject.name} — START FIRING: weapon={weapon?.name ?? "NULL"}, " +
+                      $"triggerable={weapon?.Triggerable != null}, burstDuration={nextFiringStatePeriod:F2}s");
+
             weapon.Triggerable.StartTriggering();
         }
 
@@ -298,6 +334,10 @@ namespace VSX.Weapons
             isFiring = false;
             firingStateStartTime = Time.time;
             nextFiringStatePeriod = Random.Range(minFiringInterval, maxFiringInterval);
+
+            if (turretState == TurretState.Engaged || turretState == TurretState.None)
+                Debug.Log($"[TURRET-DBG] {gameObject.name} — STOP FIRING: nextInterval={nextFiringStatePeriod:F2}s");
+
             weapon.Triggerable.StopTriggering();
         }
     }

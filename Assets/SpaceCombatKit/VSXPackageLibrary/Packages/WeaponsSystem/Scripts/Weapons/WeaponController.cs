@@ -33,10 +33,15 @@ namespace VSX.Weapons
             get { return activated; }
             set
             {
+                if (value != activated)
+                {
+                    Debug.Log($"[WC-DBG] {gameObject.name} — Activated changing: {activated} → {value} (caller={new System.Diagnostics.StackTrace().GetFrame(1)?.GetMethod()?.Name ?? "unknown"})");
+                }
+
                 if (value && !activated)
                 {
                     OnActivated();
-                } 
+                }
                 else if (!value && activated)
                 {
                     OnDeactivated();
