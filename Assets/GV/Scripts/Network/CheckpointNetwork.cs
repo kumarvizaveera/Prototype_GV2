@@ -118,6 +118,7 @@ public class CheckpointNetwork : MonoBehaviour
         {
             StartCoroutine(DelayedTargetReacquisition(1f));
             StartCoroutine(DelayedTargetReacquisition(3f));
+            StartCoroutine(PeriodicNearestTargetRescan());
         }
     }
 
@@ -405,6 +406,59 @@ public class CheckpointNetwork : MonoBehaviour
 
         Debug.Log($"[CPNET-DBG] TargetReacquisition ({delay}s): kicked {kicked} targetless turrets, " +
                   $"trackablesInScene={trackableCount}");
+    }
+
+    [Header("Turret Targeting")]
+    [Tooltip("How often (seconds) turrets re-evaluate their target to pick the nearest ship. " +
+             "Without this, turrets lock onto the first ship they find and never switch.")]
+    public float turretRescanInterval = 5f;
+
+    /// <summary>
+    /// Periodically forces all turrets to re-evaluate nearest target.
+    /// Without this, TargetSelector only scans when selectedTarget == null,
+    /// so turrets that locked onto the host ship would NEVER switch to the
+    /// client ship — even if the client ship is right next to them.
+    /// </summary>
+    IEnumerator PeriodicNearestTargetRescan()
+    {
+        // Wait for initial setup to complete
+        yield return new WaitForSeconds(5f);
+
+        while (true)
+        {
+            yield return new WaitForSeconds(turretRescanInterval);
+
+            var tsm = VSX.RadarSystem.TrackableSceneManager.Instance;
+            if (tsm == null || tsm.Trackables.Count < 2)
+                continue; // Only matters when there are 2+ targets
+
+            int switched = 0;
+            foreach (var go in _dispersedObjects)
+            {
+                if (go == null) continue;
+
+                foreach (var ts in go.GetComponentsInChildren<VSX.RadarSystem.TargetSelector>(true))
+                {
+                    if (ts == null || !ts.enabled) continue;
+
+                    // Remember old target
+                    var oldTarget = ts.SelectedTarget;
+
+                    // Force a nearest-target scan (this picks the closest selectable trackable)
+                    ts.SelectNearest();
+
+                    if (ts.SelectedTarget != oldTarget && ts.SelectedTarget != null)
+                    {
+                        switched++;
+                    }
+                }
+            }
+
+            if (switched > 0)
+            {
+                Debug.Log($"[CPNET-DBG] PeriodicRescan: {switched} turrets switched to a nearer target");
+            }
+        }
     }
 
     void ForceEnableAllDispersedObjects()
