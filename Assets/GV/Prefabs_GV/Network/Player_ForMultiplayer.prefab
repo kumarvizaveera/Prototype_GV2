@@ -2430,6 +2430,7 @@ GameObject:
   - component: {fileID: 2364409008901317538}
   - component: {fileID: 4285658588747489445}
   - component: {fileID: 1544269806424891214}
+  - component: {fileID: 8275606743065935317}
   m_Layer: 0
   m_Name: Player_ForMultiplayer
   m_TagString: Untagged
@@ -3155,6 +3156,7 @@ MonoBehaviour:
   - {fileID: 2364409008901317538}
   - {fileID: 4285658588747489445}
   - {fileID: 1544269806424891214}
+  - {fileID: 8275606743065935317}
   - {fileID: 1301586559464983885}
   - {fileID: 3420246686420463674}
   - {fileID: 8112468108042422247}
@@ -3335,6 +3337,18 @@ MonoBehaviour:
   labelText: {fileID: 3565658468758952747}
   faceCamera: 1
   _PlayerNumber: -1
+--- !u!114 &8275606743065935317
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4309686302888358143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d75272b6bcb357e4db8f805086a538d0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.NetworkPowerBridge
 --- !u!1 &4609898187100312877
 GameObject:
   m_ObjectHideFlags: 0

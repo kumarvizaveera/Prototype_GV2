@@ -405,80 +405,17 @@ namespace GV
             GameObject target = cachedPlayerNetObj != null ? cachedPlayerNetObj.gameObject : cachedPlayerRoot;
             if (target == null) return;
 
-            switch (type)
+            // Route through NetworkPowerBridge which handles the Host/Client authority split.
+            // On the host: executes directly (StateAuthority).
+            // On a client: sends an RPC to the host which has StateAuthority on the handlers.
+            var bridge = target.GetComponentInChildren<NetworkPowerBridge>();
+            if (bridge != null)
             {
-                case PowerUpType.Teleport:
-                    if (cachedTeleportPowerUp != null)
-                    {
-                        cachedTeleportPowerUp.Apply(target);
-                        Debug.Log("[PowerSphereMaster] Activated Teleport");
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[PowerSphereMaster] No TeleportPowerUp reference cached — cannot teleport.");
-                    }
-                    break;
-
-                case PowerUpType.Invisibility:
-                    var invHandler = target.GetComponentInChildren<InvisibilityHandler>();
-                    if (invHandler != null)
-                    {
-                        float dur = invisibilitySettings.duration;
-                        Material mat = invisibilitySettings.glassMaterial;
-                        bool revert = invisibilitySettings.revertOnExit;
-                        invHandler.ActivateInvisibility(mat, dur, revert);
-                        Debug.Log("[PowerSphereMaster] Activated Invisibility");
-                    }
-                    else Debug.LogError("[PowerSphereMaster] InvisibilityHandler missing on player");
-                    break;
-
-                case PowerUpType.Shield:
-                    var shieldHandler = target.GetComponentInChildren<NetworkShieldHandler>();
-                    if (shieldHandler != null)
-                    {
-                        shieldHandler.ActivateShield(shieldSettings.duration);
-                        Debug.Log("[PowerSphereMaster] Activated Shield");
-                    }
-                    else Debug.LogError("[PowerSphereMaster] NetworkShieldHandler missing on player");
-                    break;
-
-                case PowerUpType.SuperBoost:
-                    var boostHandler = target.GetComponentInChildren<AircraftSuperBoostHandler>();
-                    if (boostHandler != null)
-                    {
-                        boostHandler.ActivateSuperBoost(
-                            superBoostSettings.speedMultiplier,
-                            superBoostSettings.steeringMultiplier,
-                            superBoostSettings.boostMultiplier,
-                            superBoostSettings.boostDuration
-                        );
-                        Debug.Log("[PowerSphereMaster] Activated SuperBoost");
-                    }
-                    else Debug.LogError("[PowerSphereMaster] AircraftSuperBoostHandler missing on player");
-                    break;
-
-                case PowerUpType.SuperWeapon:
-                    var swHandler = target.GetComponentInChildren<NetworkSuperWeaponHandler>();
-                    if (swHandler != null)
-                    {
-                        AircraftCharacterManager.SuperWeaponBonuses bonuses = new AircraftCharacterManager.SuperWeaponBonuses
-                        {
-                            projectileDamage = superWeaponSettings.projectileDamageMultiplier,
-                            projectileRange = superWeaponSettings.projectileRangeMultiplier,
-                            projectileSpeed = superWeaponSettings.projectileSpeedMultiplier,
-                            projectileFireRate = superWeaponSettings.projectileFireRateMultiplier,
-                            projectileReload = superWeaponSettings.projectileReloadMultiplier,
-                            missileDamage = superWeaponSettings.missileDamageMultiplier,
-                            missileRange = superWeaponSettings.missileRangeMultiplier,
-                            missileSpeed = superWeaponSettings.missileSpeedMultiplier,
-                            missileFireRate = superWeaponSettings.missileFireRateMultiplier,
-                            missileReload = superWeaponSettings.missileReloadMultiplier
-                        };
-                        swHandler.ActivateSuperWeapon(superWeaponSettings.duration, bonuses);
-                        Debug.Log("[PowerSphereMaster] Activated SuperWeapon");
-                    }
-                    else Debug.LogError("[PowerSphereMaster] NetworkSuperWeaponHandler missing on player");
-                    break;
+                bridge.RequestActivatePower(type);
+            }
+            else
+            {
+                Debug.LogError("[PowerSphereMaster] NetworkPowerBridge not found on player — add it to the player ship prefab. Power activation will not work for clients.");
             }
         }
 

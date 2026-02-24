@@ -306,18 +306,18 @@ namespace GV
         private void ApplyPower(PowerUpType type, GameObject target)
         {
             // ---------------------------------------------------------------
-            // NEW BEHAVIOR: Store the power in PowerSphereMasterController
-            // instead of immediately activating it. The player will activate
-            // it manually via the activateKey (default: B).
+            // NETWORK-AWARE COLLECTION: Send an RPC so the collecting player's
+            // machine (InputAuthority) gets the CollectPower call on their
+            // local PowerSphereMasterController, not just the host's.
             // ---------------------------------------------------------------
-            if (PowerSphereMasterController.Instance != null)
-            {
-                // Pass the TeleportPowerUp reference so the master controller
-                // can call Apply() later when the player chooses to activate.
-                TeleportPowerUp teleportRef = (type == PowerUpType.Teleport) ? teleport : null;
+            NetworkObject targetNetObj = target.GetComponent<NetworkObject>();
+            if (targetNetObj == null) targetNetObj = target.GetComponentInParent<NetworkObject>();
 
-                PowerSphereMasterController.Instance.CollectPower(type, target, teleportRef);
-                Debug.Log($"[RandomPowerSphere] Stored {type} in inventory for manual activation.");
+            if (targetNetObj != null && PowerSphereMasterController.Instance != null)
+            {
+                // RPC to all machines — each checks InputAuthority to decide if it's "their" player
+                RPC_NotifyPowerCollected(type, targetNetObj.Id);
+                Debug.Log($"[RandomPowerSphere] Sent RPC_NotifyPowerCollected({type}) for player {targetNetObj.Id}");
                 return;
             }
 
@@ -399,6 +399,34 @@ namespace GV
                 {
                     case PowerUpType.Shield: if (shield) shield.Apply(target); break;
                 }
+            }
+        }
+
+        // =====================================================================
+        // NETWORK RPC — notifies all machines about a power collection.
+        // Only the machine with InputAuthority on the player processes it.
+        // =====================================================================
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_NotifyPowerCollected(PowerUpType type, NetworkId playerNetId)
+        {
+            if (Runner.TryFindObject(playerNetId, out NetworkObject playerObj))
+            {
+                // Only the machine that "owns" this player (InputAuthority) should
+                // update its local PowerSphereMasterController inventory & UI.
+                if (playerObj.HasInputAuthority)
+                {
+                    if (PowerSphereMasterController.Instance != null)
+                    {
+                        TeleportPowerUp teleportRef = (type == PowerUpType.Teleport) ? teleport : null;
+                        PowerSphereMasterController.Instance.CollectPower(type, playerObj.gameObject, teleportRef);
+                        Debug.Log($"[RandomPowerSphere] RPC: Local player collected {type}");
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[RandomPowerSphere] RPC_NotifyPowerCollected: Could not find NetworkObject with ID {playerNetId}");
             }
         }
 
