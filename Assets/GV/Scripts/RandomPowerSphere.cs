@@ -305,7 +305,28 @@ namespace GV
 
         private void ApplyPower(PowerUpType type, GameObject target)
         {
-            // Find NetworkObject on target
+            // ---------------------------------------------------------------
+            // NEW BEHAVIOR: Store the power in PowerSphereMasterController
+            // instead of immediately activating it. The player will activate
+            // it manually via the activateKey (default: B).
+            // ---------------------------------------------------------------
+            if (PowerSphereMasterController.Instance != null)
+            {
+                // Pass the TeleportPowerUp reference so the master controller
+                // can call Apply() later when the player chooses to activate.
+                TeleportPowerUp teleportRef = (type == PowerUpType.Teleport) ? teleport : null;
+
+                PowerSphereMasterController.Instance.CollectPower(type, target, teleportRef);
+                Debug.Log($"[RandomPowerSphere] Stored {type} in inventory for manual activation.");
+                return;
+            }
+
+            // ---------------------------------------------------------------
+            // FALLBACK: If no PowerSphereMasterController exists, activate
+            // immediately (legacy behavior for backwards compatibility).
+            // ---------------------------------------------------------------
+            Debug.LogWarning("[RandomPowerSphere] No PowerSphereMasterController found — falling back to immediate activation.");
+
             NetworkObject netObj = target.GetComponent<NetworkObject>();
             if (netObj == null) netObj = target.GetComponentInParent<NetworkObject>();
 
@@ -316,143 +337,68 @@ namespace GV
                 switch (type)
                 {
                     case PowerUpType.Teleport:
-                        if (teleport) 
-                        {
-                            // Master Controller check inside TeleportPowerUp.cs will handle overrides
-                            // But since TeleportPowerUp.Apply() calls internal logic, we trust it.
-                            teleport.Apply(netObj.gameObject);
-                        }
+                        if (teleport) teleport.Apply(netObj.gameObject);
                         break;
-                        
+
                     case PowerUpType.Invisibility:
                         if (invisibility)
                         {
-                            var invHandler = netObj.GetComponentInChildren<InvisibilityHandler>(); 
-                            if (invHandler) 
+                            var invHandler = netObj.GetComponentInChildren<InvisibilityHandler>();
+                            if (invHandler)
                             {
-                                float finalDuration = invisibility.duration;
-                                Material finalMat = invisibility.glassMaterial;
-                                bool finalRevert = invisibility.revertOnExit;
-
-                                if (PowerSphereMasterController.Instance != null)
-                                {
-                                    finalDuration = PowerSphereMasterController.Instance.invisibilitySettings.duration;
-                                    finalMat = PowerSphereMasterController.Instance.invisibilitySettings.glassMaterial;
-                                    finalRevert = PowerSphereMasterController.Instance.invisibilitySettings.revertOnExit;
-                                }
-
-                                invHandler.ActivateInvisibility(finalMat, finalDuration, finalRevert);
-                                Debug.Log("[RandomPowerSphere] Applied Invisibility");
+                                invHandler.ActivateInvisibility(invisibility.glassMaterial, invisibility.duration, invisibility.revertOnExit);
                             }
-                            else Debug.LogError($"[RandomPowerSphere] InvisibilityHandler missing on {netObj.name}");
                         }
                         break;
-                        
+
                     case PowerUpType.Shield:
                         if (shield)
                         {
                             var shieldHandler = netObj.GetComponentInChildren<NetworkShieldHandler>();
-                            if (shieldHandler)
-                            {
-                                float finalDuration = shield.duration;
-                                if (PowerSphereMasterController.Instance != null)
-                                {
-                                    finalDuration = PowerSphereMasterController.Instance.shieldSettings.duration;
-                                }
-
-                                shieldHandler.ActivateShield(finalDuration);
-                                Debug.Log("[RandomPowerSphere] Applied Shield");
-                            }
-                            else Debug.LogError($"[RandomPowerSphere] NetworkShieldHandler missing on {netObj.name}");
+                            if (shieldHandler) shieldHandler.ActivateShield(shield.duration);
                         }
                         break;
-                        
+
                     case PowerUpType.SuperBoost:
                         if (superBoost)
                         {
                             var boostHandler = netObj.GetComponentInChildren<AircraftSuperBoostHandler>();
-                            if (boostHandler)
-                            {
-                                float sM = superBoost.speedMultiplier;
-                                float tM = superBoost.steeringMultiplier;
-                                float bM = superBoost.boostMultiplier;
-                                float bD = superBoost.boostDuration;
-
-                                if (PowerSphereMasterController.Instance != null)
-                                {
-                                    var settings = PowerSphereMasterController.Instance.superBoostSettings;
-                                    sM = settings.speedMultiplier;
-                                    tM = settings.steeringMultiplier;
-                                    bM = settings.boostMultiplier;
-                                    bD = settings.boostDuration;
-                                }
-
-                                boostHandler.ActivateSuperBoost(sM, tM, bM, bD);
-                                Debug.Log("[RandomPowerSphere] Applied SuperBoost");
-                            }
-                            else Debug.LogError($"[RandomPowerSphere] AircraftSuperBoostHandler missing on {netObj.name}");
+                            if (boostHandler) boostHandler.ActivateSuperBoost(superBoost.speedMultiplier, superBoost.steeringMultiplier, superBoost.boostMultiplier, superBoost.boostDuration);
                         }
                         break;
-                        
+
                     case PowerUpType.SuperWeapon:
                         if (superWeapon)
                         {
                             var swHandler = netObj.GetComponentInChildren<NetworkSuperWeaponHandler>();
                             if (swHandler)
                             {
-                                AircraftCharacterManager.SuperWeaponBonuses bonuses = new AircraftCharacterManager.SuperWeaponBonuses();
-                                
-                                float dur = superWeapon.duration;
-
-                                if (PowerSphereMasterController.Instance != null)
+                                AircraftCharacterManager.SuperWeaponBonuses bonuses = new AircraftCharacterManager.SuperWeaponBonuses
                                 {
-                                    var settings = PowerSphereMasterController.Instance.superWeaponSettings;
-                                    dur = settings.duration;
-
-                                    bonuses.projectileDamage = settings.projectileDamageMultiplier;
-                                    bonuses.projectileRange = settings.projectileRangeMultiplier;
-                                    bonuses.projectileSpeed = settings.projectileSpeedMultiplier;
-                                    bonuses.projectileFireRate = settings.projectileFireRateMultiplier;
-                                    bonuses.projectileReload = settings.projectileReloadMultiplier;
-                                    
-                                    bonuses.missileDamage = settings.missileDamageMultiplier;
-                                    bonuses.missileRange = settings.missileRangeMultiplier;
-                                    bonuses.missileSpeed = settings.missileSpeedMultiplier;
-                                    bonuses.missileFireRate = settings.missileFireRateMultiplier;
-                                    bonuses.missileReload = settings.missileReloadMultiplier;
-                                }
-                                else
-                                {
-                                    bonuses.projectileDamage = superWeapon.projectileDamageMultiplier;
-                                    bonuses.projectileRange = superWeapon.projectileRangeMultiplier;
-                                    bonuses.projectileSpeed = superWeapon.projectileSpeedMultiplier;
-                                    bonuses.projectileFireRate = superWeapon.projectileFireRateMultiplier;
-                                    bonuses.projectileReload = superWeapon.projectileReloadMultiplier;
-                                    
-                                    bonuses.missileDamage = superWeapon.missileDamageMultiplier;
-                                    bonuses.missileRange = superWeapon.missileRangeMultiplier;
-                                    bonuses.missileSpeed = superWeapon.missileSpeedMultiplier;
-                                    bonuses.missileFireRate = superWeapon.missileFireRateMultiplier;
-                                    bonuses.missileReload = superWeapon.missileReloadMultiplier;
-                                }
-
-                                swHandler.ActivateSuperWeapon(dur, bonuses);
-                                Debug.Log("[RandomPowerSphere] Applied SuperWeapon");
+                                    projectileDamage = superWeapon.projectileDamageMultiplier,
+                                    projectileRange = superWeapon.projectileRangeMultiplier,
+                                    projectileSpeed = superWeapon.projectileSpeedMultiplier,
+                                    projectileFireRate = superWeapon.projectileFireRateMultiplier,
+                                    projectileReload = superWeapon.projectileReloadMultiplier,
+                                    missileDamage = superWeapon.missileDamageMultiplier,
+                                    missileRange = superWeapon.missileRangeMultiplier,
+                                    missileSpeed = superWeapon.missileSpeedMultiplier,
+                                    missileFireRate = superWeapon.missileFireRateMultiplier,
+                                    missileReload = superWeapon.missileReloadMultiplier
+                                };
+                                swHandler.ActivateSuperWeapon(superWeapon.duration, bonuses);
                             }
-                            else Debug.LogError($"[RandomPowerSphere] NetworkSuperWeaponHandler missing on {netObj.name}");
                         }
                         break;
                 }
             }
             else
             {
-                // Fallback for non-networked testing (if any)
-                 Debug.LogWarning("[RandomPowerSphere] Target has no NetworkObject! Falling back to local Apply (may not work for some powers).");
-                 switch (type)
-                 {
-                     case PowerUpType.Shield: if(shield) shield.Apply(target); break;
-                     // Others... 
-                 }
+                Debug.LogWarning("[RandomPowerSphere] Target has no NetworkObject! Falling back to local Apply.");
+                switch (type)
+                {
+                    case PowerUpType.Shield: if (shield) shield.Apply(target); break;
+                }
             }
         }
 
