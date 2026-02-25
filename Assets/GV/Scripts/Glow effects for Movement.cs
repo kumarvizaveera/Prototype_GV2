@@ -69,117 +69,112 @@ public class BoostGlow : MonoBehaviour
             }
         }
 
-        // Enable emission for everything
+        // Enable emission for everything and log diagnostics
         foreach (Renderer r in _allRenderers)
         {
-            r.material.EnableKeyword("_EMISSION");
+            if (r != null && r.material != null)
+            {
+                r.material.EnableKeyword("_EMISSION");
+                
+                // DIAGNOSTIC LOG FOR MATERIALS
+                bool hasEmissionColor = r.material.HasProperty("_EmissionColor");
+                bool hasEmission = r.material.HasProperty("_Emission");
+                bool hasBaseColor = r.material.HasProperty("_BaseColor");
+                
+                Debug.Log($"[BoostGlow] Renderer: {r.name} | Shader: {r.material.shader.name} | " +
+                          $"Has _EmissionColor: {hasEmissionColor} | Has _Emission: {hasEmission} | Has _BaseColor: {hasBaseColor}");
+            }
         }
     }
 
     void Update()
     {
-        // Determine if this is the local player's ship
-        // If networked and not our ship, use engine state instead of keyboard input
+        // Re-determine local player in case of delayed spawn
         _isLocalPlayer = (_networkObject == null) || _networkObject.HasInputAuthority;
 
         float targetIntensity = 0f;
         Color targetBaseColor = _currentColor;
 
+        Vector3 boostState = Vector3.zero;
+        Vector3 moveState = Vector3.zero;
+        bool canBoost = true;
+
         if (_isLocalPlayer)
         {
-            // LOCAL PLAYER: read keyboard input (responsive, no lag)
-
-            bool canBoost = true;
-            if (vehicleEngines != null)
+            // Foolproof local check bypassing the old InputSystem that breaks in build, 
+            // and bypassing SCK's physics consumption step which zeroes inputs!
+            var nm = GV.Network.NetworkManager.Instance;
+            if (nm != null)
             {
-                foreach (var handler in vehicleEngines.BoostResourceHandlers)
+                var netInput = nm.GetComponent<GV.Network.NetworkedPlayerInput>();
+                if (netInput != null)
                 {
-                    if (!handler.Ready())
-                    {
-                        canBoost = false;
-                        break;
-                    }
+                    var data = netInput.CurrentInputData;
+                    moveState = new Vector3(data.moveX, data.moveY, data.moveZ);
+                    if (data.boost) boostState = new Vector3(0, 0, 1f);
                 }
-            }
-
-            // 1. Boost (Highest Priority) - NOW W KEY
-            if (Input.GetKey(boostKey) && canBoost)
-            {
-                targetIntensity = boostIntensity;
-                targetBaseColor = boostColor;
-            }
-            // 2. Brake (S Key) - Turn OFF glow
-            else if (Input.GetKey(brakeKey))
-            {
-                targetIntensity = 0f;
-            }
-            // 3. Auto-Forward OR Manual Forward
-            else if (autoForwardGlow || Input.GetKey(forwardKey))
-            {
-                targetIntensity = forwardIntensity;
-                targetBaseColor = forwardColor;
-            }
-            // 4. Left (Q)
-            else if (Input.GetKey(leftKey))
-            {
-                targetIntensity = sideIntensity;
-                targetBaseColor = leftColor;
-            }
-            // 5. Right (E)
-            else if (Input.GetKey(rightKey))
-            {
-                targetIntensity = sideIntensity;
-                targetBaseColor = rightColor;
-            }
-            // 6. Idle (Only if auto-forward is OFF)
-            else
-            {
-                targetIntensity = 0f;
             }
         }
-        else
+        else if (vehicleEngines != null)
         {
-            // REMOTE PLAYER: derive glow from engine state (network-synced)
-            if (vehicleEngines != null)
-            {
-                Vector3 boostState = vehicleEngines.BoostInputs;
-                Vector3 moveState = vehicleEngines.MovementInputs;
+            // REMOTE PLAYER: physically-simulated synced inputs on proxy ships.
+            boostState = vehicleEngines.BoostInputs;
+            moveState = vehicleEngines.MovementInputs;
+        }
 
-                // 1. Boost active
-                if (boostState.magnitude > 0.1f)
+        if (vehicleEngines != null)
+        {
+            // Check if boost is permitted (resources available)
+            foreach (var handler in vehicleEngines.BoostResourceHandlers)
+            {
+                if (!handler.Ready())
                 {
-                    targetIntensity = boostIntensity;
-                    targetBaseColor = boostColor;
-                }
-                // 2. Reverse / brake (negative Z movement)
-                else if (moveState.z < -0.1f)
-                {
-                    targetIntensity = 0f;
-                }
-                // 3. Forward movement
-                else if (moveState.z > 0.1f || autoForwardGlow)
-                {
-                    targetIntensity = forwardIntensity;
-                    targetBaseColor = forwardColor;
-                }
-                // 4. Left strafe
-                else if (moveState.x < -0.1f)
-                {
-                    targetIntensity = sideIntensity;
-                    targetBaseColor = leftColor;
-                }
-                // 5. Right strafe
-                else if (moveState.x > 0.1f)
-                {
-                    targetIntensity = sideIntensity;
-                    targetBaseColor = rightColor;
-                }
-                // 6. Idle
-                else
-                {
-                    targetIntensity = 0f;
+                    canBoost = false;
+                    break;
                 }
             }
+        }
+
+        // 1. Boost active
+        if (boostState.magnitude > 0.1f && canBoost)
+        {
+            targetIntensity = boostIntensity;
+            targetBaseColor = boostColor;
+        }
+        // 2. Reverse / brake (negative Z movement)
+        else if (moveState.z < -0.1f)
+        {
+            targetIntensity = 0f;
+        }
+        // 3. Forward movement
+        else if (moveState.z > 0.1f || autoForwardGlow)
+        {
+            targetIntensity = forwardIntensity;
+            targetBaseColor = forwardColor;
+        }
+        // 4. Left strafe
+        else if (moveState.x < -0.1f)
+        {
+            targetIntensity = sideIntensity;
+            targetBaseColor = leftColor;
+        }
+        // 5. Right strafe
+        else if (moveState.x > 0.1f)
+        {
+            targetIntensity = sideIntensity;
+            targetBaseColor = rightColor;
+        }
+        // 6. Idle
+        else
+        {
+            targetIntensity = 0f;
+        }
+
+        // --- DIAGNOSTICS ---
+        if (Time.frameCount % 60 == 0) // Log approx once per second
+        {
+            Debug.Log($"[BoostGlow] Local: {_isLocalPlayer} | Move: {moveState} | Boost: {boostState} | Final Intensity: {targetIntensity}");
+            if (_allRenderers.Count == 0) Debug.LogWarning("[BoostGlow] No renderers found to apply glow to!");
         }
 
         // SMOOTHING
@@ -191,9 +186,15 @@ public class BoostGlow : MonoBehaviour
 
         foreach (Renderer r in _allRenderers)
         {
-            if (r != null)
+            if (r != null && r.material != null)
             {
+                r.material.EnableKeyword("_EMISSION");
+                
+                // Primary Application (Works in Editor, stripped unless preserved in Build)
                 r.material.SetColor("_EmissionColor", finalColor);
+                
+                // URP/Build Specific: Force Global Illumination to recognize the dynamic emission
+                r.material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             }
         }
     }
