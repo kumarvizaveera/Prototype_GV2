@@ -713,7 +713,8 @@ namespace VSX.Weapons
                     }
 
                     // Apply damage if: we have authority (host), OR the target has no health sync (turret)
-                    if (isAuthority || !hasNetworkedHealthSync)
+                    // Visual dummies must NEVER apply damage — they are purely visual client-side predictions.
+                    if (isAuthority || (!hasNetworkedHealthSync && !IsVisualDummy))
                     {
                         HealthEffectInfo info = new HealthEffectInfo();
                         info.worldPosition = hit.point;
@@ -816,14 +817,8 @@ namespace VSX.Weapons
 
             bool isAuthority = IsDamageAuthority;
 
-            // If not authority, we can still damage non-networked targets (turrets).
-            // We'll check per-target below.
-            if (!isAuthority)
-            {
-                // Quick check: if Fusion isn't running at all, IsDamageAuthority would be true.
-                // So if we're here, Fusion IS running and we're the client.
-                // We'll still iterate to find non-networked targets.
-            }
+            // Visual dummies must NEVER apply area damage — they are purely visual.
+            if (IsVisualDummy) return;
 
             if (Mathf.Approximately(areaEffectRadius, 0)) return;
 

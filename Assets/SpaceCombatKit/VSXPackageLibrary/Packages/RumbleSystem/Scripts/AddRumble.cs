@@ -87,7 +87,7 @@ namespace VSX.Rumbles
         /// </summary>
         protected virtual bool IsLocalRumbleSource()
         {
-            NetworkObject netObj = transform.root.GetComponent<NetworkObject>();
+            NetworkObject netObj = GetComponentInParent<NetworkObject>();
             if (netObj == null) return true; // Non-networked → always rumble
             return netObj.HasInputAuthority;  // Only rumble for local player's ship
         }
