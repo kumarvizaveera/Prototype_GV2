@@ -2,6 +2,7 @@ using UnityEngine;
 using TMPro;
 using VSX.Weapons;
 using VSX.Engines3D;
+using VSX.Health;
 using Fusion;
 using GV.Scripts;
 
@@ -58,6 +59,29 @@ namespace GV.Scripts
         [Tooltip("Message to display when boost fuel is at full capacity.")]
         public string boostCapacityFullMessage = "Boost fuel is full";
 
+        [Header("Health Refill")]
+        [Tooltip("Enable hull health refill in this zone.")]
+        public bool enableHealthRefill = true;
+
+        [Tooltip("Amount of hull health restored per second (fills gradually).")]
+        public float healthPerSecond = 10f;
+
+        [Tooltip("Sound to play on each health refill tick (optional).")]
+        public AudioClip healthRefillSound;
+
+        [Header("Health Refill UI")]
+        [Tooltip("Text component to display health recharging status.")]
+        public TMP_Text healthFeedbackText;
+
+        [Tooltip("Message to display during health recharge.")]
+        public string healthRefillMessage = "Hull repairing...";
+
+        [Tooltip("Text component to display when health is full.")]
+        public TMP_Text healthCapacityFullText;
+
+        [Tooltip("Message to display when health is at full capacity.")]
+        public string healthCapacityFullMessage = "Hull integrity is full";
+
         private MissileCycleControllerDynamic activeController;
         private float timer;
         private Collider triggerCollider;
@@ -67,6 +91,9 @@ namespace GV.Scripts
 
         // Boost fuel refill state
         private VehicleEngines3D activeEngines;
+
+        // Health refill state — hull Damageables (excludes shield)
+        private Damageable[] activeHullDamageables;
 
         private void OnValidate()
         {
@@ -109,6 +136,8 @@ namespace GV.Scripts
             if (capacityFullText != null) capacityFullText.gameObject.SetActive(false);
             if (boostFeedbackText != null) boostFeedbackText.gameObject.SetActive(false);
             if (boostCapacityFullText != null) boostCapacityFullText.gameObject.SetActive(false);
+            if (healthFeedbackText != null) healthFeedbackText.gameObject.SetActive(false);
+            if (healthCapacityFullText != null) healthCapacityFullText.gameObject.SetActive(false);
         }
 
         /// <summary>
@@ -137,14 +166,8 @@ namespace GV.Scripts
 
         private void OnTriggerEnter(Collider other)
         {
-            Debug.Log($"[AstraRefill] OnTriggerEnter with {other.name}");
-
             // Only react to the local player's ship — ignore remote ships
-            if (!IsLocalPlayer(other))
-            {
-                Debug.Log($"[AstraRefill] Ignoring non-local player {other.name}");
-                return;
-            }
+            if (!IsLocalPlayer(other)) return;
 
             MissileCycleControllerDynamic controller = null;
 
@@ -175,7 +198,6 @@ namespace GV.Scripts
 
             if (controller != null)
             {
-                Debug.Log($"[AstraRefill] Found Controller on {controller.gameObject.name}");
                 activeController = controller;
                 timer = refillInterval;
 
@@ -184,11 +206,6 @@ namespace GV.Scripts
 
                 UpdateFeedbackUI();
             }
-            else
-            {
-                 Debug.Log($"[AstraRefill] No MissileCycleControllerDynamic found on {other.name}, its Rigidbody, or parents.");
-            }
-
             // Boost fuel: find VehicleEngines3D on the vehicle
             if (enableBoostRefill)
             {
@@ -206,17 +223,39 @@ namespace GV.Scripts
 
                 if (engines != null && engines.BoostResourceHandlers != null && engines.BoostResourceHandlers.Count > 0)
                 {
-                    Debug.Log($"[AstraRefill] Found VehicleEngines3D for boost refill on {engines.gameObject.name}");
                     activeEngines = engines;
                     UpdateBoostFeedbackUI();
+                }
+            }
+
+            // Health refill: find hull Damageables on the vehicle (exclude shield Damageables)
+            if (enableHealthRefill)
+            {
+                Transform root = other.transform.root;
+                Damageable[] allDamageables = root.GetComponentsInChildren<Damageable>(true);
+
+                // Filter to hull only: exclude any Damageable that belongs to an EnergyShieldController
+                var hullList = new System.Collections.Generic.List<Damageable>();
+                foreach (var d in allDamageables)
+                {
+                    // Skip shield Damageables
+                    var shield = d.GetComponent<EnergyShieldController>();
+                    if (shield == null) shield = d.GetComponentInParent<EnergyShieldController>();
+                    if (shield != null) continue;
+
+                    hullList.Add(d);
+                }
+
+                if (hullList.Count > 0)
+                {
+                    activeHullDamageables = hullList.ToArray();
+                    UpdateHealthFeedbackUI();
                 }
             }
         }
 
         private void OnTriggerExit(Collider other)
         {
-             Debug.Log($"[AstraRefill] OnTriggerExit with {other.name}");
-
             // Only react to the local player's ship
             if (!IsLocalPlayer(other)) return;
 
@@ -234,7 +273,6 @@ namespace GV.Scripts
 
             if (controller != null && controller == activeController)
             {
-                Debug.Log($"[AstraRefill] Exited active controller zone.");
                 activeController = null;
                 activeSwapController = null;
                 if (feedbackText != null) feedbackText.gameObject.SetActive(false);
@@ -258,10 +296,23 @@ namespace GV.Scripts
 
                 if (engines != null && engines == activeEngines)
                 {
-                    Debug.Log($"[AstraRefill] Exited boost refill zone.");
                     activeEngines = null;
                     if (boostFeedbackText != null) boostFeedbackText.gameObject.SetActive(false);
                     if (boostCapacityFullText != null) boostCapacityFullText.gameObject.SetActive(false);
+                }
+            }
+
+            // Clear health refill on exit
+            if (enableHealthRefill && activeHullDamageables != null)
+            {
+                // Check if the exiting collider belongs to the same vehicle we're healing
+                Transform root = other.transform.root;
+                Damageable[] check = root.GetComponentsInChildren<Damageable>(true);
+                if (check.Length > 0)
+                {
+                    activeHullDamageables = null;
+                    if (healthFeedbackText != null) healthFeedbackText.gameObject.SetActive(false);
+                    if (healthCapacityFullText != null) healthCapacityFullText.gameObject.SetActive(false);
                 }
             }
         }
@@ -324,6 +375,27 @@ namespace GV.Scripts
                     UpdateBoostFeedbackUI();
                 }
             }
+
+            // Hull health refill — heals gradually every frame
+            if (enableHealthRefill && activeHullDamageables != null)
+            {
+                if (IsHullHealthFull())
+                {
+                    if (healthFeedbackText != null) healthFeedbackText.gameObject.SetActive(false);
+                    if (healthCapacityFullText != null)
+                    {
+                        healthCapacityFullText.gameObject.SetActive(true);
+                        healthCapacityFullText.text = healthCapacityFullMessage;
+                    }
+                }
+                else
+                {
+                    if (healthCapacityFullText != null) healthCapacityFullText.gameObject.SetActive(false);
+
+                    PerformHealthRefill();
+                    UpdateHealthFeedbackUI();
+                }
+            }
         }
 
         /// <summary>
@@ -371,7 +443,6 @@ namespace GV.Scripts
         {
             if (activeController != null)
             {
-                Debug.Log($"[AstraRefill] Performing Refill for {activeController.gameObject.name}");
                 activeController.AddAmmo(missileLabel, amountPerInterval);
 
                 if (refillSound != null)
@@ -434,6 +505,65 @@ namespace GV.Scripts
                 {
                     handler.resourceContainer.AddRemove(amount);
                 }
+            }
+        }
+
+        // ── Hull Health Refill ───────────────────────────────────────────
+
+        /// <summary>
+        /// Checks if all hull Damageables are at full health.
+        /// </summary>
+        private bool IsHullHealthFull()
+        {
+            if (activeHullDamageables == null) return false;
+
+            foreach (var d in activeHullDamageables)
+            {
+                if (d != null && d.CurrentHealth < d.HealthCapacity)
+                    return false;
+            }
+            return true;
+        }
+
+        private void UpdateHealthFeedbackUI()
+        {
+            if (healthFeedbackText != null && activeHullDamageables != null)
+            {
+                healthFeedbackText.gameObject.SetActive(true);
+
+                // Show aggregate health percentage across all hull Damageables
+                float totalCurrent = 0f;
+                float totalCapacity = 0f;
+                foreach (var d in activeHullDamageables)
+                {
+                    if (d != null)
+                    {
+                        totalCurrent += d.CurrentHealth;
+                        totalCapacity += d.HealthCapacity;
+                    }
+                }
+                int percent = totalCapacity > 0 ? Mathf.RoundToInt((totalCurrent / totalCapacity) * 100f) : 100;
+                healthFeedbackText.text = $"{healthRefillMessage} {percent}%";
+            }
+        }
+
+        private void PerformHealthRefill()
+        {
+            if (activeHullDamageables == null) return;
+
+            float healAmount = healthPerSecond * Time.deltaTime;
+
+            foreach (var d in activeHullDamageables)
+            {
+                if (d != null && d.CurrentHealth < d.HealthCapacity)
+                {
+                    d.Heal(healAmount);
+                }
+            }
+
+            if (healthRefillSound != null && !IsHullHealthFull())
+            {
+                // Sound is handled once per zone entry, not per frame
             }
         }
 
