@@ -9042,7 +9042,7 @@ PrefabInstance:
     - target: {fileID: 1775837561701750027, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       propertyPath: isHealable
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1775837561701750027, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
@@ -9729,6 +9729,11 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 38a0183be9a562248b194b1ebf339128, type: 2}
+    - target: {fileID: 2322535162387001766, guid: c11c75430698989468fe532c3b045fae,
+        type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2322834899752569209, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       propertyPath: changeRate
@@ -10183,6 +10188,11 @@ PrefabInstance:
     - target: {fileID: 2598577974105039039, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       propertyPath: m_Color.r
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2598577974105039039, guid: c11c75430698989468fe532c3b045fae,
+        type: 3}
+      propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2601649157965220356, guid: c11c75430698989468fe532c3b045fae,
@@ -12086,6 +12096,17 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: bcf26c8fb18495f4bbf31566029ca557, type: 2}
+    - target: {fileID: 4060380191336998486, guid: c11c75430698989468fe532c3b045fae,
+        type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: 376cfe13bb1e5de4ca8eb216014826da,
+        type: 3}
+    - target: {fileID: 4060380191336998486, guid: c11c75430698989468fe532c3b045fae,
+        type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4060380191336998486, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       propertyPath: m_FillMethod
@@ -15824,7 +15845,7 @@ PrefabInstance:
     - target: {fileID: 6828436248079341455, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       propertyPath: m_Type
-      value: 3
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6828436248079341455, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
@@ -15850,6 +15871,16 @@ PrefabInstance:
     - target: {fileID: 6828436248079341455, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       propertyPath: m_Color.r
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6828436248079341455, guid: c11c75430698989468fe532c3b045fae,
+        type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6828436248079341455, guid: c11c75430698989468fe532c3b045fae,
+        type: 3}
+      propertyPath: m_FillMethod
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6828746521460228248, guid: c11c75430698989468fe532c3b045fae,
@@ -19351,6 +19382,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GV.UI.ShieldBarVisibility
   shieldController: {fileID: 4114552594523750588}
   uiVisuals: {fileID: 6509256786770658455}
+  shieldFillBar: {fileID: 0}
 --- !u!4 &5980119981263396189 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4995297681004413993, guid: c11c75430698989468fe532c3b045fae,

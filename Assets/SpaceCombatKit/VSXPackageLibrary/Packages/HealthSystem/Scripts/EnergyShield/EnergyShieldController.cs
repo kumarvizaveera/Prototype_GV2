@@ -256,12 +256,61 @@ namespace VSX.Health
             remainingDuration = duration;
         }
 
-        public bool IsShieldActive 
-        { 
-            get 
-            { 
-                return energyShieldMeshRenderer != null && energyShieldMeshRenderer.enabled; 
-            } 
+        public bool IsShieldActive
+        {
+            get
+            {
+                return energyShieldMeshRenderer != null && energyShieldMeshRenderer.enabled;
+            }
+        }
+
+        /// <summary>
+        /// Returns the shield's current health as a 0-1 fraction.
+        /// Used by HUD components to drive shield fill bars.
+        /// </summary>
+        public float ShieldHealthFraction
+        {
+            get
+            {
+                if (damageable == null || damageable.HealthCapacity <= 0) return 0f;
+                return Mathf.Clamp01(damageable.CurrentHealth / damageable.HealthCapacity);
+            }
+        }
+
+        /// <summary>
+        /// The Damageable component that represents the shield's health pool.
+        /// Other systems can read this to know which Damageable is the shield.
+        /// </summary>
+        public Damageable ShieldDamageable { get { return damageable; } }
+
+        /// <summary>
+        /// Auto-register the shield's Damageable with every other Damageable
+        /// in the vehicle hierarchy so incoming damage is intercepted by the
+        /// shield automatically (no manual Inspector wiring needed).
+        /// </summary>
+        protected virtual void RegisterShieldWithHullDamageables()
+        {
+            if (damageable == null) return;
+
+            Damageable[] allDamageables = transform.root.GetComponentsInChildren<Damageable>(true);
+            int wiredCount = 0;
+            foreach (Damageable d in allDamageables)
+            {
+                // Skip the shield's own Damageable to prevent self-referencing loops
+                if (d == damageable) continue;
+
+                // Only set if not already assigned (allows Inspector overrides)
+                if (d.ShieldDamageable == null)
+                {
+                    d.ShieldDamageable = damageable;
+                    wiredCount++;
+                    Debug.Log($"[EnergyShieldController] Auto-wired shield to Damageable '{d.name}' " +
+                              $"(type={d.HealthType?.name ?? "NULL"})");
+                }
+            }
+            Debug.Log($"[EnergyShieldController] RegisterShieldWithHullDamageables: " +
+                      $"found {allDamageables.Length} total, wired {wiredCount} " +
+                      $"(shield={damageable.name}, root={transform.root.name})");
         }
 
         public virtual void SetShieldActive(bool active)
@@ -281,6 +330,10 @@ namespace VSX.Health
                     damageable.SetDamageable(true);
                     damageable.SetHealable(true);
                     damageable.Restore(true); // Restores to full healthCapacity
+
+                    // Auto-wire the shield Damageable to all hull Damageables
+                    // so damage is intercepted. Safe to call multiple times.
+                    RegisterShieldWithHullDamageables();
                 }
                 else
                 {
