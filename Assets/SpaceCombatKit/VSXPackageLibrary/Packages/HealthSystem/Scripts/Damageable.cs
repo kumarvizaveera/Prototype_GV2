@@ -128,6 +128,24 @@ namespace VSX.Health
         protected bool restoreOnEnable = true;
 
 
+        [Header("Shield")]
+
+        [Tooltip("Optional: a shield Damageable that absorbs damage before this one. " +
+                 "When set and the shield is active (IsDamageable && health > 0), incoming damage " +
+                 "hits the shield first. Any overflow damage is applied to this Damageable.")]
+        [SerializeField]
+        protected Damageable shieldDamageable;
+
+        /// <summary>
+        /// Assign or retrieve the shield Damageable at runtime.
+        /// </summary>
+        public Damageable ShieldDamageable
+        {
+            get { return shieldDamageable; }
+            set { shieldDamageable = value; }
+        }
+
+
         [Header("Collisions")]
 
         [Tooltip("The coefficient multiplied by the impulse (function of mass) of the collision that is multiplied to the damage value.")]
@@ -273,11 +291,42 @@ namespace VSX.Health
             {
                 if (!Mathf.Approximately(currentHealth, 0) && !Mathf.Approximately(info.amount, 0))
                 {
+                    float damageRemaining = info.amount;
+
+                    // ── Shield interception ──────────────────────────────
+                    // If a shield Damageable is assigned, active, and has
+                    // health remaining, route damage there first.  Any
+                    // overflow (damage that exceeds the shield's remaining
+                    // health) continues through to this Damageable.
+                    if (shieldDamageable != null
+                        && shieldDamageable.IsDamageable
+                        && !shieldDamageable.Destroyed
+                        && shieldDamageable.CurrentHealth > 0)
+                    {
+                        float shieldHealth = shieldDamageable.CurrentHealth;
+
+                        // Build a damage info for the shield (preserve
+                        // position / modifier type / source so VFX fire
+                        // correctly on the shield mesh).
+                        HealthEffectInfo shieldInfo = info;
+                        shieldInfo.amount = Mathf.Min(damageRemaining, shieldHealth);
+
+                        shieldDamageable.Damage(shieldInfo);
+
+                        damageRemaining -= shieldInfo.amount;
+
+                        // If the shield absorbed everything, nothing left for the hull
+                        if (damageRemaining <= 0f) return;
+                    }
+                    // ─────────────────────────────────────────────────────
+
                     // Reduce the health
-                    currentHealth = Mathf.Clamp(currentHealth - info.amount, 0, healthCapacity);
+                    currentHealth = Mathf.Clamp(currentHealth - damageRemaining, 0, healthCapacity);
 
                     // Call the damage event
-                    onDamaged.Invoke(info);
+                    HealthEffectInfo hullInfo = info;
+                    hullInfo.amount = damageRemaining;
+                    onDamaged.Invoke(hullInfo);
 
                     // Destroy
                     if (Mathf.Approximately(currentHealth, 0))
