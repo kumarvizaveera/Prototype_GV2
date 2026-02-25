@@ -414,13 +414,15 @@ MonoBehaviour:
   target: {fileID: 0}
   lockingFillBar: {fileID: 0}
   disableBarOnNoLock: 0
-  lockingEnabled: 0
+  lockingEnabled: 1
   lockingTime: 3
   lockingAngle: 25
+  lockMaintenanceAngle: 45
+  lockLossGracePeriod: 1.5
   ignoreLockingAngleDistance: 100
   lockingRange: 3000
   lockingReferenceTransform: {fileID: 4106589916852744}
-  startingLockStateForNewTarget: 0
+  startingLockStateForNewTarget: 1
   audioEnabled: 1
   lockingAudio: {fileID: 0}
   lockedAudio: {fileID: 0}

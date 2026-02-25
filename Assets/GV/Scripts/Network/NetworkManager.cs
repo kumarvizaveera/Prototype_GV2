@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
+using TMPro;
 using Fusion;
 using Fusion.Sockets;
 using VSX.CameraSystem;
@@ -29,6 +30,11 @@ namespace GV.Network
         [Header("Spawn Points")]
         [SerializeField] private Transform[] spawnPoints;
         
+        [Header("UI - TMP")]
+        [SerializeField] private TMP_Text hostPromptText;   // "Press H to Host"
+        [SerializeField] private TMP_Text joinPromptText;   // "Press J to Join"
+        [SerializeField] private TMP_Text clientJoinedText;  // "Client has joined"
+
         [Header("Debug")]
         [SerializeField] private bool showDebugUI = true;
         
@@ -71,6 +77,22 @@ namespace GV.Network
 
         private void Start()
         {
+            // Initialize TMP prompts
+            if (hostPromptText != null)
+            {
+                hostPromptText.text = "Press H to Host";
+                hostPromptText.gameObject.SetActive(true);
+            }
+            if (joinPromptText != null)
+            {
+                joinPromptText.text = "Press J to Join";
+                joinPromptText.gameObject.SetActive(true);
+            }
+            if (clientJoinedText != null)
+            {
+                clientJoinedText.gameObject.SetActive(false);
+            }
+
             if (!Application.isEditor && (autoHostInBuild || autoClientInBuild))
             {
                 // Use AutoHostOrClient — Fusion automatically decides:
@@ -156,6 +178,10 @@ namespace GV.Network
             // Simple keyboard controls for prototype
             if (!IsConnected)
             {
+                // Show TMP prompts when not connected
+                if (hostPromptText != null) hostPromptText.gameObject.SetActive(true);
+                if (joinPromptText != null) joinPromptText.gameObject.SetActive(true);
+
                 if (Input.GetKeyDown(KeyCode.H))
                 {
                     StartHost();
@@ -165,6 +191,12 @@ namespace GV.Network
                     StartClient();
                 }
                 return;
+            }
+            else
+            {
+                // Hide TMP prompts once connected
+                if (hostPromptText != null) hostPromptText.gameObject.SetActive(false);
+                if (joinPromptText != null) joinPromptText.gameObject.SetActive(false);
             }
 
             // --- CLIENT: Send input to host via raw reliable data every frame ---
@@ -566,6 +598,14 @@ namespace GV.Network
                 Debug.LogWarning($"[NetworkManager] NOT spawning - IsServer: {runner.IsServer}, playerPrefab: {(playerPrefab != null ? "assigned" : "NULL")}");
             }
             
+            // Show "Client has joined" on the host when a non-host player joins
+            if (runner.IsServer && player != runner.LocalPlayer && clientJoinedText != null)
+            {
+                clientJoinedText.text = "Client has joined";
+                clientJoinedText.gameObject.SetActive(true);
+                Debug.Log("[NetworkManager] Client has joined — showing TMP notification");
+            }
+
             OnPlayerJoinedGame?.Invoke(runner, player);
         }
         

@@ -47,6 +47,16 @@ namespace VSX.RadarSystem
         protected float lockingAngle = 7;
         public float LockingAngle { get { return lockingAngle; } }
 
+        [Tooltip("Wider angle used to maintain an existing lock. If 0, uses lockingAngle.")]
+        [SerializeField]
+        protected float lockMaintenanceAngle = 45;
+        public float LockMaintenanceAngle { get { return lockMaintenanceAngle; } }
+
+        [Tooltip("Grace period (seconds) before a lock is lost when target leaves the maintenance cone.")]
+        [SerializeField]
+        protected float lockLossGracePeriod = 1.5f;
+        public float LockLossGracePeriod { get { return lockLossGracePeriod; } }
+
         public float ignoreLockingAngleDistance = 0;
 
         [SerializeField]
@@ -69,6 +79,9 @@ namespace VSX.RadarSystem
 
         protected float currentLockAmount = 0;
         public float CurrentLockAmount { get { return currentLockAmount; } }
+
+        // Tracks when the target first left the maintenance cone (for grace period)
+        protected float lockLossGraceTimer = -1f;
 
         [SerializeField]
         protected LockState startingLockStateForNewTarget = LockState.NoLock;
@@ -152,26 +165,45 @@ namespace VSX.RadarSystem
 
 
         /// <summary>
-        /// Check if the target is in the lock zone.
+        /// Check if the target is in the lock zone (narrow cone for acquiring lock).
         /// </summary>
         /// <returns>Whether target is in lock zone.</returns>
         public virtual bool TargetInLockZone()
         {
+            return TargetInAngleZone(lockingAngle);
+        }
 
+
+        /// <summary>
+        /// Check if the target is in the wider maintenance zone (for keeping an existing lock).
+        /// Falls back to lockingAngle if lockMaintenanceAngle is 0.
+        /// </summary>
+        /// <returns>Whether target is in maintenance zone.</returns>
+        public virtual bool TargetInMaintenanceZone()
+        {
+            float angle = lockMaintenanceAngle > 0 ? lockMaintenanceAngle : lockingAngle;
+            return TargetInAngleZone(angle);
+        }
+
+
+        /// <summary>
+        /// Shared helper: checks range + angle cone.
+        /// </summary>
+        protected virtual bool TargetInAngleZone(float maxAngle)
+        {
             // Check if target exists
             if (target == null) return false;
-            
+
             // Check if target is in range
             float distanceToTarget = Vector3.Distance(lockingReferenceTransform.position, target.transform.position);
-            
+
             if (distanceToTarget > lockingRange)
                 return false;
 
-            if (distanceToTarget > ignoreLockingAngleDistance && Vector3.Angle(lockingReferenceTransform.forward, target.transform.position - lockingReferenceTransform.position) > lockingAngle)
+            if (distanceToTarget > ignoreLockingAngleDistance && Vector3.Angle(lockingReferenceTransform.forward, target.transform.position - lockingReferenceTransform.position) > maxAngle)
                 return false;
 
             return true;
-
         }
 
 
@@ -273,9 +305,24 @@ namespace VSX.RadarSystem
 
                 case LockState.Locked:
 
-                    if (!TargetInLockZone())
+                    if (TargetInMaintenanceZone())
                     {
-                        SetLockState(LockState.NoLock);
+                        // Target is within the wider maintenance cone — reset grace timer
+                        lockLossGraceTimer = -1f;
+                    }
+                    else
+                    {
+                        // Target left the maintenance cone — start or continue grace timer
+                        if (lockLossGraceTimer < 0f)
+                        {
+                            lockLossGraceTimer = Time.time;
+                        }
+
+                        if (Time.time - lockLossGraceTimer >= lockLossGracePeriod)
+                        {
+                            lockLossGraceTimer = -1f;
+                            SetLockState(LockState.NoLock);
+                        }
                     }
 
                     break;

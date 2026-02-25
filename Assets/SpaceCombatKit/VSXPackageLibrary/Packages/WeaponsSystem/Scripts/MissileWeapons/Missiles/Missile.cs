@@ -15,10 +15,6 @@ namespace VSX.Weapons
     /// </summary>
     public class Missile : RigidbodyProjectile
     {
-        // Debug: track logging so we don't spam
-        private bool _missileSpawnLogged = false;
-        private float _lastDebugLogTime = 0f;
-
         [Header("Settings")]
 
         [Tooltip("How long before the missile explodes after losing lock.")]
@@ -33,9 +29,9 @@ namespace VSX.Weapons
         [SerializeField]
         protected float triggerDistance = 49;
 
-        [Tooltip("The distance within which the missile aims for the lead target position rather than the target itself. Prevents issues with lead target aiming and locking angle when far away from target.")]
+        [Tooltip("The distance within which the missile aims for the lead target position rather than the target itself. Set very high to always use lead targeting.")]
         [SerializeField]
-        protected float leadTargetThreshold = 1000;
+        protected float leadTargetThreshold = 999999f;
 
         protected bool targetWasInsideTrigger = false;
 
@@ -135,6 +131,13 @@ namespace VSX.Weapons
                 targetLocker = gameObject.AddComponent<TargetLocker>();
             }
 
+            // Set aggressive PID defaults for better tracking of fast targets.
+            // Increase Proportional for snappier response; add Derivative for damping overshoot.
+            steeringPIDController.controllerXAxis.proportionalCoefficient = 0.08f;
+            steeringPIDController.controllerXAxis.derivativeCoefficient = 0.02f;
+            steeringPIDController.controllerYAxis.proportionalCoefficient = 0.08f;
+            steeringPIDController.controllerYAxis.derivativeCoefficient = 0.02f;
+
             detonator.DetonatingDuration = 2;
 
             disableAfterDistanceCovered = false;
@@ -158,15 +161,6 @@ namespace VSX.Weapons
         /// </summary>
         public override void Detonate()
         {
-            bool isAuth = Object != null && Object.HasStateAuthority;
-            string role = isAuth ? "HOST" : (Object != null ? "PROXY" : "LOCAL");
-            Debug.Log($"[Missile] DETONATE called on {role} | pos={transform.position} | " +
-                      $"detonated={detonated} | triggered={triggered} | " +
-                      $"target={(targetLocker?.Target != null ? targetLocker.Target.name : "NULL")} | " +
-                      $"lockState={targetLocker?.LockState} | " +
-                      $"rbVel={(m_Rigidbody != null ? m_Rigidbody.linearVelocity.magnitude.ToString("F1") : "N/A")} | " +
-                      $"engines={engines != null}");
-
             // Stop engines before base Detonate so the missile doesn't keep thrusting
             if (engines != null)
             {
@@ -179,7 +173,6 @@ namespace VSX.Weapons
             // On proxy: freeze the Rigidbody so the missile body doesn't keep drifting
             if (Object != null && !Object.HasStateAuthority && m_Rigidbody != null)
             {
-                Debug.Log($"[Missile] PROXY freeze Rigidbody: vel was {m_Rigidbody.linearVelocity.magnitude:F1}, setting kinematic");
                 m_Rigidbody.linearVelocity = Vector3.zero;
                 m_Rigidbody.angularVelocity = Vector3.zero;
                 m_Rigidbody.isKinematic = true;
@@ -190,15 +183,6 @@ namespace VSX.Weapons
         public override void Spawned()
         {
             base.Spawned();
-
-            bool isAuth = Object.HasStateAuthority;
-            string role = isAuth ? "HOST" : "PROXY";
-
-            Debug.Log($"[Missile] SPAWNED ({role}) | pos={transform.position} | " +
-                      $"NetworkedTargetId={NetworkedTargetId} valid={NetworkedTargetId.IsValid} | " +
-                      $"engines={engines != null} | UseManualProxyMovement={UseManualProxyMovement} | " +
-                      $"rb.isKinematic={(m_Rigidbody != null ? m_Rigidbody.isKinematic.ToString() : "N/A")} | " +
-                      $"rb.velocity={(m_Rigidbody != null ? m_Rigidbody.linearVelocity.magnitude.ToString("F1") : "N/A")}");
 
             // Try to resolve the initial networked target lock
             if (NetworkedTargetId.IsValid && targetLocker != null)
@@ -215,21 +199,8 @@ namespace VSX.Weapons
                     {
                         targetLocker.SetTarget(trackable);
                         SetLockState(LockState.Locked);
-                        Debug.Log($"[Missile] ({role}) Target resolved: {trackable.name} | LockState={targetLocker.LockState}");
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[Missile] ({role}) Target NetworkObject found but NO Trackable component! netObj={targetNetObj.name}");
                     }
                 }
-                else
-                {
-                    Debug.LogWarning($"[Missile] ({role}) Failed to find NetworkObject for targetId={NetworkedTargetId}");
-                }
-            }
-            else
-            {
-                Debug.LogWarning($"[Missile] ({role}) No valid target ID on spawn. NetworkedTargetId={NetworkedTargetId}, targetLocker={targetLocker != null}");
             }
         }
 
@@ -323,10 +294,6 @@ namespace VSX.Weapons
 
                     if (triggerNow)
                     {
-                        string role = (Object != null && Object.HasStateAuthority) ? "HOST" : "PROXY";
-                        Debug.Log($"[Missile] CheckTrigger TRIGGERED ({role}) | triggerMode={triggerMode} | " +
-                                  $"distToTarget={distToTarget:F1} | triggerDist={triggerDistance} | " +
-                                  $"targetInsideTrigger={targetInsideTrigger} | pos={transform.position}");
                         triggered = true;
                         Detonate();
                         return;
@@ -336,9 +303,6 @@ namespace VSX.Weapons
 
             if (!targetInsideTrigger && targetWasInsideTrigger)
             {
-                string role = (Object != null && Object.HasStateAuthority) ? "HOST" : "PROXY";
-                Debug.Log($"[Missile] CheckTrigger PAST-TARGET ({role}) | target left trigger zone | " +
-                          $"distToTarget={distToTarget:F1} | triggerDist={triggerDistance}");
                 triggered = true;
                 Detonate();
             }
@@ -378,20 +342,6 @@ namespace VSX.Weapons
                     engines.SetMovementInputs(Vector3.zero);
                 }
                 return;
-            }
-
-            // Periodic debug log (every 0.5s) to track missile flight state
-            if (Time.time - _lastDebugLogTime > 0.5f)
-            {
-                _lastDebugLogTime = Time.time;
-                string role = (Object != null && Object.HasStateAuthority) ? "HOST" : (Object != null ? "PROXY" : "LOCAL");
-                float distToTarget = targetLocker?.Target != null ? Vector3.Distance(transform.position, targetLocker.Target.transform.position) : -1f;
-                Debug.Log($"[Missile] UPDATE ({role}) | pos={transform.position} | " +
-                          $"lockState={targetLocker?.LockState} | target={(targetLocker?.Target != null ? targetLocker.Target.name : "NULL")} | " +
-                          $"distToTarget={distToTarget:F1} | triggerDist={triggerDistance} | " +
-                          $"rbVel={(m_Rigidbody != null ? m_Rigidbody.linearVelocity.magnitude.ToString("F1") : "N/A")} | " +
-                          $"rbKinematic={(m_Rigidbody != null ? m_Rigidbody.isKinematic.ToString() : "N/A")} | " +
-                          $"detonated={detonated} | triggered={triggered}");
             }
 
             CheckTrigger();

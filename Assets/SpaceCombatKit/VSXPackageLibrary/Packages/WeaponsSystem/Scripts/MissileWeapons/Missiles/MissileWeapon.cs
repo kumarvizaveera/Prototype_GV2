@@ -78,10 +78,6 @@ namespace VSX.Weapons
                     if (weaponsController != null && weaponsController.WeaponsTargetSelector != null)
                     {
                         resolvedTarget = weaponsController.WeaponsTargetSelector.SelectedTarget;
-                        if (resolvedTarget != null)
-                        {
-                            Debug.Log($"[MissileWeapon] TriggerWeaponUnitOnce: FALLBACK got target from WeaponsController.TargetSelector: {resolvedTarget.name}");
-                        }
                     }
 
                     // Try any TargetSelector in parent hierarchy
@@ -93,7 +89,6 @@ namespace VSX.Weapons
                             if (sel.SelectedTarget != null)
                             {
                                 resolvedTarget = sel.SelectedTarget;
-                                Debug.Log($"[MissileWeapon] TriggerWeaponUnitOnce: FALLBACK got target from TargetSelector: {resolvedTarget.name}");
                                 break;
                             }
                         }
@@ -112,14 +107,6 @@ namespace VSX.Weapons
                         projUnit.TargetIdForNextSpawn = netObj.Id;
                     }
 
-                    Debug.Log($"[MissileWeapon] TriggerWeaponUnitOnce: target={resolvedTarget.name} | " +
-                              $"targetId={projUnit.TargetIdForNextSpawn} | " +
-                              $"lockState={targetLocker?.LockState} | source={(targetLocker?.Target != null ? "TargetLocker" : "Fallback")}");
-                }
-                else
-                {
-                    Debug.LogWarning($"[MissileWeapon] TriggerWeaponUnitOnce: No target found anywhere! " +
-                                     $"targetLocker={targetLocker != null} | lockState={targetLocker?.LockState}");
                 }
             }
 
@@ -145,11 +132,7 @@ namespace VSX.Weapons
         /// <param name="missileObject">The missile gameobject</param>
         public void OnMissileLaunched(Projectile missileProjectile)
         {
-            if (missileProjectile == null)
-            {
-                Debug.Log($"[MissileWeapon] OnMissileLaunched: projectile is NULL (client without visual dummy?)");
-                return;
-            }
+            if (missileProjectile == null) return;
             Missile missile = missileProjectile.GetComponent<Missile>();
             if (missile == null)
             {
@@ -170,10 +153,6 @@ namespace VSX.Weapons
                         if (target != null) lockState = LockState.Locked; // Player clearly locked and fired
                     }
                 }
-
-                bool isVisualDummy = missileProjectile.IsVisualDummy;
-                Debug.Log($"[MissileWeapon] OnMissileLaunched: isVisualDummy={isVisualDummy} | " +
-                          $"target={(target != null ? target.name : "NULL")} | lockState={lockState}");
 
                 // Set missile parameters
                 missile.SetTarget(target);
