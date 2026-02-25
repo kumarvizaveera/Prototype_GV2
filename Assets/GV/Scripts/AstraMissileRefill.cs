@@ -95,6 +95,7 @@ namespace GV.Scripts
         // Health refill state — hull Damageables (excludes shield)
         private Damageable[] activeHullDamageables;
         private NetworkObject activeHealthNetObj;
+        private bool localPlayerInHealthZone;
 
         private void OnValidate()
         {
@@ -202,7 +203,11 @@ namespace GV.Scripts
                     {
                         activeHullDamageables = hullList.ToArray();
                         activeHealthNetObj = netObj;
-                        if (isLocal) UpdateHealthFeedbackUI();
+                        if (isLocal)
+                        {
+                            localPlayerInHealthZone = true;
+                            UpdateHealthFeedbackUI();
+                        }
                     }
                 }
             }
@@ -281,6 +286,7 @@ namespace GV.Scripts
                 {
                     activeHullDamageables = null;
                     activeHealthNetObj = null;
+                    localPlayerInHealthZone = false;
                     if (healthFeedbackText != null) healthFeedbackText.gameObject.SetActive(false);
                     if (healthCapacityFullText != null) healthCapacityFullText.gameObject.SetActive(false);
                 }
@@ -393,24 +399,29 @@ namespace GV.Scripts
                 }
             }
 
-            // Hull health refill — heals gradually every frame
+            // Hull health refill — heals on host, UI on local player only
             if (enableHealthRefill && activeHullDamageables != null)
             {
-                if (IsHullHealthFull())
-                {
-                    if (healthFeedbackText != null) healthFeedbackText.gameObject.SetActive(false);
-                    if (healthCapacityFullText != null)
-                    {
-                        healthCapacityFullText.gameObject.SetActive(true);
-                        healthCapacityFullText.text = healthCapacityFullMessage;
-                    }
-                }
-                else
-                {
-                    if (healthCapacityFullText != null) healthCapacityFullText.gameObject.SetActive(false);
+                // Always attempt healing (host-only guard is inside PerformHealthRefill)
+                PerformHealthRefill();
 
-                    PerformHealthRefill();
-                    UpdateHealthFeedbackUI();
+                // Only show UI for the local player who is physically in the zone
+                if (localPlayerInHealthZone)
+                {
+                    if (IsHullHealthFull())
+                    {
+                        if (healthFeedbackText != null) healthFeedbackText.gameObject.SetActive(false);
+                        if (healthCapacityFullText != null)
+                        {
+                            healthCapacityFullText.gameObject.SetActive(true);
+                            healthCapacityFullText.text = healthCapacityFullMessage;
+                        }
+                    }
+                    else
+                    {
+                        if (healthCapacityFullText != null) healthCapacityFullText.gameObject.SetActive(false);
+                        UpdateHealthFeedbackUI();
+                    }
                 }
             }
         }
