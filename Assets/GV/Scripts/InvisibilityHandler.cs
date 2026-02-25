@@ -38,8 +38,10 @@ namespace GV
         {
             _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
             
-            // Auto-assign UI from MasterController
-            if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.invisibilityTimerText != null)
+            // Auto-assign UI from MasterController — only for the local player (InputAuthority)
+            // so that other players' handlers don't hijack our shared UI text.
+            if (Object.HasInputAuthority &&
+                PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.invisibilityTimerText != null)
             {
                 SetUI(PowerSphereMasterController.Instance.invisibilityTimerText, PowerSphereMasterController.Instance.invisibilityTimerFormat);
             }
@@ -67,7 +69,9 @@ namespace GV
                 }
             }
 
-            // UI Update (local only)
+            // UI Update — only for the local player (InputAuthority)
+            if (!Object.HasInputAuthority) return;
+
             if (IsInvisible && timerText != null)
             {
                  float remaining = 0f;
@@ -165,7 +169,7 @@ namespace GV
                 }
             }
             
-            if (timerText != null) timerText.gameObject.SetActive(true);
+            if (Object.HasInputAuthority && timerText != null) timerText.gameObject.SetActive(true);
         }
 
         public void RevertInvisibility()
@@ -206,7 +210,7 @@ namespace GV
                 }
             }
             
-            if (timerText != null) timerText.gameObject.SetActive(false);
+            if (Object.HasInputAuthority && timerText != null) timerText.gameObject.SetActive(false);
         }
 
         private IEnumerator ForceReRegistration(Trackable trackable)

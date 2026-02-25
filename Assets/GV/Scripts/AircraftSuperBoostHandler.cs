@@ -49,8 +49,10 @@ namespace VSX.Engines3D
             characterManager = GetComponent<AircraftCharacterManager>();
             if (characterManager == null) characterManager = GetComponentInChildren<AircraftCharacterManager>();
 
-            // Auto-assign UI from MasterController
-            if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.superBoostTimerText != null)
+            // Auto-assign UI from MasterController — only for the local player (InputAuthority)
+            // so that other players' handlers don't hijack our shared UI text.
+            if (Object.HasInputAuthority &&
+                PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.superBoostTimerText != null)
             {
                 SetUI(PowerSphereMasterController.Instance.superBoostTimerText, PowerSphereMasterController.Instance.superBoostTimerFormat);
             }
@@ -72,13 +74,15 @@ namespace VSX.Engines3D
                 }
             }
 
-            // UI Update (local only)
+            // UI Update — only for the local player (InputAuthority)
+            if (!Object.HasInputAuthority) return;
+
             if (IsBoostActive && timerText != null)
             {
                  float remaining = 0f;
                  if (BoostTimer.IsRunning)
                      remaining = (float)BoostTimer.RemainingTime(Runner);
-                 
+
                  if (remaining > 0)
                  {
                      timerText.text = string.Format(timerFormat, remaining);
@@ -154,7 +158,7 @@ namespace VSX.Engines3D
                     // Use networked multipliers
                     characterManager.SetSuperBoost(CurrentSpeedMult, CurrentSteeringMult, CurrentBoostMult);
                     
-                    if (timerText != null) timerText.gameObject.SetActive(true);
+                    if (Object.HasInputAuthority && timerText != null) timerText.gameObject.SetActive(true);
                 }
             }
             else
@@ -170,7 +174,7 @@ namespace VSX.Engines3D
                     characterManager.SetSuperBoost(1f, 1f, 1f);
                     OnSuperBoostEnd.Invoke();
                     
-                    if (timerText != null) timerText.gameObject.SetActive(false);
+                    if (Object.HasInputAuthority && timerText != null) timerText.gameObject.SetActive(false);
                 }
             }
         }

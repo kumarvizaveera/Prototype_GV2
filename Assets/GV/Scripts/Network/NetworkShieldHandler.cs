@@ -34,8 +34,10 @@ namespace GV.Network
             if (shieldController == null)
                 shieldController = GetComponentInChildren<EnergyShieldController>(true);
 
-            // Auto-assign UI from MasterController
-            if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.shieldTimerText != null)
+            // Auto-assign UI from MasterController — only for the local player (InputAuthority)
+            // so that other players' handlers don't hijack our shared UI text.
+            if (Object.HasInputAuthority &&
+                PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.shieldTimerText != null)
             {
                 SetUI(PowerSphereMasterController.Instance.shieldTimerText, PowerSphereMasterController.Instance.shieldTimerFormat);
             }
@@ -57,7 +59,11 @@ namespace GV.Network
                 UpdateShieldState();
             }
 
-            // UI Update (local only)
+            // UI Update — only for the local player (InputAuthority)
+            // Without this guard, another player's handler on our machine
+            // would overwrite our shared timer UI with THEIR power duration.
+            if (!Object.HasInputAuthority) return;
+
             if (IsShieldActive && timerText != null)
             {
                  float remaining = 0f;
@@ -96,7 +102,8 @@ namespace GV.Network
                 Debug.Log($"[NetworkShieldHandler] UpdateShieldState: {IsShieldActive} on {gameObject.name} | meshEnabled={shieldController.IsShieldActive}");
             }
 
-            if (timerText != null)
+            // Only toggle timer UI for the local player
+            if (Object.HasInputAuthority && timerText != null)
             {
                 if (IsShieldActive) timerText.gameObject.SetActive(true);
                 else timerText.gameObject.SetActive(false);
