@@ -94,6 +94,7 @@ namespace GV.Scripts
 
         // Health refill state — hull Damageables (excludes shield)
         private Damageable[] activeHullDamageables;
+        private NetworkObject activeHealthNetObj;
 
         private void OnValidate()
         {
@@ -166,7 +167,47 @@ namespace GV.Scripts
 
         private void OnTriggerEnter(Collider other)
         {
-            // Only react to the local player's ship — ignore remote ships
+            // ── Health refill: works for ANY ship, not just local player ──
+            // The host needs to detect all ships for authoritative healing.
+            // The local player's client uses this for UI display only.
+            if (enableHealthRefill)
+            {
+                Transform root = other.transform.root;
+                NetworkObject netObj = root.GetComponent<NetworkObject>();
+                if (netObj == null && other.attachedRigidbody != null)
+                    netObj = other.attachedRigidbody.GetComponent<NetworkObject>();
+                if (netObj == null)
+                    netObj = other.GetComponentInParent<NetworkObject>();
+
+                // Only activate if we are the host (StateAuthority) for this ship,
+                // OR if this is the local player (for UI display).
+                bool isHost = netObj != null && netObj.HasStateAuthority;
+                bool isLocal = IsLocalPlayer(other);
+
+                if (isHost || isLocal)
+                {
+                    Damageable[] allDamageables = root.GetComponentsInChildren<Damageable>(true);
+
+                    var hullList = new System.Collections.Generic.List<Damageable>();
+                    foreach (var d in allDamageables)
+                    {
+                        var shield = d.GetComponent<EnergyShieldController>();
+                        if (shield == null) shield = d.GetComponentInParent<EnergyShieldController>();
+                        if (shield != null) continue;
+
+                        hullList.Add(d);
+                    }
+
+                    if (hullList.Count > 0)
+                    {
+                        activeHullDamageables = hullList.ToArray();
+                        activeHealthNetObj = netObj;
+                        if (isLocal) UpdateHealthFeedbackUI();
+                    }
+                }
+            }
+
+            // ── Missile, boost, and UI: only for the local player's ship ──
             if (!IsLocalPlayer(other)) return;
 
             MissileCycleControllerDynamic controller = null;
@@ -227,36 +268,25 @@ namespace GV.Scripts
                     UpdateBoostFeedbackUI();
                 }
             }
-
-            // Health refill: find hull Damageables on the vehicle (exclude shield Damageables)
-            if (enableHealthRefill)
-            {
-                Transform root = other.transform.root;
-                Damageable[] allDamageables = root.GetComponentsInChildren<Damageable>(true);
-
-                // Filter to hull only: exclude any Damageable that belongs to an EnergyShieldController
-                var hullList = new System.Collections.Generic.List<Damageable>();
-                foreach (var d in allDamageables)
-                {
-                    // Skip shield Damageables
-                    var shield = d.GetComponent<EnergyShieldController>();
-                    if (shield == null) shield = d.GetComponentInParent<EnergyShieldController>();
-                    if (shield != null) continue;
-
-                    hullList.Add(d);
-                }
-
-                if (hullList.Count > 0)
-                {
-                    activeHullDamageables = hullList.ToArray();
-                    UpdateHealthFeedbackUI();
-                }
-            }
         }
 
         private void OnTriggerExit(Collider other)
         {
-            // Only react to the local player's ship
+            // ── Health refill exit: works for any ship (matches OnTriggerEnter) ──
+            if (enableHealthRefill && activeHullDamageables != null)
+            {
+                Transform root = other.transform.root;
+                Damageable[] check = root.GetComponentsInChildren<Damageable>(true);
+                if (check.Length > 0)
+                {
+                    activeHullDamageables = null;
+                    activeHealthNetObj = null;
+                    if (healthFeedbackText != null) healthFeedbackText.gameObject.SetActive(false);
+                    if (healthCapacityFullText != null) healthCapacityFullText.gameObject.SetActive(false);
+                }
+            }
+
+            // ── Missile, boost: only for local player ──
             if (!IsLocalPlayer(other)) return;
 
             MissileCycleControllerDynamic controller = null;
@@ -302,19 +332,6 @@ namespace GV.Scripts
                 }
             }
 
-            // Clear health refill on exit
-            if (enableHealthRefill && activeHullDamageables != null)
-            {
-                // Check if the exiting collider belongs to the same vehicle we're healing
-                Transform root = other.transform.root;
-                Damageable[] check = root.GetComponentsInChildren<Damageable>(true);
-                if (check.Length > 0)
-                {
-                    activeHullDamageables = null;
-                    if (healthFeedbackText != null) healthFeedbackText.gameObject.SetActive(false);
-                    if (healthCapacityFullText != null) healthCapacityFullText.gameObject.SetActive(false);
-                }
-            }
         }
 
         private void Update()
@@ -551,6 +568,11 @@ namespace GV.Scripts
         {
             if (activeHullDamageables == null) return;
 
+            // Only perform actual healing on the host (StateAuthority).
+            // The client shows UI but doesn't modify health — NetworkedHealthSync
+            // will propagate the host's health changes to the client automatically.
+            if (activeHealthNetObj != null && !activeHealthNetObj.HasStateAuthority) return;
+
             float healAmount = healthPerSecond * Time.deltaTime;
 
             foreach (var d in activeHullDamageables)
@@ -559,11 +581,6 @@ namespace GV.Scripts
                 {
                     d.Heal(healAmount);
                 }
-            }
-
-            if (healthRefillSound != null && !IsHullHealthFull())
-            {
-                // Sound is handled once per zone entry, not per frame
             }
         }
 

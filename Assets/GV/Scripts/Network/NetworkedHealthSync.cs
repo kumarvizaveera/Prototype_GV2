@@ -65,13 +65,6 @@ namespace GV.Network
                 {
                     NetworkedHealthValues.Set(i, vehicleHealth.Damageables[i].CurrentHealth);
                 }
-
-                Debug.Log($"[NetworkedHealthSync] HOST: Initialized {count} damageables on {gameObject.name}");
-                for (int i = 0; i < count; i++)
-                {
-                    var d = vehicleHealth.Damageables[i];
-                    Debug.Log($"  [{i}] {d.name} type={d.HealthType?.name ?? "NULL"} health={d.CurrentHealth}/{d.HealthCapacity} destroyed={d.Destroyed}");
-                }
             }
             else
             {
@@ -86,8 +79,6 @@ namespace GV.Network
 
                 // Initial sync for clients
                 ApplyHealthToLocal();
-
-                Debug.Log($"[NetworkedHealthSync] CLIENT: Initialized {count} damageables on {gameObject.name}");
             }
         }
 
@@ -107,10 +98,6 @@ namespace GV.Network
                 field.SetValue(damageable, false);
             }
         }
-
-        // Debug: throttle logging to avoid spam
-        private float _lastHealthDebugLog = 0f;
-        private const float HEALTH_LOG_INTERVAL = 1.0f;
 
         public override void Render()
         {
@@ -141,26 +128,8 @@ namespace GV.Network
                 float currentLocalHealth = vehicleHealth.Damageables[i].CurrentHealth;
                 if (!Mathf.Approximately(currentLocalHealth, NetworkedHealthValues[i]))
                 {
-                    Debug.Log($"[HealthSync] HOST WRITE [{i}] {vehicleHealth.Damageables[i].name} " +
-                              $"type={vehicleHealth.Damageables[i].HealthType?.name ?? "NULL"}: " +
-                              $"{NetworkedHealthValues[i]:F1} → {currentLocalHealth:F1} " +
-                              $"(capacity={vehicleHealth.Damageables[i].HealthCapacity:F1}) " +
-                              $"destroyed={vehicleHealth.Damageables[i].Destroyed} on {gameObject.name}");
                     NetworkedHealthValues.Set(i, currentLocalHealth);
                 }
-            }
-
-            // Periodic full state dump
-            if (Time.time - _lastHealthDebugLog > HEALTH_LOG_INTERVAL)
-            {
-                _lastHealthDebugLog = Time.time;
-                string healthDump = "";
-                for (int i = 0; i < count; i++)
-                {
-                    var d = vehicleHealth.Damageables[i];
-                    healthDump += $"[{i}]{d.HealthType?.name ?? "?"}: {d.CurrentHealth:F0}/{d.HealthCapacity:F0}(net={NetworkedHealthValues[i]:F0}) dest={d.Destroyed} ";
-                }
-                Debug.Log($"[HealthSync] HOST STATE on {gameObject.name}: count={count} | {healthDump}");
             }
         }
 
@@ -189,15 +158,21 @@ namespace GV.Network
                 if (Mathf.Approximately(networkedHealth, 0) && !damageable.Destroyed
                     && localHealth > 0 && damageable.IsDamageable)
                 {
-                    Debug.Log($"[HealthSync] CLIENT DESTROY [{i}] {damageable.name} " +
-                              $"type={damageable.HealthType?.name ?? "NULL"} on {gameObject.name}");
-                    // Use Damage() so onDamaged event fires → triggers VFX/audio on client
-                    float damageAmount = localHealth; // Remaining health to reach 0
+                    // Set health to 0 directly, then fire onDamaged for VFX/audio,
+                    // then call Destroy() for the state transition.
+                    // IMPORTANT: Do NOT use Damage() here — it triggers shield interception
+                    // which would incorrectly route "sync damage" through the shield first.
+                    damageable.SetHealth(0);
+
                     HealthEffectInfo info = new HealthEffectInfo();
-                    info.amount = damageAmount;
+                    info.amount = localHealth;
                     info.worldPosition = damageable.transform.position;
                     info.sourceRootTransform = transform;
-                    damageable.Damage(info);
+                    damageable.onDamaged.Invoke(info);
+
+                    // Trigger the destroyed state (fires onDestroyed, disables GO, etc.)
+                    damageable.Destroy();
+
                     continue;
                 }
 
@@ -205,57 +180,39 @@ namespace GV.Network
                 // → The host restored this damageable, we need to mirror that.
                 if (networkedHealth > 0 && damageable.Destroyed)
                 {
-                    Debug.Log($"[HealthSync] CLIENT RESTORE [{i}] {damageable.name} " +
-                              $"type={damageable.HealthType?.name ?? "NULL"}: " +
-                              $"networked={networkedHealth:F1} on {gameObject.name}");
                     damageable.Restore(false); // Don't reset to full — we'll set exact value below
                 }
 
-                // Apply the networked health value
+                // Apply the networked health value directly via SetHealth().
+                // IMPORTANT: Never use Damage()/Heal() for network sync — those methods
+                // trigger shield interception, overflow logic, and other gameplay systems
+                // that should only run on the host. The host has already computed the
+                // correct final health for each Damageable; we just mirror it.
                 if (!Mathf.Approximately(networkedHealth, damageable.CurrentHealth))
                 {
                     float healthDelta = localHealth - networkedHealth;
 
-                    if (healthDelta > 0 && damageable.IsDamageable && !damageable.Destroyed)
+                    damageable.SetHealth(networkedHealth);
+
+                    // Fire the appropriate event so VFX/audio still plays on the client
+                    if (healthDelta > 0 && damageable.IsDamageable)
                     {
-                        // Health decreased → use Damage() so onDamaged fires VFX/audio
-                        Debug.Log($"[HealthSync] CLIENT DAMAGE [{i}] {damageable.name} " +
-                                  $"type={damageable.HealthType?.name ?? "NULL"}: " +
-                                  $"local={localHealth:F1} → networked={networkedHealth:F1} (delta={healthDelta:F1}) on {gameObject.name}");
+                        // Health decreased → fire onDamaged for hit VFX/audio
                         HealthEffectInfo info = new HealthEffectInfo();
                         info.amount = healthDelta;
                         info.worldPosition = damageable.transform.position;
                         info.sourceRootTransform = transform;
-                        damageable.Damage(info);
-
-                        // Correct any floating-point drift so client stays exactly in sync
-                        if (!Mathf.Approximately(damageable.CurrentHealth, networkedHealth))
-                        {
-                            damageable.SetHealth(networkedHealth);
-                        }
+                        damageable.onDamaged.Invoke(info);
                     }
-                    else
+                    else if (healthDelta < 0)
                     {
-                        // Health increased or other edge case → use SetHealth directly
-                        Debug.Log($"[HealthSync] CLIENT APPLY [{i}] {damageable.name} " +
-                                  $"type={damageable.HealthType?.name ?? "NULL"}: " +
-                                  $"local={damageable.CurrentHealth:F1} → networked={networkedHealth:F1} on {gameObject.name}");
-                        damageable.SetHealth(networkedHealth);
+                        // Health increased → fire onHealed for heal VFX
+                        HealthEffectInfo info = new HealthEffectInfo();
+                        info.amount = -healthDelta;
+                        info.worldPosition = damageable.transform.position;
+                        damageable.onHealed.Invoke(info);
                     }
                 }
-            }
-
-            // Periodic full state dump for client too
-            if (Time.time - _lastHealthDebugLog > HEALTH_LOG_INTERVAL)
-            {
-                _lastHealthDebugLog = Time.time;
-                string healthDump = "";
-                for (int i = 0; i < count; i++)
-                {
-                    var d = vehicleHealth.Damageables[i];
-                    healthDump += $"[{i}]{d.HealthType?.name ?? "?"}: local={d.CurrentHealth:F0} net={NetworkedHealthValues[i]:F0}/{d.HealthCapacity:F0} dest={d.Destroyed} ";
-                }
-                Debug.Log($"[HealthSync] CLIENT STATE on {gameObject.name}: netCount={NetworkedDamageableCount} localCount={vehicleHealth.Damageables.Count} | {healthDump}");
             }
         }
     }

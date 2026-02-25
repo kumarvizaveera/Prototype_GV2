@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -598,12 +599,13 @@ namespace GV.Network
                 Debug.LogWarning($"[NetworkManager] NOT spawning - IsServer: {runner.IsServer}, playerPrefab: {(playerPrefab != null ? "assigned" : "NULL")}");
             }
             
-            // Show "Client has joined" on the host when a non-host player joins
+            // Show "Client has joined" on the host when a non-host player joins, then auto-hide
             if (runner.IsServer && player != runner.LocalPlayer && clientJoinedText != null)
             {
                 clientJoinedText.text = "Client has joined";
                 clientJoinedText.gameObject.SetActive(true);
                 Debug.Log("[NetworkManager] Client has joined — showing TMP notification");
+                StartCoroutine(HideClientJoinedAfterDelay(3f));
             }
 
             OnPlayerJoinedGame?.Invoke(runner, player);
@@ -621,7 +623,16 @@ namespace GV.Network
             
             OnPlayerLeftGame?.Invoke(runner, player);
         }
-        
+
+        private IEnumerator HideClientJoinedAfterDelay(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (clientJoinedText != null)
+            {
+                clientJoinedText.gameObject.SetActive(false);
+            }
+        }
+
         public void OnInput(NetworkRunner runner, NetworkInput input)
         {
             // CRITICAL: We must call input.Set() DIRECTLY in this registered callback.
