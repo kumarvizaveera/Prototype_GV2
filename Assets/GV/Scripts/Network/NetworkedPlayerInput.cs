@@ -297,62 +297,6 @@ namespace GV.Network
             _onInputCallCount++;
         }
 
-        // On-screen debug display — visible in builds without dev console
-        private void OnGUI()
-        {
-            // Only show on non-editor builds (editor has console)
-            if (Application.isEditor) return;
-
-            GUILayout.BeginArea(new Rect(10, 260, 600, 420));
-            GUILayout.BeginVertical("box");
-            GUILayout.Label("[NetworkedPlayerInput Debug]");
-            GUILayout.Label($"Status: {_debugStatus}");
-            // FOCUS DIAGNOSTIC: Shows whether Application.isFocused is true (must be true for mouse input)
-            GUI.color = Application.isFocused ? Color.green : Color.red;
-            GUILayout.Label($"FOCUSED: {Application.isFocused}");
-            GUI.color = Color.white;
-            // Show mouse delta and reticle position
-            string mouseInfo = "N/A";
-            if (Mouse.current != null)
-            {
-                var delta = Mouse.current.delta.ReadValue();
-                Vector2 reticleOffset = _reticlePos - new Vector2(0.5f, 0.5f);
-                mouseInfo = $"delta=({delta.x:F1},{delta.y:F1}) reticle=({_reticlePos.x:F3},{_reticlePos.y:F3}) offset={reticleOffset.magnitude:F3}";
-            }
-            GUILayout.Label($"Mouse: {mouseInfo}");
-            // Steer values — these are what get sent via RPC
-            GUI.color = (_inputData.steerPitch != 0 || _inputData.steerYaw != 0) ? Color.green : Color.yellow;
-            GUILayout.Label($"Throttle: {_inputData.moveZ:F2}, Steer: ({_inputData.steerPitch:F2}, {_inputData.steerYaw:F2})");
-            GUI.color = Color.white;
-            GUILayout.Label($"Magic: {_inputData.magicNumber}");
-            var nm = NetworkManager.Instance;
-            if (nm != null && nm.Runner != null)
-            {
-                GUILayout.Label($"Runner.IsClient: {nm.Runner.IsClient}, IsServer: {nm.Runner.IsServer}");
-                GUILayout.Label($"LocalPlayer: {nm.Runner.LocalPlayer}");
-            }
-            // --- RAW SEND DIAGNOSTICS ---
-            if (nm != null)
-            {
-                GUI.color = nm.RawSendCount > 0 ? Color.green : Color.red;
-                GUILayout.Label($"RAW SEND: ok={nm.RawSendCount}, errs={nm.RawSendErrorCount}");
-                GUILayout.Label($"RAW BLOCK: {nm.RawSendBlockReason}");
-                if (!string.IsNullOrEmpty(nm.RawSendError))
-                {
-                    GUI.color = Color.red;
-                    GUILayout.Label($"RAW ERROR: {nm.RawSendError}");
-                    // Show first line of stack trace to identify WHERE the null ref happens
-                    if (!string.IsNullOrEmpty(nm.RawSendErrorStack))
-                    {
-                        string firstLine = nm.RawSendErrorStack.Split('\n')[0];
-                        GUILayout.Label($"STACK: {firstLine}");
-                    }
-                }
-                GUI.color = Color.white;
-            }
-            GUILayout.EndVertical();
-            GUILayout.EndArea();
-        }
         
         // Required INetworkRunnerCallbacks implementations (empty stubs)
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player) { }
