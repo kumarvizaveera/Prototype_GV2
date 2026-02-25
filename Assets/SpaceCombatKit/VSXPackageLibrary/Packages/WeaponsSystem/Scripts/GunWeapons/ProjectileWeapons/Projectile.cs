@@ -264,6 +264,13 @@ namespace VSX.Weapons
                                else
                                {
                                    // Visual Hit detected!
+                                   // Update distanceCovered to include actual distance to hit point
+                                   // so the damage-by-distance curve evaluates correctly.
+                                   // Without this, distanceCovered stays near 0 (only accumulated
+                                   // per-frame deltas) while the lookAhead raycast detects hits
+                                   // far ahead, causing the curve to return maximum damage (1.0).
+                                   distanceCovered += Vector3.Distance(previousPosition, physHit.point);
+
                                    transform.position = physHit.point; // Snap to hit position
                                    OnCollision(physHit);               // Trigger local visual effects and damage events
 
@@ -281,7 +288,8 @@ namespace VSX.Weapons
                               transform.Translate(direction * moveDistance);
                           }
                      }
-                     distanceCovered += (renderSpeed * Time.deltaTime);
+                     if (!detonated)
+                         distanceCovered += (renderSpeed * Time.deltaTime);
                  }
             }
         }
