@@ -293,24 +293,15 @@ namespace VSX.Health
             if (damageable == null) return;
 
             Damageable[] allDamageables = transform.root.GetComponentsInChildren<Damageable>(true);
-            int wiredCount = 0;
             foreach (Damageable d in allDamageables)
             {
-                // Skip the shield's own Damageable to prevent self-referencing loops
                 if (d == damageable) continue;
 
-                // Only set if not already assigned (allows Inspector overrides)
                 if (d.ShieldDamageable == null)
                 {
                     d.ShieldDamageable = damageable;
-                    wiredCount++;
-                    Debug.Log($"[EnergyShieldController] Auto-wired shield to Damageable '{d.name}' " +
-                              $"(type={d.HealthType?.name ?? "NULL"})");
                 }
             }
-            Debug.Log($"[EnergyShieldController] RegisterShieldWithHullDamageables: " +
-                      $"found {allDamageables.Length} total, wired {wiredCount} " +
-                      $"(shield={damageable.name}, root={transform.root.name})");
         }
 
         public virtual void SetShieldActive(bool active)

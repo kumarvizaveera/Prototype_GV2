@@ -298,44 +298,21 @@ namespace VSX.Health
                     // health remaining, route damage there first.  Any
                     // overflow (damage that exceeds the shield's remaining
                     // health) continues through to this Damageable.
-                    if (shieldDamageable != null)
+                    if (shieldDamageable != null
+                        && shieldDamageable.IsDamageable
+                        && !shieldDamageable.Destroyed
+                        && shieldDamageable.CurrentHealth > 0)
                     {
-                        bool canAbsorb = shieldDamageable.IsDamageable
-                                         && !shieldDamageable.Destroyed
-                                         && shieldDamageable.CurrentHealth > 0;
+                        float shieldHealth = shieldDamageable.CurrentHealth;
 
-                        Debug.Log($"[Damageable] Shield interception on {name}: " +
-                                  $"shieldRef={shieldDamageable.name}, canAbsorb={canAbsorb}, " +
-                                  $"shieldHP={shieldDamageable.CurrentHealth}/{shieldDamageable.HealthCapacity}, " +
-                                  $"isDamageable={shieldDamageable.IsDamageable}, " +
-                                  $"destroyed={shieldDamageable.Destroyed}, " +
-                                  $"incomingDmg={damageRemaining}");
+                        HealthEffectInfo shieldInfo = info;
+                        shieldInfo.amount = Mathf.Min(damageRemaining, shieldHealth);
 
-                        if (canAbsorb)
-                        {
-                            float shieldHealthBefore = shieldDamageable.CurrentHealth;
+                        shieldDamageable.Damage(shieldInfo);
 
-                            // Build a damage info for the shield (preserve
-                            // position / modifier type / source so VFX fire
-                            // correctly on the shield mesh).
-                            HealthEffectInfo shieldInfo = info;
-                            shieldInfo.amount = Mathf.Min(damageRemaining, shieldHealthBefore);
+                        damageRemaining -= shieldInfo.amount;
 
-                            shieldDamageable.Damage(shieldInfo);
-
-                            float shieldHealthAfter = shieldDamageable.CurrentHealth;
-                            float actualAbsorbed = shieldHealthBefore - shieldHealthAfter;
-
-                            Debug.Log($"[Damageable] Shield absorbed damage: " +
-                                      $"sent={shieldInfo.amount}, " +
-                                      $"shieldHP {shieldHealthBefore} → {shieldHealthAfter}, " +
-                                      $"actualAbsorbed={actualAbsorbed}");
-
-                            damageRemaining -= shieldInfo.amount;
-
-                            // If the shield absorbed everything, nothing left for the hull
-                            if (damageRemaining <= 0f) return;
-                        }
+                        if (damageRemaining <= 0f) return;
                     }
                     // ─────────────────────────────────────────────────────
 
