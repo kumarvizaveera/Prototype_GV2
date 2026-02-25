@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Fusion;
 
 namespace VSX.Rumbles
 {
@@ -80,11 +81,23 @@ namespace VSX.Rumbles
 
 
         /// <summary>
+        /// Returns true if this rumble should be felt on this machine.
+        /// Non-networked objects (turrets, environment) always rumble.
+        /// Networked objects only rumble if they belong to the local player.
+        /// </summary>
+        protected virtual bool IsLocalRumbleSource()
+        {
+            NetworkObject netObj = transform.root.GetComponent<NetworkObject>();
+            if (netObj == null) return true; // Non-networked → always rumble
+            return netObj.HasInputAuthority;  // Only rumble for local player's ship
+        }
+
+        /// <summary>
         /// Add this rumble.
         /// </summary>
         public virtual void Run()
         {
-            if (gameObject.activeInHierarchy)
+            if (gameObject.activeInHierarchy && IsLocalRumbleSource())
             {
                 StartCoroutine(RunCoroutine(maxLevel, delay));
             }
@@ -97,7 +110,7 @@ namespace VSX.Rumbles
         /// <param name="delay">The default delay before the rumble.</param>
         public virtual void Run(float delay)
         {
-            if (gameObject.activeInHierarchy)
+            if (gameObject.activeInHierarchy && IsLocalRumbleSource())
             {
                 StartCoroutine(RunCoroutine(maxLevel, delay));
             }
@@ -111,7 +124,7 @@ namespace VSX.Rumbles
         /// <param name="delay">The delay before the rumble begins.</param>
         public virtual void Run(float customMaxLevel, float delay)
         {
-            if (gameObject.activeInHierarchy)
+            if (gameObject.activeInHierarchy && IsLocalRumbleSource())
             {
                 StartCoroutine(RunCoroutine(customMaxLevel, delay));
             }

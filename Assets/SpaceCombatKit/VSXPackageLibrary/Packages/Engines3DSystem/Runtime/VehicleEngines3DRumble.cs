@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Fusion;
 using VSX.Rumbles;
 
 namespace VSX.Engines3D
@@ -107,6 +108,12 @@ namespace VSX.Engines3D
             if (RumbleManager.Instance == null) return;
 
             if (!engines.EnginesActivated) return;
+
+            // Only apply engine rumbles for the local player's ship.
+            // Without this check, the host feels rumbles from all ships
+            // (including the client's proxy ship), since the host simulates everything.
+            NetworkObject netObj = engines.transform.root.GetComponent<NetworkObject>();
+            if (netObj != null && !netObj.HasInputAuthority) return;
 
             BoostRumblesUpdate();
 

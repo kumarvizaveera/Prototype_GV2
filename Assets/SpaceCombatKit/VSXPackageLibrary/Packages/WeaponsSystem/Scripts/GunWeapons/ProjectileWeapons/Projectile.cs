@@ -210,7 +210,6 @@ namespace VSX.Weapons
             }
         }
 
-        private bool _proxyFirstRenderLogged = false;
 
         public override void Render()
         {
@@ -231,14 +230,6 @@ namespace VSX.Weapons
 
                      // Use the best available speed: networked → prefab fallback
                      float renderSpeed = Speed; // Speed getter already falls back to local 'speed'
-
-                     if (!_proxyFirstRenderLogged)
-                     {
-                         _proxyFirstRenderLogged = true;
-                         Debug.Log($"[Projectile] PROXY FIRST RENDER: pos={transform.position}, rot={transform.rotation.eulerAngles}, " +
-                                   $"NetworkedSpeed={NetworkedSpeed}, localSpeed={speed}, renderSpeed={renderSpeed}, " +
-                                   $"NetworkedMaxDist={NetworkedMaxDistance}, gameObject.active={gameObject.activeInHierarchy}");
-                     }
 
                      // PROXY SIMULATION: Simulate movement visually for clients!
                      // Server spawns the object, but Fusion doesn't run FixedUpdateNetwork for Proxies.
@@ -358,7 +349,6 @@ namespace VSX.Weapons
                 {
                     transform.position = NetworkedSpawnPosition;
                     transform.rotation = NetworkedSpawnRotation;
-                    Debug.Log($"[Projectile] PROXY: Applied spawn pos={NetworkedSpawnPosition}, rot={NetworkedSpawnRotation.eulerAngles}");
                 }
                 // Audio stays disabled on proxies (disabled in Awake).
                 // The client already gets fire audio from the local onProjectileLaunched event.
@@ -416,7 +406,6 @@ namespace VSX.Weapons
                  // Sync the local field to match networked (in case onBeforeSpawned set a modified value)
                  speed = NetworkedSpeed;
 
-                 Debug.Log($"[Projectile] Spawned (StateAuthority). Speed: {speed}, NetworkedSpeed: {NetworkedSpeed}, MaxDist: {NetworkedMaxDistance}");
             }
             else
             {
@@ -425,15 +414,12 @@ namespace VSX.Weapons
                 healthModifier.DamageMultiplier = NetworkedDamageMultiplier;
                 healthModifier.HealingMultiplier = NetworkedHealingMultiplier;
                 speed = NetworkedSpeed > 0 ? NetworkedSpeed : speed; // Fallback to prefab speed
-                Debug.Log($"[Projectile] Spawned (Proxy). NetworkedSpeed: {NetworkedSpeed}, localSpeed fallback: {speed}");
-                
                 // Hide this networked projectile if we are the client who fired it
                 // because we already spawned a local visual dummy instantly!
                 if (OwnerId.IsValid && Runner.TryFindObject(OwnerId, out NetworkObject owner) && owner.HasInputAuthority)
                 {
                     foreach (Renderer r in renderers) r.enabled = false;
                     foreach (TrailRenderer t in trailRenderers) t.enabled = false;
-                    Debug.Log($"[Projectile] Hid networked projectile (Proxy) because we are the owner Client (we have a visual dummy).");
                 }
             }
         }
@@ -556,14 +542,9 @@ namespace VSX.Weapons
         {
             // Area damage should ONLY run on the damage authority (host / single-player).
             // Proxies and client turret projectiles should not apply damage.
-            bool isAuthority = IsDamageAuthority;
-            string role = isAuthority ? (Object == null ? "LOCAL/HOST" : "HOST") : "PROXY/CLIENT";
-            Debug.Log($"[Projectile] DETONATE ({role}) | type={GetType().Name} | pos={transform.position} | " +
-                      $"areaEffect={areaEffect} | willApplyAreaDmg={areaEffect && isAuthority} | " +
-                      $"detonated={detonated} | IsVisualDummy={IsVisualDummy} | " +
-                      $"hitEffectCount={defaultHitEffectPrefabs.Count}");
-
-            if (areaEffect && isAuthority) AreaEffect();
+            // AreaEffect handles per-target authority checks internally,
+            // allowing clients to damage non-networked targets (turrets).
+            if (areaEffect) AreaEffect();
 
             if (detonator != null && detonator.DetonationState == DetonationState.Reset) detonator.Detonate();
 
@@ -693,40 +674,67 @@ namespace VSX.Weapons
 
             DamageReceiver damageReceiver = null;
 
-            // Only the damage authority (host / single-player) applies damage.
-            // Non-networked turret projectiles also respect this — clients just show visuals.
             bool isAuthority = IsDamageAuthority;
-            string role = isAuthority ? (Object == null ? "LOCAL/HOST" : "HOST") : "PROXY/CLIENT";
-            Debug.Log($"[Projectile] OnCollision ({role}) | type={GetType().Name} | hitPoint={hit.point} | " +
-                      $"hitCollider={hit.collider.name} | hitObj={hit.collider.transform.root.name} | " +
-                      $"areaEffect={areaEffect} | willApplyDmg={isAuthority}");
 
             if (!areaEffect)
             {
                 damageReceiver = hit.collider.GetComponent<DamageReceiver>();
-                // Only apply damage/healing on the damage authority (host).
-                // Proxies and client turret projectiles show visual effects only.
-                if (damageReceiver != null && isAuthority)
+
+                if (damageReceiver != null)
                 {
-                    HealthEffectInfo info = new HealthEffectInfo();
-                    info.worldPosition = hit.point;
-                    info.healthModifierType = healthModifier.HealthModifierType;
-                    info.sourceRootTransform = senderRootTransform;
-
-                    // Damage
-                    info.amount = healthModifier.GetDamage(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(SafeDistanceCovered / SafeNetworkedMaxDistance);
-
-                    if (!Mathf.Approximately(info.amount, 0))
+                    // Determine if this target's health is synced by NetworkedHealthSync.
+                    // If it IS synced, only the host should apply damage (clients get updates via sync).
+                    // If it is NOT synced (e.g. turrets under a scene NetworkObject like RaceNetwork),
+                    // each machine must apply damage locally.
+                    //
+                    // We check for NetworkedHealthSync on the damageable's hierarchy rather than
+                    // NetworkObject on root, because turrets can be children of a networked scene
+                    // object (RaceNetwork) without having their own health sync.
+                    bool hasNetworkedHealthSync = false;
+                    if (!isAuthority)
                     {
-                        damageReceiver.Damage(info);
+                        // Walk up hierarchy looking for a NetworkedHealthSync component.
+                        // We can't reference the GV assembly directly from VSX, so check
+                        // by type name on NetworkBehaviour components in the hierarchy.
+                        Transform checkTransform = damageReceiver.transform;
+                        while (checkTransform != null)
+                        {
+                            foreach (var nb in checkTransform.GetComponents<NetworkBehaviour>())
+                            {
+                                if (nb.GetType().Name == "NetworkedHealthSync")
+                                {
+                                    hasNetworkedHealthSync = true;
+                                    break;
+                                }
+                            }
+                            if (hasNetworkedHealthSync) break;
+                            checkTransform = checkTransform.parent;
+                        }
                     }
 
-                    // Healing
-                    info.amount = healthModifier.GetHealing(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(SafeDistanceCovered / SafeNetworkedMaxDistance);
-
-                    if (!Mathf.Approximately(info.amount, 0))
+                    // Apply damage if: we have authority (host), OR the target has no health sync (turret)
+                    if (isAuthority || !hasNetworkedHealthSync)
                     {
-                        damageReceiver.Heal(info);
+                        HealthEffectInfo info = new HealthEffectInfo();
+                        info.worldPosition = hit.point;
+                        info.healthModifierType = healthModifier.HealthModifierType;
+                        info.sourceRootTransform = senderRootTransform;
+
+                        // Damage
+                        info.amount = healthModifier.GetDamage(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(SafeDistanceCovered / SafeNetworkedMaxDistance);
+
+                        if (!Mathf.Approximately(info.amount, 0))
+                        {
+                            damageReceiver.Damage(info);
+                        }
+
+                        // Healing
+                        info.amount = healthModifier.GetHealing(damageReceiver.HealthType) * healthEffectByDistanceCurve.Evaluate(SafeDistanceCovered / SafeNetworkedMaxDistance);
+
+                        if (!Mathf.Approximately(info.amount, 0))
+                        {
+                            damageReceiver.Heal(info);
+                        }
                     }
                 }
             }
@@ -805,7 +813,17 @@ namespace VSX.Weapons
         protected virtual void AreaEffect()
         {
             if (!areaEffect) return;
-            if (!IsDamageAuthority) return;
+
+            bool isAuthority = IsDamageAuthority;
+
+            // If not authority, we can still damage non-networked targets (turrets).
+            // We'll check per-target below.
+            if (!isAuthority)
+            {
+                // Quick check: if Fusion isn't running at all, IsDamageAuthority would be true.
+                // So if we're here, Fusion IS running and we're the client.
+                // We'll still iterate to find non-networked targets.
+            }
 
             if (Mathf.Approximately(areaEffectRadius, 0)) return;
 
@@ -834,7 +852,7 @@ namespace VSX.Weapons
                 {
                     RaycastHit hit;
                     Vector3 lineOfSightOrigin = transform.position - transform.forward * 0.01f;
-                    if (Physics.Raycast(lineOfSightOrigin, (colliders[i].transform.position - lineOfSightOrigin).normalized, out hit, areaEffectRadius, areaEffectLayerMask, 
+                    if (Physics.Raycast(lineOfSightOrigin, (colliders[i].transform.position - lineOfSightOrigin).normalized, out hit, areaEffectRadius, areaEffectLayerMask,
                                         ignoreTriggerColliders ? QueryTriggerInteraction.Ignore : QueryTriggerInteraction.Collide))
                     {
                         if (hit.collider != colliders[i]) continue;
@@ -844,10 +862,33 @@ namespace VSX.Weapons
                 DamageReceiver damageReceiver = colliders[i].GetComponent<DamageReceiver>();
                 if (damageReceiver != null)
                 {
+                    // Skip targets whose health is synced via NetworkedHealthSync (host handles those).
+                    // Targets WITHOUT NetworkedHealthSync (e.g. turrets parented under a scene NetworkObject)
+                    // must be damaged locally on each machine.
+                    if (!isAuthority)
+                    {
+                        bool hasSync = false;
+                        Transform check = damageReceiver.transform;
+                        while (check != null)
+                        {
+                            foreach (var nb in check.GetComponents<NetworkBehaviour>())
+                            {
+                                if (nb.GetType().Name == "NetworkedHealthSync")
+                                {
+                                    hasSync = true;
+                                    break;
+                                }
+                            }
+                            if (hasSync) break;
+                            check = check.parent;
+                        }
+                        if (hasSync) continue; // Synced target — host will handle it
+                    }
+
                     // If damageable not already effected
                     if (hitDamageables.IndexOf(damageReceiver.Damageable) == -1)
                     {
-                        // Get closest point 
+                        // Get closest point
                         Vector3 closestPoint = damageReceiver.GetClosestPoint(transform.position);
 
                         // Implement damage
@@ -962,9 +1003,6 @@ namespace VSX.Weapons
                      {
                            if (senderRootTransform != null && (physHit.transform == senderRootTransform || physHit.transform.IsChildOf(senderRootTransform))) return;
 
-                           Debug.Log($"[Projectile] HOST MovementUpdate HIT | type={GetType().Name} | " +
-                                     $"hitObj={physHit.collider.transform.root.name} | hitCollider={physHit.collider.name} | " +
-                                     $"hitPoint={physHit.point} | dist={dist:F1}");
                            OnCollision(physHit);
                      }
                }

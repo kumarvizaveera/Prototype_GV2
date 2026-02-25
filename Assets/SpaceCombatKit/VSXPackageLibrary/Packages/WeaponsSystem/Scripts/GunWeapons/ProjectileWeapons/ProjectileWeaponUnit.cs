@@ -304,13 +304,6 @@ namespace VSX.Weapons
                             if (dummyMissile != null && TargetTrackableForNextSpawn != null)
                             {
                                 dummyMissile.SetTarget(TargetTrackableForNextSpawn);
-                                Debug.Log($"[ProjectileWeaponUnit] Visual dummy target set via Trackable: {TargetTrackableForNextSpawn.name}");
-                            }
-                            else if (dummyMissile != null)
-                            {
-                                Debug.LogWarning($"[ProjectileWeaponUnit] Visual dummy missile has NO target! " +
-                                                 $"TargetTrackable={(TargetTrackableForNextSpawn != null ? TargetTrackableForNextSpawn.name : "NULL")} | " +
-                                                 $"TargetId={TargetIdForNextSpawn} valid={TargetIdForNextSpawn.IsValid}");
                             }
                         }
                     }
