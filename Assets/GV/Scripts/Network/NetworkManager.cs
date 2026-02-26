@@ -35,6 +35,7 @@ namespace GV.Network
         [SerializeField] private TMP_Text hostPromptText;   // "Press H to Host"
         [SerializeField] private TMP_Text joinPromptText;   // "Press J to Join"
         [SerializeField] private TMP_Text clientJoinedText;  // "Client has joined"
+        [SerializeField] private TMP_Text playerCountText;   // "Players: 1/4"
 
         [Header("Debug")]
         [SerializeField] private bool showDebugUI = true;
@@ -182,13 +183,20 @@ namespace GV.Network
                 // Show TMP prompts when not connected
                 if (hostPromptText != null) hostPromptText.gameObject.SetActive(true);
                 if (joinPromptText != null) joinPromptText.gameObject.SetActive(true);
+                if (playerCountText != null) playerCountText.gameObject.SetActive(false);
 
                 if (Input.GetKeyDown(KeyCode.H))
                 {
+                    if (_failedStatusCoroutine != null) { StopCoroutine(_failedStatusCoroutine); _failedStatusCoroutine = null; }
+                    if (hostPromptText != null) hostPromptText.text = "Hosting....";
+                    if (joinPromptText != null) joinPromptText.text = "";
                     StartHost();
                 }
                 else if (Input.GetKeyDown(KeyCode.J)) // Changed to J to avoid conflict with Join
                 {
+                    if (_failedStatusCoroutine != null) { StopCoroutine(_failedStatusCoroutine); _failedStatusCoroutine = null; }
+                    if (joinPromptText != null) joinPromptText.text = "Joining....";
+                    if (hostPromptText != null) hostPromptText.text = "";
                     StartClient();
                 }
                 return;
@@ -198,6 +206,11 @@ namespace GV.Network
                 // Hide TMP prompts once connected
                 if (hostPromptText != null) hostPromptText.gameObject.SetActive(false);
                 if (joinPromptText != null) joinPromptText.gameObject.SetActive(false);
+                if (playerCountText != null)
+                {
+                    playerCountText.gameObject.SetActive(true);
+                    playerCountText.text = $"Players: {Runner.ActivePlayers.Count()}/{maxPlayers}";
+                }
             }
 
             // --- CLIENT: Send input to host via raw reliable data every frame ---
@@ -661,11 +674,40 @@ namespace GV.Network
             }
         }
         public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+
+        private Coroutine _failedStatusCoroutine;
+
+        private IEnumerator ShowConnectionFailedStatus(string message)
+        {
+            if (hostPromptText != null) hostPromptText.text = message;
+            if (joinPromptText != null) joinPromptText.text = "";
+            
+            yield return new WaitForSeconds(3f);
+            
+            if (hostPromptText != null) hostPromptText.text = "Press H to Host";
+            if (joinPromptText != null) joinPromptText.text = "Press J to Join";
+            
+            _failedStatusCoroutine = null;
+        }
         
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
         {
             Debug.Log($"[NetworkManager] Shutdown: {shutdownReason}");
             _lastError = $"Shutdown: {shutdownReason}";
+            
+            // Reset UI texts on disconnect
+            if (_failedStatusCoroutine != null) StopCoroutine(_failedStatusCoroutine);
+            
+            if (shutdownReason != ShutdownReason.Ok)
+            {
+                _failedStatusCoroutine = StartCoroutine(ShowConnectionFailedStatus("Connection Failed"));
+            }
+            else
+            {
+                if (hostPromptText != null) hostPromptText.text = "Press H to Host";
+                if (joinPromptText != null) joinPromptText.text = "Press J to Join";
+            }
+            
             OnDisconnectedEvent?.Invoke(runner, shutdownReason);
             _spawnedPlayers.Clear();
             Runner = null;
@@ -681,6 +723,9 @@ namespace GV.Network
         public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) 
         {
             _lastError = $"Connect Failed: {reason}";
+            
+            if (_failedStatusCoroutine != null) StopCoroutine(_failedStatusCoroutine);
+            _failedStatusCoroutine = StartCoroutine(ShowConnectionFailedStatus("Connection Failed"));
         }
         public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
         public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
