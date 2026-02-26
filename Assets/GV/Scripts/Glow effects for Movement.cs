@@ -97,6 +97,7 @@ public class BoostGlow : MonoBehaviour
 
         Vector3 boostState = Vector3.zero;
         Vector3 moveState = Vector3.zero;
+        float rollState = 0f;
         bool canBoost = true;
 
         if (_isLocalPlayer)
@@ -111,6 +112,7 @@ public class BoostGlow : MonoBehaviour
                 {
                     var data = netInput.CurrentInputData;
                     moveState = new Vector3(data.moveX, data.moveY, data.moveZ);
+                    rollState = data.steerRoll; // Q = 1, E = -1
                     if (data.boost) boostState = new Vector3(0, 0, 1f);
                 }
             }
@@ -120,6 +122,7 @@ public class BoostGlow : MonoBehaviour
             // REMOTE PLAYER: physically-simulated synced inputs on proxy ships.
             boostState = vehicleEngines.BoostInputs;
             moveState = vehicleEngines.MovementInputs;
+            rollState = vehicleEngines.SteeringInputs.z;
         }
 
         if (vehicleEngines != null)
@@ -146,14 +149,14 @@ public class BoostGlow : MonoBehaviour
         {
             targetIntensity = 0f;
         }
-        // 3. Left strafe (Prioritize active lateral input over passive auto-forward)
-        else if (moveState.x < -0.1f)
+        // 3. Left strafe / Q (Roll positive or move negative X)
+        else if (rollState > 0.1f || moveState.x < -0.1f)
         {
             targetIntensity = sideIntensity;
             targetBaseColor = leftColor;
         }
-        // 4. Right strafe
-        else if (moveState.x > 0.1f)
+        // 4. Right strafe / E (Roll negative or move positive X)
+        else if (rollState < -0.1f || moveState.x > 0.1f)
         {
             targetIntensity = sideIntensity;
             targetBaseColor = rightColor;

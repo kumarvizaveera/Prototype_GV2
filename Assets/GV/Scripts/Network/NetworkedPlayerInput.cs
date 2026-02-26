@@ -206,22 +206,14 @@ namespace GV.Network
                 if (Keyboard.current.qKey.isPressed) roll = 1f;
                 else if (Keyboard.current.eKey.isPressed) roll = -1f;
 
-                // If user is actively pressing keyboard steering, let it override mouse reticle
-                // (Matches SCK default where Q/E provide both Yaw and Roll, and arrows provide Pitch/Yaw)
-                bool keyboardSteering = false;
-                
-                if (Keyboard.current.upArrowKey.isPressed) { pitch = 1f; keyboardSteering = true; }
-                else if (Keyboard.current.downArrowKey.isPressed) { pitch = -1f; keyboardSteering = true; }
-
-                if (Keyboard.current.qKey.isPressed) { yaw = -1f; keyboardSteering = true; }
-                else if (Keyboard.current.eKey.isPressed) { yaw = 1f; keyboardSteering = true; }
-                else if (Keyboard.current.rightArrowKey.isPressed) { yaw = 1f; keyboardSteering = true; }
-                else if (Keyboard.current.leftArrowKey.isPressed) { yaw = -1f; keyboardSteering = true; }
-
-                // If keyboard keys are used, ensure mouse reticle recenters or aligns so it doesn't fight
-                if (keyboardSteering)
+                // Arrow keys as fallback only if mouse didn't provide steering
+                if (!mouseProvidedSteering)
                 {
-                    _reticlePos = new Vector2(0.5f, 0.5f);
+                    if (Keyboard.current.upArrowKey.isPressed) pitch = 1f;
+                    else if (Keyboard.current.downArrowKey.isPressed) pitch = -1f;
+
+                    if (Keyboard.current.rightArrowKey.isPressed) yaw = 1f;
+                    else if (Keyboard.current.leftArrowKey.isPressed) yaw = -1f;
                 }
             }
 
@@ -306,49 +298,6 @@ namespace GV.Network
         }
 
         
-        // On-screen debug display — visible in builds without dev console
-        private void OnGUI()
-        {
-            // Only show on non-editor builds (editor has console)
-            if (Application.isEditor) return;
-
-            GUILayout.BeginArea(new Rect(10, 260, 600, 420));
-            GUILayout.BeginVertical("box");
-            GUILayout.Label("[NetworkedPlayerInput Debug]");
-            GUILayout.Label($"Status: {_debugStatus}");
-            // FOCUS DIAGNOSTIC: Shows whether Application.isFocused is true (must be true for mouse input)
-            GUI.color = Application.isFocused ? Color.green : Color.red;
-            GUILayout.Label($"FOCUSED: {Application.isFocused}");
-            GUI.color = Color.white;
-            
-            // Show mouse delta and reticle position
-            string mouseInfo = "N/A";
-            if (UnityEngine.InputSystem.Mouse.current != null)
-            {
-                var delta = UnityEngine.InputSystem.Mouse.current.delta.ReadValue();
-                Vector2 reticleOffset = _reticlePos - new Vector2(0.5f, 0.5f);
-                mouseInfo = $"delta=({delta.x:F1},{delta.y:F1}) reticle=({_reticlePos.x:F3},{_reticlePos.y:F3}) offset={reticleOffset.magnitude:F3}";
-            }
-            GUILayout.Label($"Mouse: {mouseInfo}");
-            
-            // Steer values — these are what get sent via RPC
-            GUI.color = (_inputData.steerPitch != 0 || _inputData.steerYaw != 0 || _inputData.steerRoll != 0) ? Color.green : Color.yellow;
-            GUILayout.Label($"Throttle: {_inputData.moveZ:F2}");
-            GUILayout.Label($"Steer Pitch (Arrows): {_inputData.steerPitch:F2}");
-            GUILayout.Label($"Steer Yaw (Q/E/Arrows): {_inputData.steerYaw:F2}");
-            GUILayout.Label($"Steer Roll (Q/E): {_inputData.steerRoll:F2}");
-            GUI.color = Color.white;
-            
-            var nm = NetworkManager.Instance;
-            if (nm != null && nm.Runner != null)
-            {
-                GUILayout.Label($"Runner.IsClient: {nm.Runner.IsClient}, IsServer: {nm.Runner.IsServer}");
-                GUILayout.Label($"LocalPlayer: {nm.Runner.LocalPlayer}");
-            }
-            GUILayout.EndVertical();
-            GUILayout.EndArea();
-        }
-
         // Required INetworkRunnerCallbacks implementations (empty stubs)
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player) { }
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
