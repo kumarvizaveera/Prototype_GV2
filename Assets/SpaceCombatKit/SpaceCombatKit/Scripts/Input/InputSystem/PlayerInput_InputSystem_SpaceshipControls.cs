@@ -172,6 +172,39 @@ namespace VSX.SpaceCombatKit
                 }
             }
 
+            // Keyboard overrides for Q/E and Arrow Keys
+            // Bypass Input Actions for critical steering to prevent Mouse/Keyboard conflicts
+            if (Keyboard.current != null)
+            {
+                bool keyboardSteering = false;
+
+                // Q/E for Roll + Yaw
+                if (Keyboard.current.qKey.isPressed) { steeringInputs.z = 1f; steeringInputs.y = -1f; keyboardSteering = true; }
+                else if (Keyboard.current.eKey.isPressed) { steeringInputs.z = -1f; steeringInputs.y = 1f; keyboardSteering = true; }
+                else if (lastSteeringInputDeviceType == InputDeviceType.Keyboard)
+                {
+                    steeringInputs.z = 0f;
+                }
+
+                if (!keyboardSteering)
+                {
+                    // Right/Left arrows for Yaw
+                    if (Keyboard.current.rightArrowKey.isPressed) { steeringInputs.y = 1f; keyboardSteering = true; }
+                    else if (Keyboard.current.leftArrowKey.isPressed) { steeringInputs.y = -1f; keyboardSteering = true; }
+                    else if (lastSteeringInputDeviceType == InputDeviceType.Keyboard) { steeringInputs.y = 0f; }
+                }
+
+                // Up/Down arrows for Pitch (SCK inverted: -1 is up)
+                if (Keyboard.current.upArrowKey.isPressed) { steeringInputs.x = -1f; keyboardSteering = true; }
+                else if (Keyboard.current.downArrowKey.isPressed) { steeringInputs.x = 1f; keyboardSteering = true; }
+                else if (lastSteeringInputDeviceType == InputDeviceType.Keyboard) { steeringInputs.x = 0f; }
+
+                if (keyboardSteering)
+                {
+                    lastSteeringInputDeviceType = InputDeviceType.Keyboard;
+                }
+            }
+
             // 3. Call base to handle steering/mouse/applying values to engines
             base.OnInputUpdate();
         }

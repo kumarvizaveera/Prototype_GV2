@@ -1874,5 +1874,33 @@ namespace GV.Network
             // NOTE: Position is applied via direct transform writes in FixedUpdate (not MovePosition).
             // rb.interpolation = None ensures the rendered position matches what the camera reads.
         }
+
+        // --- ONGUI DEBUGS FOR BUILD ---
+        private void OnGUI()
+        {
+            if (Application.isEditor || !Object.HasInputAuthority || !_clientPredictionActive) return;
+
+            GUILayout.BeginArea(new Rect(10, 680, 600, 200));
+            GUILayout.BeginVertical("box");
+            if (engines != null)
+            {
+                var vEng = engines as VSX.Engines3D.VehicleEngines3D;
+                GUILayout.Label($"[Bridge Debug] Engines Active: {engines.EnginesActivated}");
+                GUILayout.Label($"Engines.SteeringInputs: {engines.SteeringInputs:F2}");
+                GUILayout.Label($"Engines.SteeringModifiers: {engines.SteeringInputModifiers:F2}");
+                if (vEng != null)
+                {
+                    GUILayout.Label($"vEng.MaxSteeringForces: {vEng.MaxSteeringForces:F2}");
+                }
+            }
+            if (_cachedRb != null)
+            {
+                GUILayout.Label($"RB Constraints: {_cachedRb.constraints}");
+                GUILayout.Label($"RB AngVel: {_cachedRb.angularVelocity:F2}");
+                GUILayout.Label($"RB Kinematic: {_cachedRb.isKinematic}");
+            }
+            GUILayout.EndVertical();
+            GUILayout.EndArea();
+        }
     }
 }
