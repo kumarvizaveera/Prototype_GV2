@@ -5570,8 +5570,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameIntroMessage
   messageText: {fileID: 5222478900612660348}
-  message: Collect Powers and Finish the Race Using Them
-  duration: 6
+  message: 'Collect Powers and Destroy Opponents
+
+    To Be the Last One Standing'
+  duration: 9
 --- !u!1 &8906017503069855353
 GameObject:
   m_ObjectHideFlags: 0

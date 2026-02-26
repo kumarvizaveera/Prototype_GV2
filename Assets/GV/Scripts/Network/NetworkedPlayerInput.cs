@@ -206,14 +206,22 @@ namespace GV.Network
                 if (Keyboard.current.qKey.isPressed) roll = 1f;
                 else if (Keyboard.current.eKey.isPressed) roll = -1f;
 
-                // Arrow keys as fallback only if mouse didn't provide steering
-                if (!mouseProvidedSteering)
-                {
-                    if (Keyboard.current.upArrowKey.isPressed) pitch = 1f;
-                    else if (Keyboard.current.downArrowKey.isPressed) pitch = -1f;
+                // If user is actively pressing keyboard steering, let it override mouse reticle
+                // (Matches SCK default where Q/E provide both Yaw and Roll, and arrows provide Pitch/Yaw)
+                bool keyboardSteering = false;
+                
+                if (Keyboard.current.upArrowKey.isPressed) { pitch = 1f; keyboardSteering = true; }
+                else if (Keyboard.current.downArrowKey.isPressed) { pitch = -1f; keyboardSteering = true; }
 
-                    if (Keyboard.current.rightArrowKey.isPressed) yaw = 1f;
-                    else if (Keyboard.current.leftArrowKey.isPressed) yaw = -1f;
+                if (Keyboard.current.qKey.isPressed) { yaw = -1f; keyboardSteering = true; }
+                else if (Keyboard.current.eKey.isPressed) { yaw = 1f; keyboardSteering = true; }
+                else if (Keyboard.current.rightArrowKey.isPressed) { yaw = 1f; keyboardSteering = true; }
+                else if (Keyboard.current.leftArrowKey.isPressed) { yaw = -1f; keyboardSteering = true; }
+
+                // If keyboard keys are used, ensure mouse reticle recenters or aligns so it doesn't fight
+                if (keyboardSteering)
+                {
+                    _reticlePos = new Vector2(0.5f, 0.5f);
                 }
             }
 

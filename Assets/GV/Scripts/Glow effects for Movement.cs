@@ -146,23 +146,23 @@ public class BoostGlow : MonoBehaviour
         {
             targetIntensity = 0f;
         }
-        // 3. Forward movement
-        else if (moveState.z > 0.1f || autoForwardGlow)
-        {
-            targetIntensity = forwardIntensity;
-            targetBaseColor = forwardColor;
-        }
-        // 4. Left strafe
+        // 3. Left strafe (Prioritize active lateral input over passive auto-forward)
         else if (moveState.x < -0.1f)
         {
             targetIntensity = sideIntensity;
             targetBaseColor = leftColor;
         }
-        // 5. Right strafe
+        // 4. Right strafe
         else if (moveState.x > 0.1f)
         {
             targetIntensity = sideIntensity;
             targetBaseColor = rightColor;
+        }
+        // 5. Forward movement / Auto-forward
+        else if (moveState.z > 0.1f || autoForwardGlow)
+        {
+            targetIntensity = forwardIntensity;
+            targetBaseColor = forwardColor;
         }
         // 6. Idle
         else
