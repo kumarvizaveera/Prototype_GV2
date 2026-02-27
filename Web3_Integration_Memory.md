@@ -20,7 +20,7 @@
 | Layer | Technology | Status |
 |-------|-----------|--------|
 | Blockchain | Avalanche C-Chain | Fuji Testnet (43113) |
-| SDK (Unity) | Thirdweb Unity SDK | Imported to `Assets/Thirdweb/` — not yet integrated into game loop |
+| SDK (Unity) | Thirdweb Unity SDK | Integrated — wallet connect, balance fetch working in-game |
 | SDK (Backend) | Thirdweb MCP Server | Connected — wallet, contract, token operations available |
 | Docs | Avalanche MCP Server | Connected — full docs/academy/integrations access |
 | Server Wallet | `0x2bBc1C32224a347eaF8d10cAFaF77F3aBCA2551f` | Funded with 2 AVAX on Fuji |
@@ -89,6 +89,7 @@ Assets/GV/
 │   ├── Character/      → pilot management
 │   ├── Teleport/       → dice-based teleportation
 │   ├── Swap/           → aircraft mesh/engine swapping
+│   ├── Web3/           → 4 files — wallet connect, balance, bootstrap (GV.Web3 namespace)
 │   └── Debug/          → in-game debug tools
 ├── Prefabs_GV/
 │   ├── Network/        → Player_Network Manager, Player_ForMultiplayer, Gyro_ForNetwork, LevelSync
@@ -114,12 +115,16 @@ Assets/GV/
 - [x] Web3Bootstrap.cs created — bootstrap scene loader
 - [x] SCK menu system reviewed — using Menus_InputSystem_SCK as foundation
 
-### In Progress (Phase 1)
-- [ ] ThirdwebManager prefab configured with ClientId in Bootstrap scene
-- [ ] Bootstrap scene created and set as Scene 0 in Build Settings
-- [ ] Main menu scene set up with wallet connect panel
-- [ ] WalletHUD integrated into gameplay scene
-- [ ] End-to-end test: connect wallet → see balance → enter match
+### Phase 1 COMPLETE
+- [x] ThirdwebManager prefab configured with ClientId in Bootstrap scene
+- [x] Bootstrap scene created and set as Scene 0 in Build Settings
+- [x] Main menu scene set up with wallet connect panel (using SCK Menus_InputSystem_SCK)
+- [x] End-to-end flow working: Bootstrap → Menu → Connect Wallet → Enter Match
+- [x] WalletHUD integrated into gameplay scene (address + balance overlay)
+- [x] Guest login tested and working
+- [x] Google login tested and working
+- [x] Email login tested and working
+- [x] Thirdweb Starter billing plan enabled (required for bundler/paymaster services even on testnet)
 
 ### Not Started (Phase 2+)
 - [ ] Smart contract design (NFTs for ships/Astras/skins? ERC-20 token? Battle rewards?)
@@ -167,20 +172,25 @@ These are the game systems where Web3 will connect:
 |------|----------|-----------|
 | Feb 27, 2026 | Use Avalanche Fuji testnet (43113) | Free test tokens, fast finality, low fees for game transactions |
 | Feb 27, 2026 | Thirdweb as primary Web3 SDK | Already imported, strong Unity support, managed wallets, gasless tx capability |
+| Feb 27, 2026 | Use SCK Menus_InputSystem_SCK for menu system | Already has menu hierarchy, game states, input handling — no need to build from scratch |
+| Feb 27, 2026 | Bootstrap scene pattern for Web3 init | ThirdwebManager + Web3Manager persist via DontDestroyOnLoad, menu loads after |
+| Feb 27, 2026 | InAppWallet for player auth | Email, Google, Guest all working — no MetaMask/browser extension needed |
+| Feb 27, 2026 | Thirdweb Starter plan ($5/mo) | Required for bundler/paymaster services even on testnet — free tier blocks wallet API calls |
 
 ---
 
 ## 10. Integration Roadmap
 
-### Phase 1 — Foundation (Wire Up the Basics)
+### Phase 1 — Foundation (Wire Up the Basics) ✅ COMPLETE
 > Goal: Prove a player can connect a wallet and see their balance before entering a match.
 
-- [ ] Configure ThirdwebManager prefab with ClientId in a bootstrap/persistent scene
-- [ ] Create `GV.Web3.Web3Manager.cs` singleton — initializes before NetworkManager, holds player wallet reference
-- [ ] Build wallet connect screen using InAppWallet (email/social login — no MetaMask needed)
-- [ ] Display connected wallet address and AVAX balance in HUD
-- [ ] All calls target Fuji testnet (43113)
-- **Key files:** ThirdwebManager.prefab, new `Web3Manager.cs`, new wallet connect UI panel
+- [x] Configure ThirdwebManager prefab with ClientId in a bootstrap/persistent scene
+- [x] Create `GV.Web3.Web3Manager.cs` singleton — initializes before NetworkManager, holds player wallet reference
+- [x] Build wallet connect screen using InAppWallet (email/social login — no MetaMask needed)
+- [x] Display connected wallet address and AVAX balance in HUD
+- [x] All calls target Fuji testnet (43113)
+- **Key files:** `Web3Manager.cs`, `WalletConnectPanel.cs`, `WalletHUD.cs`, `Web3Bootstrap.cs`
+- **Scene flow:** Bootstrap (Scene 0) → SCK_MainMenu (wallet connect) → MP_Mechanics_6 (gameplay with HUD)
 - **Integration point:** Wallet connect happens before Fusion session join in NetworkManager flow
 
 ### Phase 2 — Ship NFTs (Ownership Matters)
@@ -251,7 +261,7 @@ These are the game systems where Web3 will connect:
 1. **What NFT standard for ships?** ERC-721 (unique ships) vs ERC-1155 (editions/variants)?
 2. **Token economy design?** Is there a fungible game token, or purely NFT-based?
 3. **Gasless transactions?** Use thirdweb smart wallet to sponsor gas for players?
-4. **Wallet flow?** InAppWallet (email/social login, no MetaMask needed) vs external wallet?
+4. ~~**Wallet flow?** InAppWallet (email/social login, no MetaMask needed) vs external wallet?~~ **RESOLVED: InAppWallet with email/social/guest**
 5. **On-chain vs off-chain?** What data goes on-chain (match results, ownership) vs stays off-chain (battle state, positions)?
 6. **Marketplace scope?** In-game trading, or link to external marketplace?
 
@@ -262,5 +272,20 @@ These are the game systems where Web3 will connect:
 - Always target **chain ID 43113** (Fuji testnet) for all contract deployments and transactions
 - Server wallet address: `0x2bBc1C32224a347eaF8d10cAFaF77F3aBCA2551f`
 - The Photon Fusion input system uses a custom RPC workaround — any Web3 calls must be async and not block the Fusion tick
-- ThirdwebManager is a singleton — place it in the first loaded scene or a persistent bootstrap scene
-- The game uses `GV.Network` namespace for all custom network code — Web3 scripts should use a `GV.Web3` or `GV.Blockchain` namespace
+- ThirdwebManager is a singleton — placed in Bootstrap scene (Scene 0), persists via DontDestroyOnLoad
+- Web3Manager is also a singleton — placed in Bootstrap scene, persists across scene loads
+- The game uses `GV.Network` namespace for all custom network code — Web3 scripts use `GV.Web3` namespace
+- Thirdweb Starter plan ($5/mo) is active — required for wallet API, even on testnet
+- BundleId can be left blank in ThirdwebManager — it auto-detects from Application.identifier
+- Guest wallet uses `SystemInfo.deviceUniqueIdentifier` — wallet persists across sessions on same device
+- Scene flow: Bootstrap → SCK_MainMenu → MP_Mechanics_6
+- Build Settings order: Bootstrap (0), SCK_MainMenu (1), MP_Mechanics_6 (2)
+
+### Web3 Scripts Reference
+
+| Script | Location | Purpose |
+|--------|----------|---------|
+| `Web3Manager.cs` | `Assets/GV/Scripts/Web3/` | Singleton — wallet connect, balance fetch, events |
+| `WalletConnectPanel.cs` | `Assets/GV/Scripts/Web3/` | Menu UI — email/social/guest login buttons, Play button |
+| `WalletHUD.cs` | `Assets/GV/Scripts/Web3/` | Gameplay overlay — wallet address + AVAX balance |
+| `Web3Bootstrap.cs` | `Assets/GV/Scripts/Web3/` | Bootstrap scene — verifies managers, loads menu scene |

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 using Thirdweb;
@@ -55,6 +56,16 @@ namespace GV.Web3
         [Tooltip("If set, this GameObject will be activated after wallet connects (e.g. a 'Play' button or lobby panel).")]
         [SerializeField] private GameObject showAfterConnect;
 
+        [Tooltip("The button that loads the gameplay scene after wallet is connected.")]
+        [SerializeField] private Button playButton;
+
+        [Header("Scene Loading")]
+        [Tooltip("The gameplay scene to load when the player clicks Play.")]
+        [SerializeField] private string gameplaySceneName = "MP_Mechanics_6";
+
+        [Tooltip("If true, automatically loads the gameplay scene after wallet connects (skips Play button).")]
+        [SerializeField] private bool autoLoadAfterConnect = false;
+
         private void OnEnable()
         {
             // Listen for Web3Manager events
@@ -84,6 +95,13 @@ namespace GV.Web3
             {
                 connectGuestButton.onClick.RemoveAllListeners();
                 connectGuestButton.onClick.AddListener(OnConnectGuestClicked);
+            }
+
+            if (playButton != null)
+            {
+                playButton.onClick.RemoveAllListeners();
+                playButton.onClick.AddListener(OnPlayClicked);
+                playButton.gameObject.SetActive(false); // Hidden until wallet connects
             }
 
             SetStatus("");
@@ -134,23 +152,48 @@ namespace GV.Web3
             Web3Manager.Instance.ConnectAsGuest();
         }
 
+        private void OnPlayClicked()
+        {
+            LoadGameplayScene();
+        }
+
+        private void LoadGameplayScene()
+        {
+            if (!string.IsNullOrEmpty(gameplaySceneName))
+            {
+                Debug.Log($"[WalletConnectPanel] Loading gameplay scene: {gameplaySceneName}");
+                SceneManager.LoadScene(gameplaySceneName);
+            }
+            else
+            {
+                Debug.LogError("[WalletConnectPanel] No gameplay scene name set!");
+            }
+        }
+
         // --- Event Handlers ---
 
         private void HandleWalletConnected(string address)
         {
             SetConnectingState(false);
-            SetStatus($"Connected: {Web3Manager.Instance.GetShortAddress()}");
+            string shortAddr = Web3Manager.Instance.GetShortAddress();
+            string balance = Web3Manager.Instance.BalanceFormatted;
+            SetStatus($"Connected: {shortAddr}\nBalance: {balance}");
             Debug.Log($"[WalletConnectPanel] Wallet connected: {address}");
-
-            // Hide this panel and show the next step (e.g. Play button or lobby)
-            if (panel != null)
-            {
-                panel.SetActive(false);
-            }
 
             if (showAfterConnect != null)
             {
                 showAfterConnect.SetActive(true);
+            }
+
+            if (autoLoadAfterConnect)
+            {
+                // Go straight to gameplay
+                LoadGameplayScene();
+            }
+            else if (playButton != null)
+            {
+                // Show the Play button so the player can proceed when ready
+                playButton.gameObject.SetActive(true);
             }
         }
 

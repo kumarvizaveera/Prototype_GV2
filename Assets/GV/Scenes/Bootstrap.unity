@@ -222,7 +222,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dec2d42f5b1668a4b83a47d67dc542f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GV.Web3.Web3Bootstrap
-  nextSceneName: SCK_MainMenu
+  nextSceneName: SCK_MainMenu_2
   autoLoadNextScene: 1
 --- !u!114 &1766639442
 MonoBehaviour:
