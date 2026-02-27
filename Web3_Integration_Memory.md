@@ -108,13 +108,22 @@ Assets/GV/
 - [x] Avalanche MCP server connected and operational
 - [x] Server wallet created and funded (2 AVAX on Fuji 43113)
 - [x] Smart wallet paired with server wallet
+- [x] Web3Manager.cs created (GV.Web3 namespace) — singleton, wallet connect, balance fetch
+- [x] WalletConnectPanel.cs created — UI for email/social/guest login
+- [x] WalletHUD.cs created — displays wallet address + balance overlay
+- [x] Web3Bootstrap.cs created — bootstrap scene loader
+- [x] SCK menu system reviewed — using Menus_InputSystem_SCK as foundation
 
-### Not Started
-- [ ] ThirdwebManager prefab configured with ClientId in scene
-- [ ] Player wallet connection flow (InAppWallet / EcosystemWallet / External)
+### In Progress (Phase 1)
+- [ ] ThirdwebManager prefab configured with ClientId in Bootstrap scene
+- [ ] Bootstrap scene created and set as Scene 0 in Build Settings
+- [ ] Main menu scene set up with wallet connect panel
+- [ ] WalletHUD integrated into gameplay scene
+- [ ] End-to-end test: connect wallet → see balance → enter match
+
+### Not Started (Phase 2+)
 - [ ] Smart contract design (NFTs for ships/Astras/skins? ERC-20 token? Battle rewards?)
 - [ ] Contract deployment on Fuji testnet
-- [ ] In-game wallet UI (connect, balance, inventory)
 - [ ] Linking wallet identity to Photon Fusion player session
 - [ ] On-chain match results / leaderboard
 - [ ] NFT-gated content (ships, skins, weapons)
