@@ -23,3 +23,8 @@
 - **Scene not loading after wallet connect**: WalletConnectPanel originally only hid itself after connecting — it didn't load the next scene. Fixed by adding a Play button + LoadGameplayScene() method using SceneManager.LoadScene(). Also added autoLoadAfterConnect option for quick testing.
 - **Google Version Handler popup on import**: Thirdweb triggers a Google dependency cleanup dialog. Safe to click Apply — it removes obsolete ExternalDependencyManager DLLs.
 - **BundleId confusion**: ThirdwebManager shows a BundleId field but it auto-fills from Application.identifier. Leave it blank.
+
+### Phase 2 — Ship NFTs
+- **Thirdweb server wallet EIP-7702 on Fuji**: The Thirdweb MCP server wallet (0x2bBc...) uses EIP-7702 transaction type. Fuji's bundler doesn't support EIP-7702 yet, so ALL transactions (deploy, mint, write) fail with "Chain does not support EIP-7702". Workaround: deploy and mint via the Thirdweb web dashboard instead.
+- **Ship names don't need to be on-chain**: ERC-1155 tokens are just IDs + quantities. All display info (names, rarity, descriptions) lives in Unity Inspector config. This means names can be changed anytime without touching the blockchain.
+- **ShipDefinition as Serializable class, not ScriptableObject**: Keeps ship config inline in ShipNFTManager's Inspector list — simpler for Veera to manage than separate asset files.

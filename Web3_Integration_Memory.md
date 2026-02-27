@@ -126,12 +126,23 @@ Assets/GV/
 - [x] Email login tested and working
 - [x] Thirdweb Starter billing plan enabled (required for bundler/paymaster services even on testnet)
 
-### Not Started (Phase 2+)
-- [ ] Smart contract design (NFTs for ships/Astras/skins? ERC-20 token? Battle rewards?)
-- [ ] Contract deployment on Fuji testnet
+### Phase 2 IN PROGRESS — Ship NFTs
+- [x] Decided on ERC-1155 for ships (supports editions + unique variants)
+- [x] Designed 3 ship tokens + 1 free default ship
+- [ ] Deploy ERC-1155 contract via Thirdweb dashboard (server wallet EIP-7702 not supported on Fuji — use dashboard UI)
+- [ ] Mint test ships (token IDs 1, 2, 3) from server wallet via dashboard
+- [x] ShipNFTManager.cs created — queries NFT balances, stores ownership, handles selection
+- [x] ShipSelectionUI.cs + ShipCardUI.cs created — ship selection screen with cards
+- [ ] Wire up ship selection to WalletConnectPanel flow (show after wallet connect, before Play)
+- [ ] Set up ship card prefab in Unity Inspector
+- [ ] Test end-to-end: wallet connect → fetch ships → select → enter match
+
+**Contract:** Not yet deployed (Thirdweb server wallet uses EIP-7702 which Fuji doesn't support — deploying via dashboard)
+**Ship Config:** All ship names/rarity/descriptions are Inspector-editable (NOT on-chain)
+
+### Not Started (Phase 3+)
 - [ ] Linking wallet identity to Photon Fusion player session
 - [ ] On-chain match results / leaderboard
-- [ ] NFT-gated content (ships, skins, weapons)
 - [ ] Token reward distribution post-match
 - [ ] Marketplace / trading system
 
@@ -176,6 +187,9 @@ These are the game systems where Web3 will connect:
 | Feb 27, 2026 | Bootstrap scene pattern for Web3 init | ThirdwebManager + Web3Manager persist via DontDestroyOnLoad, menu loads after |
 | Feb 27, 2026 | InAppWallet for player auth | Email, Google, Guest all working — no MetaMask/browser extension needed |
 | Feb 27, 2026 | Thirdweb Starter plan ($5/mo) | Required for bundler/paymaster services even on testnet — free tier blocks wallet API calls |
+| Feb 27, 2026 | ERC-1155 for ship NFTs | Supports edition variants (multiple copies of same ship type) + future unique 1-of-1 ships |
+| Feb 27, 2026 | Ship names/config in Inspector only | Nothing stored on-chain except token IDs — names, rarity, descriptions all editable anytime |
+| Feb 27, 2026 | Deploy via Thirdweb dashboard (not MCP) | Server wallet uses EIP-7702 which Fuji bundler doesn't support — dashboard uses standard transactions |
 
 ---
 
@@ -258,7 +272,7 @@ These are the game systems where Web3 will connect:
 
 ## 12. Open Questions
 
-1. **What NFT standard for ships?** ERC-721 (unique ships) vs ERC-1155 (editions/variants)?
+1. ~~**What NFT standard for ships?** ERC-721 (unique ships) vs ERC-1155 (editions/variants)?~~ **RESOLVED: ERC-1155 — supports both editions and unique variants**
 2. **Token economy design?** Is there a fungible game token, or purely NFT-based?
 3. **Gasless transactions?** Use thirdweb smart wallet to sponsor gas for players?
 4. ~~**Wallet flow?** InAppWallet (email/social login, no MetaMask needed) vs external wallet?~~ **RESOLVED: InAppWallet with email/social/guest**
@@ -289,3 +303,5 @@ These are the game systems where Web3 will connect:
 | `WalletConnectPanel.cs` | `Assets/GV/Scripts/Web3/` | Menu UI — email/social/guest login buttons, Play button |
 | `WalletHUD.cs` | `Assets/GV/Scripts/Web3/` | Gameplay overlay — wallet address + AVAX balance |
 | `Web3Bootstrap.cs` | `Assets/GV/Scripts/Web3/` | Bootstrap scene — verifies managers, loads menu scene |
+| `ShipNFTManager.cs` | `Assets/GV/Scripts/Web3/` | Singleton — queries ERC-1155 NFT balances, ship selection |
+| `ShipSelectionUI.cs` | `Assets/GV/Scripts/Web3/` | Ship selection screen UI + ShipCardUI for individual cards |

@@ -75,6 +75,12 @@ namespace GV.Web3
                 Web3Manager.Instance.OnError += HandleError;
             }
 
+            // Listen for ship selection — Play button only appears after a ship is confirmed
+            if (ShipNFTManager.Instance != null)
+            {
+                ShipNFTManager.Instance.OnShipSelected += HandleShipSelected;
+            }
+
             // Wire up buttons (safe to call multiple times — we remove listeners first)
             if (connectEmailButton != null)
             {
@@ -113,6 +119,11 @@ namespace GV.Web3
             {
                 Web3Manager.Instance.OnWalletConnected -= HandleWalletConnected;
                 Web3Manager.Instance.OnError -= HandleError;
+            }
+
+            if (ShipNFTManager.Instance != null)
+            {
+                ShipNFTManager.Instance.OnShipSelected -= HandleShipSelected;
             }
         }
 

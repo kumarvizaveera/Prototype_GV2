@@ -1,25 +1,65 @@
 # GV2 — Current Tasks
 
-## Phase 1: Web3 Foundation (Wallet Connect + Balance)
-
-### In Progress
-- [ ] Create Web3Manager.cs singleton (GV.Web3 namespace)
-- [ ] Create WalletConnectPanel.cs (UI for email/social login)
-- [ ] Create WalletHUD.cs (shows wallet address + AVAX balance)
-- [ ] Create Bootstrap scene setup (ThirdwebManager persistence)
-- [ ] Create GameState ScriptableObjects for menu flow
-- [ ] Write Unity-side setup instructions for Veera
+## Phase 1: Web3 Foundation (Wallet Connect + Balance) ✅ COMPLETE
 
 ### Done
 - [x] Thirdweb SDK imported
 - [x] Server wallet created and funded
-- [x] Reviewed SCK menu system — using it as foundation
-- [x] Reviewed NetworkManager.cs flow
-- [x] Reviewed Thirdweb PlaygroundManager examples
+- [x] Web3Manager.cs singleton created
+- [x] WalletConnectPanel.cs created
+- [x] WalletHUD.cs created
+- [x] Bootstrap scene setup complete
+- [x] End-to-end flow: Bootstrap → Menu → Connect Wallet → Enter Match
 
-### Notes
-- SCK's GameStateManager + Menu system will be the foundation
-- GameState is a ScriptableObject (create via VSX > Game State menu in Unity)
-- Wallet connect must happen BEFORE Fusion session join
-- All calls target Fuji testnet (chain 43113)
-- Thirdweb InAppWallet for email/social login — no MetaMask needed
+---
+
+## Phase 2: Ship NFTs (Ownership Matters) 🔧 IN PROGRESS
+
+### Done
+- [x] ShipNFTManager.cs — queries ERC-1155 balances, manages ship ownership + selection
+- [x] ShipSelectionUI.cs + ShipCardUI.cs — selection screen with cards, lock overlays
+- [x] ShipDefinition class — Inspector-editable ship config (names, rarity, token IDs, mesh index)
+- [x] Updated Web3_Integration_Memory.md with Phase 2 status
+
+### Needs Veera in Unity
+- [ ] Deploy ERC-1155 contract via Thirdweb dashboard (see deployment guide below)
+- [ ] Mint test ships (token IDs 1, 2, 3) via Thirdweb dashboard
+- [ ] Add ShipNFTManager component to Bootstrap scene (same GO as Web3Manager)
+- [ ] Paste contract address into ShipNFTManager Inspector field
+- [ ] Configure 4 ships in Inspector (1 default + 3 NFT ships)
+- [ ] Create ship card prefab with ShipCardUI component
+- [ ] Set up ShipSelectionUI panel in SCK_MainMenu scene
+- [ ] Wire ship selection into WalletConnectPanel flow
+- [ ] Test: wallet connect → fetch NFTs → select ship → enter match
+
+---
+
+## Deployment Guide — ERC-1155 Contract via Thirdweb Dashboard
+
+Since the Thirdweb server wallet uses EIP-7702 (which Fuji doesn't support yet),
+we deploy using the web dashboard instead. Takes about 2 minutes:
+
+1. Go to https://thirdweb.com/thirdweb.eth/TokenERC1155
+2. Click **"Deploy Now"**
+3. Fill in:
+   - **Name:** GV2 Vimanas
+   - **Symbol:** GV2V
+   - **Network:** Avalanche Fuji (search "fuji" in the dropdown)
+   - **Deployer/Owner:** Should be your connected wallet (use the server wallet or your own)
+4. Click **"Deploy"** and confirm the transaction
+5. Copy the **contract address** — paste it into ShipNFTManager in Unity Inspector
+6. Go to the contract's **"NFTs"** tab in the dashboard
+7. Click **"Mint"** three times:
+   - Token ID 1: Name "Ship Alpha" (or whatever), supply 10
+   - Token ID 2: Name "Ship Beta", supply 10
+   - Token ID 3: Name "Ship Gamma", supply 5
+8. Done! The Unity code will read these balances automatically.
+
+---
+
+## Notes
+- Ship names/rarity/descriptions are all in the Unity Inspector — NOT on-chain
+- The on-chain part is just token IDs and quantities
+- Default ship (free, no NFT) uses meshRootIndex 0 (Spaceship / Aircraft A)
+- NFT ships can map to meshRootIndex 0 or 1 (or higher when new meshes are added)
+- All blockchain calls are async and run in the background — won't freeze the game
