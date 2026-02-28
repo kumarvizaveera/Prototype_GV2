@@ -31,6 +31,10 @@ namespace GV.Web3
         [Tooltip("How the player logs in. Email = type an email and get a code. Social = Google/Discord/etc.")]
         [SerializeField] private AuthProvider defaultAuthProvider = AuthProvider.Google;
 
+        [Header("External Wallet (Reown/WalletConnect)")]
+        [Tooltip("Project ID from https://cloud.reown.com — needed for the 'Connect Wallet' button (MetaMask, etc). Free to create.")]
+        [SerializeField] private string reownProjectId = "";
+
         // --- State ---
         // The connected wallet (null if not connected yet)
         private IThirdwebWallet _wallet;
@@ -163,13 +167,16 @@ namespace GV.Web3
 
                 // ReownWallet connects to external wallets (MetaMask, Coinbase, etc.)
                 // via the WalletConnect / Reown protocol
+                // Use the project ID from the Inspector, or null to fall back to Thirdweb's default
+                string projId = string.IsNullOrEmpty(reownProjectId) ? null : reownProjectId;
+
                 var walletOptions = new WalletOptions(
                     provider: WalletProvider.ReownWallet,
                     chainId: chainId,
                     reownOptions: new ReownOptions(
-                        projectId: null,   // Uses default Thirdweb project ID
-                        name: null,
-                        description: null,
+                        projectId: projId,
+                        name: "Prototype GV2",
+                        description: "Mythic Futurism Battle Royale",
                         iconUrl: null,
                         url: null
                     )

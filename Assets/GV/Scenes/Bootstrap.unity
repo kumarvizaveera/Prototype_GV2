@@ -119,6 +119,74 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1001 &530453733
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 710658489450244879, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 1059.5289
+      objectReference: {fileID: 0}
+    - target: {fileID: 710658489450244879, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 729.07263
+      objectReference: {fileID: 0}
+    - target: {fileID: 710658489450244879, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 2.07935
+      objectReference: {fileID: 0}
+    - target: {fileID: 710658489450244879, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 710658489450244879, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 710658489450244879, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 710658489450244879, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 710658489450244879, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 710658489450244879, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 710658489450244879, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6019781919744940759, guid: fc9e7b2d2aa114b7684aede0fa95d202,
+        type: 3}
+      propertyPath: m_Name
+      value: Reown AppKit
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: fc9e7b2d2aa114b7684aede0fa95d202, type: 3}
 --- !u!1001 &1626084664
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -239,6 +307,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GV.Web3.Web3Manager
   chainId: 43113
   defaultAuthProvider: 1
+  reownProjectId: a485625dc1931af87540a238d4ef8263
 --- !u!4 &1766639443
 Transform:
   m_ObjectHideFlags: 0
@@ -302,3 +371,4 @@ SceneRoots:
   m_Roots:
   - {fileID: 1626084664}
   - {fileID: 1766639443}
+  - {fileID: 530453733}

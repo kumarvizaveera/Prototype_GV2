@@ -1,7 +1,7 @@
 # GV2 — Web3 Integration Memory
 
 > Persistent context file for the thirdweb + Avalanche blockchain integration into Prototype_GV2.
-> Last updated: Feb 27, 2026
+> Last updated: Feb 28, 2026
 
 ---
 
@@ -125,6 +125,12 @@ Assets/GV/
 - [x] Google login tested and working
 - [x] Email login tested and working
 - [x] Thirdweb Starter billing plan enabled (required for bundler/paymaster services even on testnet)
+- [x] External wallet connect added (MetaMask, Coinbase Wallet, etc. via Reown/WalletConnect)
+- [x] Reown AppKit Unity package installed (v1.5.2 via OpenUPM scoped registry)
+- [x] Reown AppKit prefab added to Bootstrap scene
+- [x] Reown Project ID configurable via Inspector field on Web3Manager
+- [x] `THIRDWEB_REOWN` scripting define symbol added to Player Settings
+- [x] Thirdweb's bundled Nethereum DLLs removed (replaced by com.nethereum.unity v5.0.0 from OpenUPM)
 
 ### Phase 2 COMPLETE — Ship NFTs ✅
 - [x] Decided on ERC-1155 for ships (supports editions + unique variants)
@@ -192,6 +198,10 @@ These are the game systems where Web3 will connect:
 | Feb 27, 2026 | ERC-1155 for ship NFTs | Supports edition variants (multiple copies of same ship type) + future unique 1-of-1 ships |
 | Feb 27, 2026 | Ship names/config in Inspector only | Nothing stored on-chain except token IDs — names, rarity, descriptions all editable anytime |
 | Feb 27, 2026 | Deploy via Thirdweb dashboard (not MCP) | Server wallet uses EIP-7702 which Fuji bundler doesn't support — dashboard uses standard transactions |
+| Feb 28, 2026 | Add external wallet connect (Reown/WalletConnect) | Web3-native players can use MetaMask, Coinbase Wallet, etc. alongside InAppWallet options |
+| Feb 28, 2026 | Install Reown via OpenUPM scoped registry (not git URL) | Direct git URL had unresolvable sub-dependencies; OpenUPM resolves com.reown.* and com.nethereum.* automatically |
+| Feb 28, 2026 | Remove Thirdweb's bundled Nethereum DLLs | Reown brings com.nethereum.unity v5.0.0 via OpenUPM — duplicate DLLs caused compile errors. Both use Nethereum 5.0.0 so compatible |
+| Feb 28, 2026 | Use needle-mirror for com.unity.vectorgraphics | Reown needs vectorgraphics 3.0.0-preview which isn't in Unity's default registry — pulled from GitHub mirror |
 
 ---
 
@@ -205,9 +215,11 @@ These are the game systems where Web3 will connect:
 - [x] Build wallet connect screen using InAppWallet (email/social login — no MetaMask needed)
 - [x] Display connected wallet address and AVAX balance in HUD
 - [x] All calls target Fuji testnet (43113)
+- [x] Add external wallet support via Reown/WalletConnect (MetaMask, Coinbase Wallet, 400+ wallets)
 - **Key files:** `Web3Manager.cs`, `WalletConnectPanel.cs`, `WalletHUD.cs`, `Web3Bootstrap.cs`
 - **Scene flow:** Bootstrap (Scene 0) → SCK_MainMenu (wallet connect) → MP_Mechanics_6 (gameplay with HUD)
 - **Integration point:** Wallet connect happens before Fusion session join in NetworkManager flow
+- **Login options:** Email, Google, Discord, Guest (InAppWallet) + Connect Existing Wallet (ReownWallet)
 
 ### Phase 2 — Ship NFTs (Ownership Matters) ✅ COMPLETE
 > Goal: Players own ships as NFTs. Ship selection is gated by what you hold in your wallet.
@@ -279,7 +291,7 @@ These are the game systems where Web3 will connect:
 1. ~~**What NFT standard for ships?** ERC-721 (unique ships) vs ERC-1155 (editions/variants)?~~ **RESOLVED: ERC-1155 — supports both editions and unique variants**
 2. **Token economy design?** Is there a fungible game token, or purely NFT-based?
 3. **Gasless transactions?** Use thirdweb smart wallet to sponsor gas for players?
-4. ~~**Wallet flow?** InAppWallet (email/social login, no MetaMask needed) vs external wallet?~~ **RESOLVED: InAppWallet with email/social/guest**
+4. ~~**Wallet flow?** InAppWallet (email/social login, no MetaMask needed) vs external wallet?~~ **RESOLVED: Both — InAppWallet (email/social/guest) for casual players + ReownWallet (MetaMask, Coinbase, etc.) for Web3-native players**
 5. **On-chain vs off-chain?** What data goes on-chain (match results, ownership) vs stays off-chain (battle state, positions)?
 6. **Marketplace scope?** In-game trading, or link to external marketplace?
 
@@ -298,13 +310,19 @@ These are the game systems where Web3 will connect:
 - Guest wallet uses `SystemInfo.deviceUniqueIdentifier` — wallet persists across sessions on same device
 - Scene flow: Bootstrap → SCK_MainMenu → MP_Mechanics_6
 - Build Settings order: Bootstrap (0), SCK_MainMenu (1), MP_Mechanics_6 (2)
+- **Reown/WalletConnect setup:** Reown AppKit prefab must be in Bootstrap scene alongside ThirdwebManager
+- **Reown Project ID** is set on Web3Manager Inspector (from https://cloud.reown.com)
+- **Scripting define `THIRDWEB_REOWN`** must be in Player Settings for external wallet support
+- Reown packages come from OpenUPM scoped registry (`com.reown` + `com.nethereum` scopes in manifest.json)
+- Thirdweb's bundled Nethereum DLLs were removed from `Assets/Thirdweb/Runtime/NET/` — do NOT re-add them (Reown brings com.nethereum.unity v5.0.0 via OpenUPM instead)
+- `com.unity.vectorgraphics` pulled from needle-mirror GitHub (3.0.0-preview.2) — not in Unity's default registry
 
 ### Web3 Scripts Reference
 
 | Script | Location | Purpose |
 |--------|----------|---------|
-| `Web3Manager.cs` | `Assets/GV/Scripts/Web3/` | Singleton — wallet connect, balance fetch, events |
-| `WalletConnectPanel.cs` | `Assets/GV/Scripts/Web3/` | Menu UI — email/social/guest login buttons, Play button |
+| `Web3Manager.cs` | `Assets/GV/Scripts/Web3/` | Singleton — wallet connect (InApp + External), balance fetch, events |
+| `WalletConnectPanel.cs` | `Assets/GV/Scripts/Web3/` | Menu UI — email/social/guest/external wallet buttons, Play button |
 | `WalletHUD.cs` | `Assets/GV/Scripts/Web3/` | Gameplay overlay — wallet address + AVAX balance |
 | `Web3Bootstrap.cs` | `Assets/GV/Scripts/Web3/` | Bootstrap scene — verifies managers, loads menu scene |
 | `ShipNFTManager.cs` | `Assets/GV/Scripts/Web3/` | Singleton — queries ERC-1155 NFT balances, ship selection |
