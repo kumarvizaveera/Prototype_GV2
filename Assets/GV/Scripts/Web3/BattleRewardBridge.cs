@@ -207,25 +207,37 @@ namespace GV.Web3
                 if (realPlacement > 0) localPlacement = realPlacement;
             }
 
-            var players = new List<PlayerRewardInfo>();
-            if (Web3Manager.Instance != null && Web3Manager.Instance.IsWalletConnected)
-            {
-                players.Add(new PlayerRewardInfo
-                {
-                    walletAddress = Web3Manager.Instance.WalletAddress,
-                    placement = localPlacement
-                });
+            // Check if wallet is connected
+            bool walletConnected = Web3Manager.Instance != null && Web3Manager.Instance.IsWalletConnected;
 
-                Debug.Log($"[BattleRewardBridge] Local player {Web3Manager.Instance.GetShortAddress()} → " +
-                    $"{GetPlacementLabel(localPlacement)} (REAL placement)");
+            if (!walletConnected)
+            {
+                Debug.LogWarning("[BattleRewardBridge] No wallet connected — showing placement but can't mint tokens. " +
+                    "Start from Bootstrap scene to connect a wallet.");
+
+                if (postMatchUI != null)
+                {
+                    postMatchUI.ShowNoWallet(localPlacement);
+                }
+                return;
             }
+
+            var players = new List<PlayerRewardInfo>();
+            players.Add(new PlayerRewardInfo
+            {
+                walletAddress = Web3Manager.Instance.WalletAddress,
+                placement = localPlacement
+            });
+
+            Debug.Log($"[BattleRewardBridge] Local player {Web3Manager.Instance.GetShortAddress()} → " +
+                $"{GetPlacementLabel(localPlacement)} (REAL placement)");
 
             if (postMatchUI != null && localPlacement > 0)
             {
                 postMatchUI.ShowProcessing(localPlacement);
             }
 
-            if (BattleRewardManager.Instance != null && players.Count > 0)
+            if (BattleRewardManager.Instance != null)
             {
                 BattleRewardManager.Instance.DistributeRewards(players);
             }
@@ -271,19 +283,25 @@ namespace GV.Web3
             if (_hasDistributedThisMatch) return;
             _hasDistributedThisMatch = true;
 
-            var players = new List<PlayerRewardInfo>();
-            if (Web3Manager.Instance != null && Web3Manager.Instance.IsWalletConnected)
+            bool walletConnected = Web3Manager.Instance != null && Web3Manager.Instance.IsWalletConnected;
+
+            if (!walletConnected)
             {
-                players.Add(new PlayerRewardInfo
-                {
-                    walletAddress = Web3Manager.Instance.WalletAddress,
-                    placement = 1
-                });
+                Debug.LogWarning("[BattleRewardBridge] No wallet connected — showing placement but can't mint tokens.");
+                if (postMatchUI != null) postMatchUI.ShowNoWallet(1);
+                return;
             }
+
+            var players = new List<PlayerRewardInfo>();
+            players.Add(new PlayerRewardInfo
+            {
+                walletAddress = Web3Manager.Instance.WalletAddress,
+                placement = 1
+            });
 
             if (postMatchUI != null) postMatchUI.ShowProcessing(1);
 
-            if (BattleRewardManager.Instance != null && players.Count > 0)
+            if (BattleRewardManager.Instance != null)
             {
                 BattleRewardManager.Instance.DistributeRewards(players);
             }

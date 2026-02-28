@@ -37,6 +37,9 @@ namespace GV.Web3
         [Tooltip("Shows the updated total balance after rewards.")]
         [SerializeField] private TMP_Text totalBalanceText;
 
+        // Retry subscription — BattleRewardManager may be auto-created after us
+        private bool _subscribedToRewards = false;
+
         private void Start()
         {
             // Auto-create UI if no panel reference is assigned
@@ -51,22 +54,40 @@ namespace GV.Web3
 
         private void OnEnable()
         {
-            if (BattleRewardManager.Instance != null)
+            TrySubscribeToRewardManager();
+        }
+
+        private void Update()
+        {
+            // Keep trying until we subscribe (BattleRewardManager may be auto-created later)
+            if (!_subscribedToRewards)
             {
-                BattleRewardManager.Instance.OnRewardsDistributed += HandleRewardsDistributed;
-                BattleRewardManager.Instance.OnRewardError += HandleRewardError;
-                BattleRewardManager.Instance.OnTokenBalanceUpdated += HandleBalanceUpdated;
+                TrySubscribeToRewardManager();
             }
+        }
+
+        private void TrySubscribeToRewardManager()
+        {
+            if (_subscribedToRewards) return;
+            if (BattleRewardManager.Instance == null) return;
+
+            BattleRewardManager.Instance.OnRewardsDistributed += HandleRewardsDistributed;
+            BattleRewardManager.Instance.OnRewardError += HandleRewardError;
+            BattleRewardManager.Instance.OnTokenBalanceUpdated += HandleBalanceUpdated;
+            _subscribedToRewards = true;
+
+            Debug.Log("[PostMatchRewardUI] Subscribed to BattleRewardManager events.");
         }
 
         private void OnDisable()
         {
-            if (BattleRewardManager.Instance != null)
+            if (BattleRewardManager.Instance != null && _subscribedToRewards)
             {
                 BattleRewardManager.Instance.OnRewardsDistributed -= HandleRewardsDistributed;
                 BattleRewardManager.Instance.OnRewardError -= HandleRewardError;
                 BattleRewardManager.Instance.OnTokenBalanceUpdated -= HandleBalanceUpdated;
             }
+            _subscribedToRewards = false;
         }
 
         /// <summary>
@@ -106,6 +127,47 @@ namespace GV.Web3
 
             if (totalBalanceText != null)
                 totalBalanceText.text = "";
+        }
+
+        /// <summary>
+        /// Show the reward panel when no wallet is connected.
+        /// Shows placement and potential reward, but explains that wallet is needed.
+        /// </summary>
+        public void ShowNoWallet(int playerPlacement)
+        {
+            if (rewardPanel != null)
+                rewardPanel.SetActive(true);
+
+            float expectedReward = 0;
+            string placementLabel = $"#{playerPlacement}";
+
+            if (BattleRewardManager.Instance != null)
+            {
+                expectedReward = BattleRewardManager.Instance.GetRewardForPlacement(playerPlacement);
+
+                var config = BattleRewardManager.Instance.RewardConfig;
+                int index = playerPlacement - 1;
+                if (index >= 0 && index < config.Count)
+                {
+                    placementLabel = config[index].placementLabel;
+                }
+            }
+
+            string tokenSymbol = BattleRewardManager.Instance?.TokenSymbol ?? "PRANA";
+
+            if (placementText != null)
+                placementText.text = placementLabel;
+
+            if (rewardAmountText != null)
+                rewardAmountText.text = $"+{expectedReward} {tokenSymbol}";
+
+            if (statusText != null)
+                statusText.text = "Connect wallet to receive rewards!";
+
+            if (totalBalanceText != null)
+                totalBalanceText.text = "Start from Bootstrap scene to connect";
+
+            Debug.Log($"[PostMatchRewardUI] Showing no-wallet state for {placementLabel}");
         }
 
         /// <summary>
