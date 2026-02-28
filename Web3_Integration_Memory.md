@@ -126,19 +126,21 @@ Assets/GV/
 - [x] Email login tested and working
 - [x] Thirdweb Starter billing plan enabled (required for bundler/paymaster services even on testnet)
 
-### Phase 2 IN PROGRESS — Ship NFTs
+### Phase 2 COMPLETE — Ship NFTs ✅
 - [x] Decided on ERC-1155 for ships (supports editions + unique variants)
-- [x] Designed 3 ship tokens + 1 free default ship
-- [ ] Deploy ERC-1155 contract via Thirdweb dashboard (server wallet EIP-7702 not supported on Fuji — use dashboard UI)
-- [ ] Mint test ships (token IDs 1, 2, 3) from server wallet via dashboard
+- [x] Designed 4 ship tokens (token IDs 0, 1, 2, 3) + 1 free default ship
+- [x] Deployed ERC-1155 contract on Fuji via Thirdweb dashboard
+- [x] Minted 4 ship tokens from dashboard
 - [x] ShipNFTManager.cs created — queries NFT balances, stores ownership, handles selection
 - [x] ShipSelectionUI.cs + ShipCardUI.cs created — ship selection screen with cards
-- [ ] Wire up ship selection to WalletConnectPanel flow (show after wallet connect, before Play)
-- [ ] Set up ship card prefab in Unity Inspector
-- [ ] Test end-to-end: wallet connect → fetch ships → select → enter match
+- [x] ShipCardUI split into its own file (Unity requires MonoBehaviour filename match)
+- [x] Wired ship selection into WalletConnectPanel flow (OnShipSelected → show Play button)
+- [x] Ship card prefab set up with Rect Mask 2D, icon, lock overlay, selection highlight
+- [x] End-to-end tested: wallet connect → fetch NFTs → select ship → confirm → play
 
-**Contract:** Not yet deployed (Thirdweb server wallet uses EIP-7702 which Fuji doesn't support — deploying via dashboard)
+**Contract:** `0x8405209745b8f1A43D21876120543d20e4a7600C` (ERC-1155 on Fuji 43113)
 **Ship Config:** All ship names/rarity/descriptions are Inspector-editable (NOT on-chain)
+**Flow:** Connect Wallet → Ship Selection Panel → Confirm Ship → Play Button → Gameplay
 
 ### Not Started (Phase 3+)
 - [ ] Linking wallet identity to Photon Fusion player session
@@ -207,16 +209,18 @@ These are the game systems where Web3 will connect:
 - **Scene flow:** Bootstrap (Scene 0) → SCK_MainMenu (wallet connect) → MP_Mechanics_6 (gameplay with HUD)
 - **Integration point:** Wallet connect happens before Fusion session join in NetworkManager flow
 
-### Phase 2 — Ship NFTs (Ownership Matters)
+### Phase 2 — Ship NFTs (Ownership Matters) ✅ COMPLETE
 > Goal: Players own ships as NFTs. Ship selection is gated by what you hold in your wallet.
 
-- [ ] Deploy ERC-1155 contract on Fuji for Vimana ships (1155 allows unique 1-of-1s and edition variants)
-- [ ] Mint test ships from server wallet
-- [ ] After wallet connect, query player's NFT balance and populate ship selection
-- [ ] Players without NFTs get a default free ship
-- [ ] Map each token ID to a ship prefab/mesh variant
-- **Key files:** ERC-1155 contract, new `ShipNFTManager.cs`, hooks into `AircraftMeshSwap.cs`
+- [x] Deploy ERC-1155 contract on Fuji for Vimana ships
+- [x] Mint test ships (token IDs 0, 1, 2, 3)
+- [x] After wallet connect, query player's NFT balance and populate ship selection
+- [x] Players without NFTs get a default free ship
+- [x] Map each token ID to a ship prefab/mesh variant (configurable in Inspector)
+- **Contract:** `0x8405209745b8f1A43D21876120543d20e4a7600C`
+- **Key files:** `ShipNFTManager.cs`, `ShipSelectionUI.cs`, `ShipCardUI.cs`, updated `WalletConnectPanel.cs`
 - **Integration point:** Ship selection screen between wallet connect and match join
+- **Scene flow:** Bootstrap → Menu → Connect Wallet → Select Ship → Confirm → Play → Gameplay
 
 ### Phase 3 — Battle Rewards (Earn by Playing)
 > Goal: Players earn fungible tokens for competing. Better placement = bigger reward.
@@ -304,4 +308,5 @@ These are the game systems where Web3 will connect:
 | `WalletHUD.cs` | `Assets/GV/Scripts/Web3/` | Gameplay overlay — wallet address + AVAX balance |
 | `Web3Bootstrap.cs` | `Assets/GV/Scripts/Web3/` | Bootstrap scene — verifies managers, loads menu scene |
 | `ShipNFTManager.cs` | `Assets/GV/Scripts/Web3/` | Singleton — queries ERC-1155 NFT balances, ship selection |
-| `ShipSelectionUI.cs` | `Assets/GV/Scripts/Web3/` | Ship selection screen UI + ShipCardUI for individual cards |
+| `ShipSelectionUI.cs` | `Assets/GV/Scripts/Web3/` | Ship selection screen UI — populates cards, handles confirm |
+| `ShipCardUI.cs` | `Assets/GV/Scripts/Web3/` | Individual ship card — icon, lock overlay, selection highlight |

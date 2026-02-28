@@ -135,6 +135,69 @@ namespace GV.Web3
         }
 
         /// <summary>
+        /// Connect an external wallet like MetaMask, Coinbase Wallet, Trust Wallet, etc.
+        /// This uses the ReownWallet (formerly WalletConnect) protocol — it shows a QR code
+        /// or opens the player's wallet app so they can approve the connection.
+        /// Best for players who already have their own crypto wallet.
+        /// </summary>
+        public async void ConnectWithExternalWallet()
+        {
+            if (_isConnecting)
+            {
+                Debug.LogWarning("[Web3Manager] Already connecting, please wait...");
+                return;
+            }
+
+            _isConnecting = true;
+            Debug.Log("[Web3Manager] Connecting external wallet via Reown...");
+
+            try
+            {
+                if (ThirdwebManager.Instance == null)
+                {
+                    throw new Exception(
+                        "ThirdwebManager not found! Make sure the ThirdwebManager prefab is in your Bootstrap scene " +
+                        "and has a valid ClientId set in the Inspector."
+                    );
+                }
+
+                // ReownWallet connects to external wallets (MetaMask, Coinbase, etc.)
+                // via the WalletConnect / Reown protocol
+                var walletOptions = new WalletOptions(
+                    provider: WalletProvider.ReownWallet,
+                    chainId: chainId,
+                    reownOptions: new ReownOptions(
+                        projectId: null,   // Uses default Thirdweb project ID
+                        name: null,
+                        description: null,
+                        iconUrl: null,
+                        url: null
+                    )
+                );
+
+                _wallet = await ThirdwebManager.Instance.ConnectWallet(walletOptions);
+
+                _walletAddress = await _wallet.GetAddress();
+                Debug.Log($"[Web3Manager] External wallet connected: {_walletAddress}");
+
+                await FetchBalance();
+
+                OnWalletConnected?.Invoke(_walletAddress);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Web3Manager] External wallet connection failed: {ex.Message}");
+                OnError?.Invoke($"Wallet connection failed: {ex.Message}");
+                _wallet = null;
+                _walletAddress = "";
+            }
+            finally
+            {
+                _isConnecting = false;
+            }
+        }
+
+        /// <summary>
         /// Disconnect the current wallet.
         /// </summary>
         public void Disconnect()

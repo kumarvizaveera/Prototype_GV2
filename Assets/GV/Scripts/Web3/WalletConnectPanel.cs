@@ -52,6 +52,9 @@ namespace GV.Web3
         [Tooltip("Connects as a guest (temporary, good for testing).")]
         [SerializeField] private Button connectGuestButton;
 
+        [Tooltip("Connects an external wallet like MetaMask, Coinbase Wallet, etc.")]
+        [SerializeField] private Button connectExternalWalletButton;
+
         [Header("Post-Connect")]
         [Tooltip("If set, this GameObject will be activated after wallet connects (e.g. a 'Play' button or lobby panel).")]
         [SerializeField] private GameObject showAfterConnect;
@@ -101,6 +104,11 @@ namespace GV.Web3
             {
                 connectGuestButton.onClick.RemoveAllListeners();
                 connectGuestButton.onClick.AddListener(OnConnectGuestClicked);
+            }
+            if (connectExternalWalletButton != null)
+            {
+                connectExternalWalletButton.onClick.RemoveAllListeners();
+                connectExternalWalletButton.onClick.AddListener(OnConnectExternalWalletClicked);
             }
 
             if (playButton != null)
@@ -163,6 +171,13 @@ namespace GV.Web3
             Web3Manager.Instance.ConnectAsGuest();
         }
 
+        private void OnConnectExternalWalletClicked()
+        {
+            SetConnectingState(true);
+            SetStatus("Opening wallet connection...");
+            Web3Manager.Instance.ConnectWithExternalWallet();
+        }
+
         private void OnPlayClicked()
         {
             LoadGameplayScene();
@@ -191,6 +206,7 @@ namespace GV.Web3
             SetStatus($"Connected: {shortAddr}\nBalance: {balance}");
             Debug.Log($"[WalletConnectPanel] Wallet connected: {address}");
 
+            // Show the ship selection panel (ShipNFTManager auto-fetches NFTs on wallet connect)
             if (showAfterConnect != null)
             {
                 showAfterConnect.SetActive(true);
@@ -198,12 +214,24 @@ namespace GV.Web3
 
             if (autoLoadAfterConnect)
             {
-                // Go straight to gameplay
+                // Go straight to gameplay (skip ship selection — for quick testing)
                 LoadGameplayScene();
             }
-            else if (playButton != null)
+            // Play button stays hidden — it appears after the player picks a ship
+            // (handled by HandleShipSelected below)
+        }
+
+        /// <summary>
+        /// Called when the player confirms a ship in ShipSelectionUI.
+        /// Now we can show the Play button.
+        /// </summary>
+        private void HandleShipSelected(ShipDefinition ship)
+        {
+            Debug.Log($"[WalletConnectPanel] Ship selected: {ship.displayName}");
+            SetStatus($"Ship: {ship.displayName} | Ready to play!");
+
+            if (playButton != null)
             {
-                // Show the Play button so the player can proceed when ready
                 playButton.gameObject.SetActive(true);
             }
         }
@@ -244,6 +272,7 @@ namespace GV.Web3
             if (connectGoogleButton != null) connectGoogleButton.interactable = !connecting;
             if (connectDiscordButton != null) connectDiscordButton.interactable = !connecting;
             if (connectGuestButton != null) connectGuestButton.interactable = !connecting;
+            if (connectExternalWalletButton != null) connectExternalWalletButton.interactable = !connecting;
             if (emailInputField != null) emailInputField.interactable = !connecting;
         }
     }
