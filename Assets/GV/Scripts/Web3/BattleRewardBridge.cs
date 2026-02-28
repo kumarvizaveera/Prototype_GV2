@@ -61,6 +61,23 @@ namespace GV.Web3
             {
                 postMatchUI = GetComponentInChildren<PostMatchRewardUI>();
             }
+
+            // Auto-create BattleRewardManager if it doesn't exist
+            // (happens when launching directly into the gameplay scene instead of Bootstrap)
+            EnsureBattleRewardManager();
+        }
+
+        /// <summary>
+        /// Creates a BattleRewardManager if one isn't already in the scene.
+        /// This way rewards work no matter which scene you start from.
+        /// </summary>
+        private void EnsureBattleRewardManager()
+        {
+            if (BattleRewardManager.Instance != null) return;
+
+            var go = new GameObject("BattleRewardManager (Auto)");
+            go.AddComponent<BattleRewardManager>();
+            Debug.Log("[BattleRewardBridge] Auto-created BattleRewardManager (not found in scene)");
         }
 
         private void Update()
