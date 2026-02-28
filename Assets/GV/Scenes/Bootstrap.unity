@@ -272,6 +272,7 @@ GameObject:
   - component: {fileID: 1766639442}
   - component: {fileID: 1766639441}
   - component: {fileID: 1766639444}
+  - component: {fileID: 1766639445}
   m_Layer: 0
   m_Name: 'Web3Manager '
   m_TagString: Untagged
@@ -365,6 +366,33 @@ MonoBehaviour:
     meshRootIndex: 0
     isDefault: 0
     icon: {fileID: 21300000, guid: 20288f5342c495c41bc71574689ef2bc, type: 3}
+--- !u!114 &1766639445
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1766639440}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5464ecff09f3238419730ce87d33ef64, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.Web3.BattleRewardManager
+  tokenContractAddress: 0xBF7c298C0f3E4745Ec902ED0008223747EEbd0d1
+  tokenDisplayName: PRANA
+  tokenSymbol: PRANA
+  tokenDecimals: 18
+  rewardWalletPrivateKey: 0a441d05d1d856a59dde57ae027db86d41998eaeb96335467021d95ff2b76a32
+  rpcUrl: https://api.avax-test.network/ext/bc/C/rpc
+  rewardsByPlacement:
+  - placementLabel: 1st Place
+    tokenAmount: 100
+  - placementLabel: 2nd Place
+    tokenAmount: 60
+  - placementLabel: 3rd Place
+    tokenAmount: 30
+  - placementLabel: 4th Place
+    tokenAmount: 10
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

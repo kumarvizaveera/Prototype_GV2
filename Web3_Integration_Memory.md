@@ -148,10 +148,34 @@ Assets/GV/
 **Ship Config:** All ship names/rarity/descriptions are Inspector-editable (NOT on-chain)
 **Flow:** Connect Wallet → Ship Selection Panel → Confirm Ship → Play Button → Gameplay
 
-### Not Started (Phase 3+)
+### Phase 3 IN PROGRESS — Battle Rewards (Earn by Playing)
+- [x] Deployed ERC-20 token contract on Fuji via Thirdweb dashboard
+- [x] Minted 1,000,000 token supply
+- [x] Granted Minter role to server wallet (0x2bBc... — but can't use due to EIP-7702)
+- [x] Generated dedicated reward wallet (regular EOA, no EIP-7702 issues)
+- [x] Granted Minter role to reward wallet
+- [x] BattleRewardManager.cs created — configurable token name, symbol, reward amounts per placement
+- [x] PostMatchRewardUI.cs created — shows placement + earnings after match
+- [x] BattleRewardBridge.cs created — connects NetworkedGameManager.Finished → reward distribution
+- [x] WalletHUD.cs updated — shows game token balance alongside AVAX
+- [x] Fund reward wallet with test AVAX (0.007 AVAX via faucet)
+- [x] Set up BattleRewardManager in Bootstrap scene (Unity Inspector configured)
+- [x] End-to-end test: press R → 100 PRANA minted → tx confirmed on Fuji ✅
+- [x] PostMatchRewardUI auto-builds its own canvas (no manual setup needed)
+- [x] WalletHUD auto-creates token balance text below AVAX balance
+- [x] EliminationTracker.cs created — tracks ship deaths, assigns real placements, auto-ends match
+- [x] BattleRewardBridge updated — uses real placements from EliminationTracker
+- [ ] End-to-end test with real elimination tracking (2+ players)
+
+**Token Contract:** `0xBF7c298C0f3E4745Ec902ED0008223747EEbd0d1` (ERC-20 on Fuji 43113)
+**Token Name/Symbol:** Configurable in Inspector (default: PRANA)
+**Reward Wallet:** `0x78A75F10f4c2A20bd30c4A683607ABc1A22Bb352` (regular EOA with Minter role)
+**Reward Flow:** Match Ends → BattleRewardBridge → BattleRewardManager.DistributeRewards() → mintTo() → PostMatchRewardUI
+**Test Shortcut:** Press R during gameplay to trigger test reward distribution
+
+### Not Started (Phase 4+)
 - [ ] Linking wallet identity to Photon Fusion player session
 - [ ] On-chain match results / leaderboard
-- [ ] Token reward distribution post-match
 - [ ] Marketplace / trading system
 
 ---
@@ -202,6 +226,13 @@ These are the game systems where Web3 will connect:
 | Feb 28, 2026 | Install Reown via OpenUPM scoped registry (not git URL) | Direct git URL had unresolvable sub-dependencies; OpenUPM resolves com.reown.* and com.nethereum.* automatically |
 | Feb 28, 2026 | Remove Thirdweb's bundled Nethereum DLLs | Reown brings com.nethereum.unity v5.0.0 via OpenUPM — duplicate DLLs caused compile errors. Both use Nethereum 5.0.0 so compatible |
 | Feb 28, 2026 | Use needle-mirror for com.unity.vectorgraphics | Reown needs vectorgraphics 3.0.0-preview which isn't in Unity's default registry — pulled from GitHub mirror |
+| Feb 28, 2026 | ERC-20 for game token (not off-chain points) | Needs to be tradeable, stakeable (Phase 6 tournaments), spendable (Phase 4 weapon packs), owned by players |
+| Feb 28, 2026 | Dedicated reward wallet (regular EOA) instead of server wallet | Server wallet uses EIP-7702 which Fuji bundler doesn't support — same issue as Phase 2. Regular EOA sends standard transactions |
+| Feb 28, 2026 | PrivateKeyWallet stored in Inspector (prototype only) | For testnet development. Production would use a secure backend server to sign mint transactions |
+| Feb 28, 2026 | BattleRewardBridge as separate script | Keeps GV.Network and GV.Web3 namespaces cleanly separated — neither depends on the other |
+| Feb 28, 2026 | Dummy placements (player always 1st) for prototype | Real elimination tracking needs to be added to NetworkedGameManager — separate task |
+| Feb 28, 2026 | Token name/symbol/rewards all Inspector-configurable | Veera can change token display name, symbol, and reward amounts per placement without touching code |
+| Feb 28, 2026 | Use Nethereum for minting (not Thirdweb PrivateKeyWallet) | PrivateKeyWallet doesn't exist in Thirdweb Unity SDK v6.1.3 — only PrivateKeyAccount. Nethereum is already installed via Reown and works perfectly for signing transactions |
 
 ---
 
@@ -234,15 +265,23 @@ These are the game systems where Web3 will connect:
 - **Integration point:** Ship selection screen between wallet connect and match join
 - **Scene flow:** Bootstrap → Menu → Connect Wallet → Select Ship → Confirm → Play → Gameplay
 
-### Phase 3 — Battle Rewards (Earn by Playing)
+### Phase 3 — Battle Rewards (Earn by Playing) 🔧 IN PROGRESS
 > Goal: Players earn fungible tokens for competing. Better placement = bigger reward.
 
-- [ ] Deploy ERC-20 token contract on Fuji (game currency — PRANA, ASTRA, or lore-appropriate name)
-- [ ] On `NetworkedGameManager.GameState.Finished`, host submits match results
-- [ ] Server wallet distributes tokens based on placement (winner gets most, all survivors earn something)
-- [ ] Display earnings in post-match summary screen
-- **Key files:** ERC-20 contract, new `BattleRewardManager.cs`, hooks into `NetworkedGameManager.cs`
-- **Integration point:** Triggered by game state transition to Finished
+- [x] Deploy ERC-20 token contract on Fuji (configurable name/symbol, default: PRANA)
+- [x] On `NetworkedGameManager.GameState.Finished`, BattleRewardBridge triggers reward distribution
+- [x] Dedicated reward wallet (regular EOA) mints tokens via `mintTo()` — avoids EIP-7702 issue
+- [x] Display earnings in post-match summary screen (PostMatchRewardUI)
+- [x] Token balance shown in WalletHUD alongside AVAX
+- [x] End-to-end testing: press R → mint 100 PRANA → tx confirmed on Fuji ✅
+- [x] Real elimination tracking via EliminationTracker (host-side, RPC broadcast)
+- [x] PostMatchRewardUI auto-builds canvas at runtime
+- [x] Token balance auto-created in WalletHUD
+- **Token Contract:** `0xBF7c298C0f3E4745Ec902ED0008223747EEbd0d1` (ERC-20 on Fuji 43113)
+- **Reward Wallet:** `0x78A75F10f4c2A20bd30c4A683607ABc1A22Bb352` (EOA with Minter role)
+- **Key files:** `BattleRewardManager.cs`, `BattleRewardBridge.cs`, `PostMatchRewardUI.cs`, updated `WalletHUD.cs`
+- **Integration point:** BattleRewardBridge listens to `OnRaceFinished` event, triggers mint + UI
+- **Test shortcut:** Press R during gameplay to trigger test rewards
 
 ### Phase 4 — Weapon & Power-Up NFTs (Deeper Gameplay Integration)
 > Goal: Astras and Pranas become collectible NFTs that affect gameplay.
@@ -328,3 +367,7 @@ These are the game systems where Web3 will connect:
 | `ShipNFTManager.cs` | `Assets/GV/Scripts/Web3/` | Singleton — queries ERC-1155 NFT balances, ship selection |
 | `ShipSelectionUI.cs` | `Assets/GV/Scripts/Web3/` | Ship selection screen UI — populates cards, handles confirm |
 | `ShipCardUI.cs` | `Assets/GV/Scripts/Web3/` | Individual ship card — icon, lock overlay, selection highlight |
+| `BattleRewardManager.cs` | `Assets/GV/Scripts/Web3/` | Singleton — ERC-20 token minting, reward calculation, balance fetch |
+| `BattleRewardBridge.cs` | `Assets/GV/Scripts/Web3/` | Connects EliminationTracker/ship death → reward distribution |
+| `PostMatchRewardUI.cs` | `Assets/GV/Scripts/Web3/` | Post-match reward popup — auto-builds UI, placement, earnings |
+| `EliminationTracker.cs` | `Assets/GV/Scripts/Network/` | Tracks ship deaths, assigns placements, auto-ends match via RPC |

@@ -1,6 +1,5 @@
 ﻿<Solution>
   <Project Path="Assembly-CSharp.csproj" />
-  <Project Path="VSX.Characters.Editor.csproj" />
   <Project Path="VSX.Utilities.Useful.csproj" />
   <Project Path="Fusion.Unity.Editor.csproj" />
   <Project Path="VSX.SpaceCombatKit.csproj" />
@@ -39,4 +38,5 @@
   <Project Path="VSX.SpaceCombatKit.Editor.csproj" />
   <Project Path="Unity.Fusion.CodeGen.csproj" />
   <Project Path="VSX.Cameras.Editor.csproj" />
+  <Project Path="VSX.Characters.Editor.csproj" />
 </Solution>

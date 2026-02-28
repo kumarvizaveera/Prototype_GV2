@@ -1,0 +1,301 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+namespace GV.Web3
+{
+    /// <summary>
+    /// Shows a reward popup after a match ends.
+    ///
+    /// What this does:
+    /// - When rewards are distributed, shows a centered panel with "1st Place! +100 PRANA"
+    /// - Displays minting status ("Minting tokens..." → "Tokens received!")
+    /// - Shows updated total balance
+    /// - Has a Close button to dismiss
+    ///
+    /// How to set it up:
+    /// 1. Add this script to any GameObject in the gameplay scene
+    /// 2. That's it! It auto-creates its own Canvas and UI elements
+    /// 3. OR if you want custom UI, drag your own TMP_Text and Panel references into the Inspector
+    /// </summary>
+    public class PostMatchRewardUI : MonoBehaviour
+    {
+        [Header("UI References (auto-created if empty)")]
+        [Tooltip("The root panel — shown when rewards are distributed, hidden otherwise.")]
+        [SerializeField] private GameObject rewardPanel;
+
+        [Tooltip("Shows the player's placement (e.g. '1st Place!').")]
+        [SerializeField] private TMP_Text placementText;
+
+        [Tooltip("Shows how many tokens earned (e.g. '+100 PRANA').")]
+        [SerializeField] private TMP_Text rewardAmountText;
+
+        [Tooltip("Shows status messages (e.g. 'Minting tokens...' or 'Tokens received!').")]
+        [SerializeField] private TMP_Text statusText;
+
+        [Tooltip("Shows the updated total balance after rewards.")]
+        [SerializeField] private TMP_Text totalBalanceText;
+
+        private void Start()
+        {
+            // Auto-create UI if no panel reference is assigned
+            if (rewardPanel == null)
+            {
+                BuildUI();
+            }
+
+            // Start hidden
+            rewardPanel.SetActive(false);
+        }
+
+        private void OnEnable()
+        {
+            if (BattleRewardManager.Instance != null)
+            {
+                BattleRewardManager.Instance.OnRewardsDistributed += HandleRewardsDistributed;
+                BattleRewardManager.Instance.OnRewardError += HandleRewardError;
+                BattleRewardManager.Instance.OnTokenBalanceUpdated += HandleBalanceUpdated;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (BattleRewardManager.Instance != null)
+            {
+                BattleRewardManager.Instance.OnRewardsDistributed -= HandleRewardsDistributed;
+                BattleRewardManager.Instance.OnRewardError -= HandleRewardError;
+                BattleRewardManager.Instance.OnTokenBalanceUpdated -= HandleBalanceUpdated;
+            }
+        }
+
+        /// <summary>
+        /// Show the reward panel before minting starts (call this when match ends).
+        /// Displays a "processing" state while tokens are being minted.
+        /// </summary>
+        public void ShowProcessing(int playerPlacement)
+        {
+            if (rewardPanel != null)
+                rewardPanel.SetActive(true);
+
+            float expectedReward = 0;
+            string placementLabel = $"#{playerPlacement}";
+
+            if (BattleRewardManager.Instance != null)
+            {
+                expectedReward = BattleRewardManager.Instance.GetRewardForPlacement(playerPlacement);
+
+                var config = BattleRewardManager.Instance.RewardConfig;
+                int index = playerPlacement - 1;
+                if (index >= 0 && index < config.Count)
+                {
+                    placementLabel = config[index].placementLabel;
+                }
+            }
+
+            string tokenSymbol = BattleRewardManager.Instance?.TokenSymbol ?? "PRANA";
+
+            if (placementText != null)
+                placementText.text = placementLabel;
+
+            if (rewardAmountText != null)
+                rewardAmountText.text = $"+{expectedReward} {tokenSymbol}";
+
+            if (statusText != null)
+                statusText.text = "Minting tokens...";
+
+            if (totalBalanceText != null)
+                totalBalanceText.text = "";
+        }
+
+        /// <summary>
+        /// Close/dismiss the reward panel. Hooked to the Close button.
+        /// </summary>
+        public void ClosePanel()
+        {
+            if (rewardPanel != null)
+                rewardPanel.SetActive(false);
+        }
+
+        // --- Event Handlers ---
+
+        private void HandleRewardsDistributed(List<RewardResult> results)
+        {
+            if (rewardPanel != null)
+                rewardPanel.SetActive(true);
+
+            string playerAddress = Web3Manager.Instance?.WalletAddress ?? "";
+            RewardResult myResult = results.Find(r =>
+                r.walletAddress.ToLower() == playerAddress.ToLower());
+
+            if (myResult != null)
+            {
+                string tokenSymbol = BattleRewardManager.Instance?.TokenSymbol ?? "PRANA";
+
+                string placementLabel = $"#{myResult.placement}";
+                if (BattleRewardManager.Instance != null)
+                {
+                    var config = BattleRewardManager.Instance.RewardConfig;
+                    int index = myResult.placement - 1;
+                    if (index >= 0 && index < config.Count)
+                    {
+                        placementLabel = config[index].placementLabel;
+                    }
+                }
+
+                if (placementText != null)
+                    placementText.text = placementLabel;
+
+                if (rewardAmountText != null)
+                    rewardAmountText.text = myResult.tokenAmount > 0
+                        ? $"+{myResult.tokenAmount} {tokenSymbol}"
+                        : "No reward";
+
+                if (statusText != null)
+                    statusText.text = myResult.success
+                        ? "Tokens received!"
+                        : $"Failed: {myResult.message}";
+            }
+            else
+            {
+                if (statusText != null)
+                    statusText.text = "Match complete";
+            }
+        }
+
+        private void HandleRewardError(string errorMessage)
+        {
+            if (rewardPanel != null)
+                rewardPanel.SetActive(true);
+
+            if (statusText != null)
+                statusText.text = $"Error: {errorMessage}";
+        }
+
+        private void HandleBalanceUpdated(string formattedBalance)
+        {
+            if (totalBalanceText != null)
+                totalBalanceText.text = $"Total: {formattedBalance}";
+        }
+
+        // --- Auto-Build UI ---
+
+        /// <summary>
+        /// Creates the reward popup UI from code so you don't have to set it up manually.
+        /// Makes a Canvas with a centered dark panel, text fields, and a close button.
+        /// </summary>
+        private void BuildUI()
+        {
+            // Create a screen-space overlay canvas
+            var canvasGO = new GameObject("RewardCanvas");
+            canvasGO.transform.SetParent(transform);
+            var canvas = canvasGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100; // on top of everything
+            canvasGO.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            canvasGO.GetComponent<CanvasScaler>().referenceResolution = new Vector2(1920, 1080);
+            canvasGO.AddComponent<GraphicRaycaster>();
+
+            // Dark semi-transparent background overlay (covers full screen)
+            var overlayGO = new GameObject("Overlay");
+            overlayGO.transform.SetParent(canvasGO.transform, false);
+            var overlayImage = overlayGO.AddComponent<Image>();
+            overlayImage.color = new Color(0, 0, 0, 0.6f);
+            var overlayRect = overlayGO.GetComponent<RectTransform>();
+            overlayRect.anchorMin = Vector2.zero;
+            overlayRect.anchorMax = Vector2.one;
+            overlayRect.offsetMin = Vector2.zero;
+            overlayRect.offsetMax = Vector2.zero;
+
+            // Centered panel (dark box)
+            var panelGO = new GameObject("RewardPanel");
+            panelGO.transform.SetParent(canvasGO.transform, false);
+            var panelImage = panelGO.AddComponent<Image>();
+            panelImage.color = new Color(0.08f, 0.08f, 0.12f, 0.95f); // near-black with slight blue
+            var panelRect = panelGO.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = new Vector2(500, 350);
+            panelRect.anchoredPosition = Vector2.zero;
+
+            // Add rounded corner look via Outline
+            var outline = panelGO.AddComponent<Outline>();
+            outline.effectColor = new Color(0.9f, 0.7f, 0.2f, 0.8f); // gold border
+            outline.effectDistance = new Vector2(2, -2);
+
+            rewardPanel = canvasGO; // hide the whole canvas
+
+            // --- Text elements ---
+
+            // "MATCH COMPLETE" header
+            var headerText = CreateText(panelGO.transform, "HeaderText",
+                "MATCH COMPLETE", 28, new Color(0.9f, 0.7f, 0.2f), // gold
+                new Vector2(0, 130));
+            headerText.fontStyle = FontStyles.Bold;
+
+            // Placement (e.g. "1st Place!")
+            placementText = CreateText(panelGO.transform, "PlacementText",
+                "1st Place!", 42, Color.white,
+                new Vector2(0, 70));
+            placementText.fontStyle = FontStyles.Bold;
+
+            // Reward amount (e.g. "+100 PRANA")
+            rewardAmountText = CreateText(panelGO.transform, "RewardAmountText",
+                "+100 PRANA", 34, new Color(0.3f, 1f, 0.5f), // green
+                new Vector2(0, 10));
+            rewardAmountText.fontStyle = FontStyles.Bold;
+
+            // Status (e.g. "Minting tokens..." / "Tokens received!")
+            statusText = CreateText(panelGO.transform, "StatusText",
+                "Minting tokens...", 20, new Color(0.7f, 0.7f, 0.7f),
+                new Vector2(0, -40));
+
+            // Total balance
+            totalBalanceText = CreateText(panelGO.transform, "TotalBalanceText",
+                "", 18, new Color(0.6f, 0.6f, 0.6f),
+                new Vector2(0, -70));
+
+            // Close button
+            var btnGO = new GameObject("CloseButton");
+            btnGO.transform.SetParent(panelGO.transform, false);
+            var btnImage = btnGO.AddComponent<Image>();
+            btnImage.color = new Color(0.2f, 0.2f, 0.25f, 1f);
+            var btnRect = btnGO.GetComponent<RectTransform>();
+            btnRect.anchorMin = new Vector2(0.5f, 0.5f);
+            btnRect.anchorMax = new Vector2(0.5f, 0.5f);
+            btnRect.sizeDelta = new Vector2(160, 45);
+            btnRect.anchoredPosition = new Vector2(0, -130);
+
+            var btn = btnGO.AddComponent<Button>();
+            btn.onClick.AddListener(ClosePanel);
+
+            var btnText = CreateText(btnGO.transform, "BtnText",
+                "CLOSE", 20, Color.white, Vector2.zero);
+            btnText.fontStyle = FontStyles.Bold;
+
+            Debug.Log("[PostMatchRewardUI] Auto-built reward popup UI.");
+        }
+
+        private TMP_Text CreateText(Transform parent, string name, string content,
+            int fontSize, Color color, Vector2 position)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = content;
+            tmp.fontSize = fontSize;
+            tmp.color = color;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.enableWordWrapping = false;
+
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(460, 50);
+            rect.anchoredPosition = position;
+
+            return tmp;
+        }
+    }
+}
