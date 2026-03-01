@@ -148,7 +148,7 @@ Assets/GV/
 **Ship Config:** All ship names/rarity/descriptions are Inspector-editable (NOT on-chain)
 **Flow:** Connect Wallet → Ship Selection Panel → Confirm Ship → Play Button → Gameplay
 
-### Phase 3 IN PROGRESS — Battle Rewards (Earn by Playing)
+### Phase 3 COMPLETE — Battle Rewards (Earn by Playing) ✅
 - [x] Deployed ERC-20 token contract on Fuji via Thirdweb dashboard
 - [x] Minted 1,000,000 token supply
 - [x] Granted Minter role to server wallet (0x2bBc... — but can't use due to EIP-7702)
@@ -165,7 +165,13 @@ Assets/GV/
 - [x] WalletHUD auto-creates token balance text below AVAX balance
 - [x] EliminationTracker.cs created — tracks ship deaths, assigns real placements, auto-ends match
 - [x] BattleRewardBridge updated — uses real placements from EliminationTracker
-- [ ] End-to-end test with real elimination tracking (2+ players)
+- [x] End-to-end test with real elimination tracking (2+ players) ✅
+- [x] PostMatchRewardUI retry subscription (handles auto-created BattleRewardManager)
+- [x] Graceful no-wallet handling (shows "Connect wallet to receive rewards" instead of stuck spinner)
+- [x] BattleRewardBridge auto-creates BattleRewardManager when skipping Bootstrap scene
+- [x] Bonus rewards display: XP, Energy, Gems, Coins — all customizable names + amounts per placement
+- [x] Fresh Nethereum web3 instance per mint (prevents stale nonce / "replacement tx underpriced" errors)
+- [x] Explicit gas price (30 gwei) for reliable minting on Fuji
 
 **Token Contract:** `0xBF7c298C0f3E4745Ec902ED0008223747EEbd0d1` (ERC-20 on Fuji 43113)
 **Token Name/Symbol:** Configurable in Inspector (default: PRANA)
@@ -265,7 +271,7 @@ These are the game systems where Web3 will connect:
 - **Integration point:** Ship selection screen between wallet connect and match join
 - **Scene flow:** Bootstrap → Menu → Connect Wallet → Select Ship → Confirm → Play → Gameplay
 
-### Phase 3 — Battle Rewards (Earn by Playing) 🔧 IN PROGRESS
+### Phase 3 — Battle Rewards (Earn by Playing) ✅ COMPLETE
 > Goal: Players earn fungible tokens for competing. Better placement = bigger reward.
 
 - [x] Deploy ERC-20 token contract on Fuji (configurable name/symbol, default: PRANA)
@@ -277,6 +283,10 @@ These are the game systems where Web3 will connect:
 - [x] Real elimination tracking via EliminationTracker (host-side, RPC broadcast)
 - [x] PostMatchRewardUI auto-builds canvas at runtime
 - [x] Token balance auto-created in WalletHUD
+- [x] Bonus rewards display (XP, Energy, Gems, Coins) — customizable names + amounts per placement
+- [x] Auto-creates BattleRewardManager when skipping Bootstrap scene
+- [x] Graceful no-wallet handling in popup UI
+- [x] 2-player end-to-end test: real elimination → correct placements → PRANA minted on Fuji ✅
 - **Token Contract:** `0xBF7c298C0f3E4745Ec902ED0008223747EEbd0d1` (ERC-20 on Fuji 43113)
 - **Reward Wallet:** `0x78A75F10f4c2A20bd30c4A683607ABc1A22Bb352` (EOA with Minter role)
 - **Key files:** `BattleRewardManager.cs`, `BattleRewardBridge.cs`, `PostMatchRewardUI.cs`, updated `WalletHUD.cs`

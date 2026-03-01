@@ -39,3 +39,22 @@
 - **PrivateKeyWallet doesn't exist in Thirdweb Unity SDK v6.1.3**: Only `PrivateKeyAccount` exists in the DLL. Do NOT use `PrivateKeyWallet` — it won't compile. Use **Nethereum** (`Nethereum.Web3.Accounts.Account`) instead for creating wallets from private keys and sending transactions. Nethereum is already installed via the Reown package (com.nethereum.unity v5.0.0).
 - **Hybrid approach works great**: Use Nethereum for writing transactions (minting) from private-key wallets, and Thirdweb SDK for reading contract data (balanceOf). Each library handles what it's best at.
 - **End-to-end reward flow confirmed working**: Press R → BattleRewardBridge triggers → BattleRewardManager mints via Nethereum → tx confirms on Fuji → 100 PRANA minted successfully.
+
+## Session: Mar 1, 2026
+
+### Fusion 2 Lessons (EliminationTracker debugging)
+- **`[Networked]` properties can ONLY be reliably read in `FixedUpdateNetwork()`**: Reading them in Unity's `Update()` returns stale/default values. If you need the value in Update, copy it to a plain bool/int inside FixedUpdateNetwork first.
+- **`FixedUpdateNetwork()` may NOT be called on late-added NetworkBehaviours**: If a NetworkBehaviour is added to a scene object after the NetworkObject was already baked, Fusion may call `Spawned()` but NOT `FixedUpdateNetwork()`. Workaround: use C# events or Unity's `Update()` instead.
+- **RPCs fire immediately on the host**: When host sends an RPC with `RpcTargets.All`, the handler executes on the host in the SAME frame. This can cause `InvalidOperationException: Collection was modified` if you iterate a list and an RPC modifies it. Fix: copy the list before iterating (`new List<T>(original)`).
+- **Event subscription timing matters**: If you subscribe to an event in `Update()` (waiting for a manager to exist), the event may have already fired. Always check if the condition is already true after subscribing (e.g. check if ships already exist after subscribing to OnRaceStarted).
+
+### Nethereum / Minting Lessons
+- **Don't cache the Nethereum Web3 instance**: Nethereum's internal nonce tracker gets stale between sessions, causing "replacement transaction underpriced" errors. Create a fresh `new Web3(account, rpcUrl)` for each mint batch.
+- **Always set explicit gas price on Avalanche**: Default gas price from Nethereum can conflict with pending transactions. Set `txInput.GasPrice = new HexBigInteger(30000000000)` (30 gwei) explicitly. On Fuji testnet this costs ~0.006 AVAX per mint.
+- **Always fetch nonce with `BlockParameter.CreatePending()`**: Gets the next available nonce including pending transactions, preventing nonce collisions.
+- **Keep the reward wallet funded**: Each mint costs ~0.006 AVAX at 30 gwei. Use the Fuji faucet (faucet.avax.network) to top up. 2 AVAX = ~300+ mints.
+
+### Auto-Creation Pattern for Scene Independence
+- **BattleRewardBridge auto-creates BattleRewardManager**: When launching directly into gameplay scene (skipping Bootstrap), BattleRewardBridge creates a BattleRewardManager with default config. Set default private key in the serialized field so auto-created instances work.
+- **PostMatchRewardUI retry subscription**: BattleRewardManager may be auto-created AFTER PostMatchRewardUI.OnEnable(). Use a `_subscribedToRewards` bool and retry in Update() until the manager exists.
+- **Graceful no-wallet handling**: When Web3Manager doesn't exist (skipped Bootstrap), show "Connect wallet to receive rewards" instead of being stuck on "Minting tokens...".
