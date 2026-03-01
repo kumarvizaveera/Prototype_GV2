@@ -54,7 +54,9 @@ namespace GV.Network
             _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
             characterManager = GetComponent<AircraftCharacterManager>();
 
-            if (PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.superWeaponTimerText != null)
+            // Only assign UI references on clients — server has no UI.
+            bool isDedicatedServer = NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer;
+            if (!isDedicatedServer && PowerSphereMasterController.Instance != null && PowerSphereMasterController.Instance.superWeaponTimerText != null)
             {
                 timerText = PowerSphereMasterController.Instance.superWeaponTimerText;
                 timerFormat = PowerSphereMasterController.Instance.superWeaponTimerFormat;

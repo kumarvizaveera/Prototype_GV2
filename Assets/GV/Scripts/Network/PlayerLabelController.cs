@@ -38,10 +38,18 @@ namespace GV.Network
 
         public override void Spawned()
         {
-            // Host assigns the player number for this ship
+            // Host/Server assigns the player number for this ship
             if (Object.HasStateAuthority)
             {
                 AssignPlayerNumber();
+            }
+
+            // Dedicated server has no camera or visible labels — skip visual setup.
+            bool isDedicatedServer = NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer;
+            if (isDedicatedServer)
+            {
+                if (labelText != null) labelText.gameObject.SetActive(false);
+                return;
             }
 
             // Determine if this is the local player's ship
@@ -71,17 +79,23 @@ namespace GV.Network
         {
             PlayerRef owner = Object.InputAuthority;
 
-            if (owner == Runner.LocalPlayer)
+            // On a dedicated server, there is no "local player" — all players are remote.
+            // Assign based on PlayerId directly. Player 1 = first joiner, etc.
+            bool isDedicatedServer = NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer;
+
+            if (!isDedicatedServer && owner == Runner.LocalPlayer)
             {
                 PlayerNumber = 0;
                 Debug.Log($"[PlayerLabel] Assigned PlayerNumber=0 (Host) to {gameObject.name}");
             }
             else
             {
-                int clientNumber = owner.PlayerId - 1;
+                // On dedicated server: all players get sequential numbers starting from 1.
+                // In Host mode: non-host players get numbers starting from 1.
+                int clientNumber = owner.PlayerId;
                 if (clientNumber < 1) clientNumber = 1;
                 PlayerNumber = clientNumber;
-                Debug.Log($"[PlayerLabel] Assigned PlayerNumber={clientNumber} (Client) to {gameObject.name}, PlayerId={owner.PlayerId}");
+                Debug.Log($"[PlayerLabel] Assigned PlayerNumber={clientNumber} to {gameObject.name}, PlayerId={owner.PlayerId}, isDedicated={isDedicatedServer}");
             }
         }
 
@@ -111,6 +125,8 @@ namespace GV.Network
 
         public override void Render()
         {
+            // Dedicated server has no camera — skip label rendering.
+            if (NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer) return;
             if (isLocalPlayer || labelText == null) return;
 
             // Update text in case the networked value just arrived

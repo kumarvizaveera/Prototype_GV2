@@ -393,29 +393,33 @@ namespace GV.Network
                 isLocalPlayer = Object.InputAuthority == Runner.LocalPlayer;
             }
 
+            // --- Determine role: Is this a dedicated server? ---
+            bool isDedicatedServer = NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer;
+
             if (!isLocalPlayer)
             {
                 Debug.Log($"[NetworkedSpaceshipBridge] Remote player ship - disabling ALL local input immediately");
                 DisableLocalInput();
                 _hasCheckedAuthority = true;
 
-                // HOST: Attach NetworkedAimOverride on the host's copy of a client's ship.
+                // HOST/SERVER: Attach NetworkedAimOverride on the server's copy of a client's ship.
                 // This component runs after WeaponsController's LateUpdate and overrides weapon aim
                 // with the client's aim position (received via RPC_SendAimPosition).
                 if (Object.HasStateAuthority)
                 {
                     _aimOverride = gameObject.AddComponent<NetworkedAimOverride>();
-                    Debug.Log($"[NetworkedSpaceshipBridge] HOST: Attached NetworkedAimOverride for remote player aim sync");
+                    Debug.Log($"[NetworkedSpaceshipBridge] SERVER: Attached NetworkedAimOverride for remote player aim sync");
                 }
             }
-            else if (Object.HasStateAuthority)
+            else if (Object.HasStateAuthority && !isDedicatedServer)
             {
-                // HOST's own ship: keep SCK input enabled — host drives its own ship locally
+                // HOST's own ship (Host mode only): keep SCK input enabled — host drives its own ship locally.
+                // This path NEVER triggers on a dedicated server because the server has no local player.
                 Debug.Log($"[NetworkedSpaceshipBridge] HOST local player ship - keeping SCK input enabled");
                 _hasCheckedAuthority = true;
                 SetupCamera();
             }
-            else
+            else if (!Object.HasStateAuthority)
             {
                 // CLIENT's own ship: Set up CLIENT-SIDE PREDICTION.
                 // The client runs REAL physics locally (VehicleEngines3D + dynamic Rigidbody).
@@ -426,10 +430,29 @@ namespace GV.Network
                 _hasCheckedAuthority = true;
                 SetupCamera();
             }
+            else
+            {
+                // SAFETY: Dedicated server somehow matched as "local player" — treat as remote.
+                // This shouldn't happen, but guards against edge cases.
+                Debug.LogWarning($"[NetworkedSpaceshipBridge] DEDICATED SERVER got isLocalPlayer=true — treating as remote ship");
+                DisableLocalInput();
+                _hasCheckedAuthority = true;
+                if (Object.HasStateAuthority)
+                {
+                    _aimOverride = gameObject.AddComponent<NetworkedAimOverride>();
+                }
+            }
         }
 
         private void SetupCamera()
         {
+            // Dedicated server has no camera — skip entirely.
+            if (NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer)
+            {
+                _cameraSetupDone = true; // Prevent retry attempts
+                return;
+            }
+
             // Find the Vehicle component on the spawned player
             var vehicle = GetComponentInChildren<Vehicle>(true);
             if (vehicle == null)

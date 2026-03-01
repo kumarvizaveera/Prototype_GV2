@@ -51,6 +51,14 @@ namespace GV.Web3
 
         private void OnEnable()
         {
+            // Dedicated server has no wallet, no UI, no rewards to display — disable entirely.
+            if (GV.Network.NetworkManager.Instance != null && GV.Network.NetworkManager.Instance.IsDedicatedServer)
+            {
+                Debug.Log("[BattleRewardBridge] Dedicated server detected — disabling reward bridge (client-only feature)");
+                enabled = false;
+                return;
+            }
+
             _hasDistributedThisMatch = false;
             _subscribedToVehicle = false;
             _subscribedToElimination = false;

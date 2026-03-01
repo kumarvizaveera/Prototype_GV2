@@ -118,6 +118,9 @@ namespace GV.Network
 
         public override void Render()
         {
+            // Dedicated server has no visuals or UI — skip rendering.
+            if (NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer) return;
+
             // Update visual size on all clients
             if (sphereVisual != null)
             {

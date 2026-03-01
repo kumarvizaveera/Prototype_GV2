@@ -182,6 +182,8 @@ namespace GV.Network
         
         private void OnGUI()
         {
+            // Dedicated server has no screen — skip GUI rendering.
+            if (NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer) return;
             if (NetworkManager.Instance == null || !NetworkManager.Instance.IsConnected) return;
             if (Object == null || !Object.IsValid) return;
             if (!_isSpawned) return; // Wait for Spawned() to be called

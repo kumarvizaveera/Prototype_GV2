@@ -23,20 +23,20 @@ namespace GV.Network
     public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         public static NetworkManager Instance { get; private set; }
-        
+
         [Header("Configuration")]
         [SerializeField] private NetworkRunner runnerPrefab;
         [SerializeField] private NetworkObject playerPrefab;
         [SerializeField] private int maxPlayers = 4;
         [SerializeField] private LevelSynchronizer levelSynchronizerPrefab;
-        
+
         [Header("Spline Spawn")]
         [Tooltip("The track spline to spawn players along. Same one used by SplineTether.")]
         [SerializeField] private SplineContainer spawnSpline;
 
         [Tooltip("Minimum world-space distance between any two players along the spline.")]
         [SerializeField] private float minSpawnSpacing = 50f;
-        
+
         [Header("UI - TMP")]
         [SerializeField] private TMP_Text hostPromptText;   // "Press H to Host"
         [SerializeField] private TMP_Text joinPromptText;   // "Press J to Join"
@@ -45,11 +45,29 @@ namespace GV.Network
 
         [Header("Debug")]
         [SerializeField] private bool showDebugUI = true;
-        
+
+        [Header("Server Mode")]
+        [Tooltip("Host = player's machine runs server + client (current behavior).\nDedicatedServer = headless server, no local player.\nAuto = checks for -server command-line flag.")]
+        [SerializeField] private ServerMode serverMode = ServerMode.Auto;
+
         [Header("Auto Start")]
         [SerializeField] private bool autoHostInBuild = true;
         [SerializeField] private bool autoClientInBuild = false; // Set true when editor hosts, build joins
         [SerializeField] private string fixedRegion = "us"; // Force US region by default
+
+        /// <summary>
+        /// Determines how this instance should start:
+        /// Host = traditional host mode (server + client on same machine, has a local player)
+        /// DedicatedServer = headless server only (no camera, no UI, no local player)
+        /// Auto = reads command-line args: -server flag → DedicatedServer, otherwise Host
+        /// </summary>
+        public enum ServerMode { Host, DedicatedServer, Auto }
+
+        /// <summary>
+        /// True when running as a dedicated server (no local player, no rendering).
+        /// Other scripts check this to skip camera/UI/input code.
+        /// </summary>
+        public bool IsDedicatedServer { get; private set; }
         
         public NetworkRunner Runner { get; private set; }
         public bool IsConnected => Runner != null && Runner.IsRunning;
@@ -81,11 +99,51 @@ namespace GV.Network
 
             // Critical for local testing on same machine (prevents Host from pausing when alt-tabbed)
             Application.runInBackground = true;
+
+            // --- Determine if this instance should run as a dedicated server ---
+            // "Auto" mode checks for the -server command-line flag (used when launching headless builds).
+            // This lets the same build work as either Host or DedicatedServer depending on launch args.
+            IsDedicatedServer = false;
+            switch (serverMode)
+            {
+                case ServerMode.DedicatedServer:
+                    IsDedicatedServer = true;
+                    break;
+                case ServerMode.Auto:
+                    // Check command-line args for -server flag
+                    string[] args = System.Environment.GetCommandLineArgs();
+                    foreach (string arg in args)
+                    {
+                        if (arg.ToLower() == "-server" || arg.ToLower() == "--server")
+                        {
+                            IsDedicatedServer = true;
+                            break;
+                        }
+                    }
+                    // Also check Unity's UNITY_SERVER define (set automatically in Dedicated Server builds)
+                    #if UNITY_SERVER
+                    IsDedicatedServer = true;
+                    #endif
+                    break;
+                case ServerMode.Host:
+                default:
+                    IsDedicatedServer = false;
+                    break;
+            }
+            Debug.Log($"[NetworkManager] ServerMode={serverMode}, IsDedicatedServer={IsDedicatedServer}");
         }
 
         private void Start()
         {
-            // Initialize TMP prompts
+            // --- DEDICATED SERVER: skip all UI, auto-start as Server ---
+            if (IsDedicatedServer)
+            {
+                Debug.Log("[NetworkManager] Dedicated Server mode — skipping UI, auto-starting as Server...");
+                StartServer();
+                return;
+            }
+
+            // Initialize TMP prompts (client/host only — server has no UI)
             if (hostPromptText != null)
             {
                 hostPromptText.text = "Press H to Host";
@@ -183,6 +241,10 @@ namespace GV.Network
 
         private void Update()
         {
+            // --- DEDICATED SERVER: no UI, no keyboard input, no raw send ---
+            // The server only receives data (OnReliableDataReceived), never sends.
+            if (IsDedicatedServer) return;
+
             // Simple keyboard controls for prototype
             if (!IsConnected)
             {
@@ -368,6 +430,17 @@ namespace GV.Network
         }
 
         /// <summary>
+        /// Start as Dedicated Server — no local player, no camera, no UI.
+        /// Uses Fusion's GameMode.Server which creates a server-only runner.
+        /// All players connect as clients; no one has "host advantage."
+        /// </summary>
+        public async void StartServer()
+        {
+            Debug.Log("[NetworkManager] Starting as DEDICATED SERVER...");
+            await StartGame(GameMode.Server);
+        }
+
+        /// <summary>
         /// Reset ALL static state. Required because Unity 6 may not reload domains
         /// between play sessions, causing stale static data to persist.
         /// </summary>
@@ -385,7 +458,8 @@ namespace GV.Network
         private async Task StartGame(GameMode mode)
         {
             // Force resolution in standalone builds (ensures UI fits and mouse viewport math is correct)
-            if (!Application.isEditor)
+            // Skip on dedicated server — there's no screen to set resolution on.
+            if (!Application.isEditor && !IsDedicatedServer)
             {
                 Screen.SetResolution(1920, 1080, FullScreenMode.FullScreenWindow);
                 Debug.Log($"[NetworkManager] Forced resolution to 1920x1080 FullScreenWindow");
@@ -408,7 +482,9 @@ namespace GV.Network
                 }
             }
             
-            Runner.ProvideInput = true;
+            // Dedicated server has no local player, so no input to provide.
+            // Host/Client modes need ProvideInput so Fusion calls OnInput().
+            Runner.ProvideInput = !IsDedicatedServer;
 
             // Register callbacks BEFORE StartGame — Fusion 2 best practice.
             // If registered after, the runner may tick before callbacks are added,
@@ -474,7 +550,7 @@ namespace GV.Network
             // Belt-and-suspenders: re-register callbacks and re-confirm ProvideInput AFTER StartGame.
             // Some Fusion versions clear callbacks during StartGame. Adding again is safe (Fusion deduplicates).
             Runner.AddCallbacks(this);
-            Runner.ProvideInput = true;
+            Runner.ProvideInput = !IsDedicatedServer;
             Debug.Log($"[NetworkManager] Post-StartGame: re-registered callbacks, ProvideInput={Runner.ProvideInput}, " +
                       $"IsClient={Runner.IsClient}, IsServer={Runner.IsServer}, LocalPlayer={Runner.LocalPlayer}");
 
@@ -653,9 +729,10 @@ namespace GV.Network
                 {
                     playerObject.AssignInputAuthority(player);
                     Debug.Log($"[NetworkManager] Assigned InputAuthority to {player}, now authority is: {playerObject.InputAuthority}");
-                    
-                    // Setup camera to follow the local player
-                    if (player == runner.LocalPlayer)
+
+                    // Setup camera to follow the local player (Host mode only).
+                    // On a dedicated server there IS no local player — runner.LocalPlayer is invalid.
+                    if (!IsDedicatedServer && player == runner.LocalPlayer)
                     {
                         SetupCameraFollow(playerObject.gameObject);
                     }
@@ -668,8 +745,9 @@ namespace GV.Network
                 Debug.LogWarning($"[NetworkManager] NOT spawning - IsServer: {runner.IsServer}, playerPrefab: {(playerPrefab != null ? "assigned" : "NULL")}");
             }
             
-            // Show "Client has joined" on the host when a non-host player joins, then auto-hide
-            if (runner.IsServer && player != runner.LocalPlayer && clientJoinedText != null)
+            // Show "Client has joined" on the host when a non-host player joins, then auto-hide.
+            // Skip on dedicated server — no UI to show.
+            if (!IsDedicatedServer && runner.IsServer && player != runner.LocalPlayer && clientJoinedText != null)
             {
                 clientJoinedText.text = "Client has joined";
                 clientJoinedText.gameObject.SetActive(true);
@@ -704,6 +782,9 @@ namespace GV.Network
 
         public void OnInput(NetworkRunner runner, NetworkInput input)
         {
+            // Dedicated server has no local player and no input devices — skip.
+            if (IsDedicatedServer) return;
+
             // CRITICAL: We must call input.Set() DIRECTLY in this registered callback.
             // NetworkInput is a STRUCT — if we delegate to playerInput.OnInput(runner, input),
             // that method receives a COPY of the struct. Calling Set() on the copy modifies
@@ -750,18 +831,21 @@ namespace GV.Network
         {
             Debug.Log($"[NetworkManager] Shutdown: {shutdownReason}");
             _lastError = $"Shutdown: {shutdownReason}";
-            
-            // Reset UI texts on disconnect
-            if (_failedStatusCoroutine != null) StopCoroutine(_failedStatusCoroutine);
-            
-            if (shutdownReason != ShutdownReason.Ok)
+
+            // Reset UI texts on disconnect (skip on dedicated server — no UI)
+            if (!IsDedicatedServer)
             {
-                _failedStatusCoroutine = StartCoroutine(ShowConnectionFailedStatus("Connection Failed"));
-            }
-            else
-            {
-                if (hostPromptText != null) hostPromptText.text = "Press H to Host";
-                if (joinPromptText != null) joinPromptText.text = "Press J to Join";
+                if (_failedStatusCoroutine != null) StopCoroutine(_failedStatusCoroutine);
+
+                if (shutdownReason != ShutdownReason.Ok)
+                {
+                    _failedStatusCoroutine = StartCoroutine(ShowConnectionFailedStatus("Connection Failed"));
+                }
+                else
+                {
+                    if (hostPromptText != null) hostPromptText.text = "Press H to Host";
+                    if (joinPromptText != null) joinPromptText.text = "Press J to Join";
+                }
             }
             
             OnDisconnectedEvent?.Invoke(runner, shutdownReason);
@@ -852,6 +936,8 @@ namespace GV.Network
         
         private void OnGUI()
         {
+            // Dedicated server has no screen — skip all GUI rendering.
+            if (IsDedicatedServer) return;
             if (!showDebugUI) return;
             
             GUILayout.BeginArea(new Rect(10, 10, 300, 250));

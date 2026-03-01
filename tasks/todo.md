@@ -57,6 +57,26 @@ we deploy using the web dashboard instead. Takes about 2 minutes:
 
 ---
 
+## Part A: Dedicated Server Migration ✅ CODE COMPLETE
+
+### Done (Code Changes)
+- [x] A1: Added `GameMode.Server`, `ServerMode` enum, and `IsDedicatedServer` property to NetworkManager.cs
+- [x] A2: Guarded `OnPlayerJoined` — no camera setup on dedicated server, no "Client joined" UI
+- [x] A3: Updated NetworkedSpaceshipBridge.cs — server treats all ships as remote, no camera/HUD
+- [x] A4: Guarded all UI/Camera/Local-Player references across 7 files
+- [x] A5: BattleRewardBridge disables itself on dedicated server (Web3 is client-only)
+- [x] A6: Created ServerBootstrap.cs (audio off, framerate cap, VSync off)
+- [x] A8: Added ServerMode toggle (Host / DedicatedServer / Auto) on NetworkManager Inspector
+
+### Still Needs Veera in Unity
+- [ ] Add ServerBootstrap.cs to the first scene that loads (same GO as NetworkManager, or a new one)
+- [ ] Test in Unity: Host mode still works exactly as before (no behavior changes)
+- [ ] Test with ParrelSync: main editor = Host, clone = Client — verify everything works
+- [ ] When ready for VPS: use Unity 6's Dedicated Server build target (File → Build Settings → target)
+- [ ] Upload headless build to VPS and launch with: `./GV2Server -batchmode -nographics -server`
+
+---
+
 ## Notes
 - Ship names/rarity/descriptions are all in the Unity Inspector — NOT on-chain
 - The on-chain part is just token IDs and quantities

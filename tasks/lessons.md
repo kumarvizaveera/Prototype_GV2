@@ -54,6 +54,15 @@
 - **Always fetch nonce with `BlockParameter.CreatePending()`**: Gets the next available nonce including pending transactions, preventing nonce collisions.
 - **Keep the reward wallet funded**: Each mint costs ~0.006 AVAX at 30 gwei. Use the Fuji faucet (faucet.avax.network) to top up. 2 AVAX = ~300+ mints.
 
+### Dedicated Server Migration (Part A)
+- **Existing RPC input pipeline already works for dedicated server**: The `HasStateAuthority && !HasInputAuthority` path in FixedUpdateNetwork handles every ship on a dedicated server — no rewrites needed. Clients send input via RPC, server applies it. Perfect.
+- **Guard pattern for dedicated server**: Use `if (NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer) return;` at the top of any rendering/UI method. Consistent, null-safe, and transparent in Host mode.
+- **Three detection layers for dedicated server**: (1) `ServerMode` Inspector enum, (2) command-line `-server` flag, (3) `#if UNITY_SERVER` preprocessor define. The `Auto` mode checks all three.
+- **On dedicated server, Runner.LocalPlayer is invalid**: There is no "local player" — all players are remote. Any code that compares `player == runner.LocalPlayer` must first check `IsDedicatedServer`.
+- **Camera.main and FindFirstObjectByType<VehicleCamera>() crash on headless**: These return null on a headless server. Always bail early if dedicated server before touching cameras.
+- **BattleRewardBridge self-disables on server**: Rather than guarding every method, the `OnEnable()` sets `enabled = false` and returns. Clean and complete.
+- **Host mode is completely unaffected**: `IsDedicatedServer` defaults to `false`, so all guards are transparent. Zero behavior change for existing workflow.
+
 ### Auto-Creation Pattern for Scene Independence
 - **BattleRewardBridge auto-creates BattleRewardManager**: When launching directly into gameplay scene (skipping Bootstrap), BattleRewardBridge creates a BattleRewardManager with default config. Set default private key in the serialized field so auto-created instances work.
 - **PostMatchRewardUI retry subscription**: BattleRewardManager may be auto-created AFTER PostMatchRewardUI.OnEnable(). Use a `_subscribedToRewards` bool and retry in Update() until the manager exists.

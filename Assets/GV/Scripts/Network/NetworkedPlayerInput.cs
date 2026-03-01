@@ -98,6 +98,8 @@ namespace GV.Network
                 _debugStatus = "NetworkManager.Instance is NULL";
                 return;
             }
+            // Dedicated server has no mouse/keyboard — skip input collection entirely.
+            if (networkManager.IsDedicatedServer) return;
             if (!networkManager.IsConnected)
             {
                 _debugStatus = "Not Connected";
