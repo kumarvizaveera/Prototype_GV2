@@ -76,3 +76,9 @@
 - **Key pattern**: For pickup scripts (MonoBehaviour, not NetworkBehaviour), find the NetworkObject on the collider's root and check `HasInputAuthority`. If no NetworkObject exists (offline testing), return true so audio still works.
 - **EngineAudioController.OnEnable() re-starts audio**: After mesh swaps, audio roots toggle on/off. OnEnable calls m_Audio.Play(). Since we set `mute = true` AND `volume = 0f`, this is harmless — the audio "plays" silently.
 - **Use mute + volume=0 instead of Destroy**: SCK scripts hold references to their AudioSources. Destroying them would cause NullRef. Muting is safer.
+
+### Violent Rotation Snap During Roll (Bug Fix — Mar 1)
+- **Root Cause**: In Client Authority mode, the client sends its rotation to the host via RPC. The host writes it to SyncRotation. The client reads SyncRotation back in ApplyServerCorrection() and compares it to its current rotation. During fast rolls, the client's current rotation is 90°+ ahead of the stale SyncRotation (which is just its own rotation from ~RTT ago). The snap triggers, resets angular velocity to zero, input re-applies roll, gap builds again → infinite violent oscillation.
+- **Key Insight**: In Client Authority mode, SyncRotation IS the client's own data echoed back. Correcting toward your own stale data is always wrong. It's like trying to follow your own shadow — the faster you move, the worse it gets.
+- **Fix**: Disabled ApplyServerCorrection() entirely. Client IS the authority — no correction needed. Position correction was already disabled for the same reason.
+- **If respawn snap is needed later**: Use a flag-based approach (`_needsRotationSnap = true` set by respawn event) instead of continuous comparison against stale data.

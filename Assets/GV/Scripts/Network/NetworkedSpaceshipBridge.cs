@@ -1682,28 +1682,23 @@ namespace GV.Network
         ///   - Rotation correction → rotation oscillation → thrust direction oscillation
         ///     (because AddRelativeForce is relative to rotation) → speed/position jitter
         ///
-        /// The physics naturally stays in sync because inputs are identical. Small floating-point
-        /// drift accumulates very slowly and is acceptable. Snap thresholds handle teleport/respawn.
+        /// In Client Authority mode, the client sends its transform to the host via RPC_SendTransform.
+        /// The host writes SyncRotation = _rpcRot (the client's own rotation).
+        /// So SyncRotation is just the client's own data echoed back with ~RTT delay.
+        /// Correcting toward stale self-data causes violent oscillation during fast maneuvers
+        /// (e.g. rolling: client rotates 90°+ during the round-trip, snap fires, resets angular
+        /// velocity, input re-applies roll, gap builds again → infinite snap loop).
+        ///
+        /// DISABLED: No rotation correction needed — client IS the authority.
+        /// Position correction was already disabled for the same reason.
+        /// If respawn/teleport snap is needed later, use a flag-based approach
+        /// (e.g. _needsRotationSnap set by a respawn event) instead of continuous comparison.
         /// </summary>
         private void ApplyServerCorrection()
         {
-            if (_cachedRb == null || SyncTick <= 0) return;
-
-            // --- POSITION: NO CORRECTION ---
-            // Both client and host run identical physics with identical inputs.
-            // The client is naturally ahead by ~RTT/2 * speed. At 30 m/s with 100ms RTT,
-            // the client is ~3m ahead — this is expected and harmless.
-            // Any snap or correction causes jitter because it resets velocity.
-            // Server handles authoritative hit detection, so position offset doesn't matter.
-
-            // --- ROTATION: SNAP ONLY (extreme desync, e.g. respawn) ---
-            float rotAngle = Quaternion.Angle(_cachedRb.rotation, SyncRotation);
-            if (rotAngle > rotationSnapThreshold)
-            {
-                _cachedRb.rotation = SyncRotation;
-                _cachedRb.angularVelocity = Vector3.zero;
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT PREDICT: Rotation SNAP (gap={rotAngle:F1}°)");
-            }
+            // Intentionally empty — see comment above.
+            // Client Authority mode means SyncRotation is our own stale data.
+            // Correcting toward it causes violent snap loops during rolls.
         }
 
         /// <summary>
