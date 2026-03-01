@@ -1091,6 +1091,25 @@ namespace GV.Network
                 cursor.gameObject.SetActive(false);
             }
 
+            // 8. Mute ALL AudioSources on remote ships to prevent double audio.
+            //    Engine hum, boost sounds, weapon fire, missile warnings — all of these
+            //    play on every spawned ship. Without this, ParrelSync or two-build setups
+            //    hear every ship's audio doubled up. We mute rather than destroy so SCK
+            //    doesn't throw NullRef on audio references it still holds.
+            var audioSources = GetComponentsInChildren<AudioSource>(true);
+            foreach (var src in audioSources)
+            {
+                src.mute = true;
+                src.volume = 0f;
+            }
+            // Also disable AudioListener if one exists (only local player should have one)
+            var audioListeners = GetComponentsInChildren<AudioListener>(true);
+            foreach (var listener in audioListeners)
+            {
+                listener.enabled = false;
+            }
+            Debug.Log($"[NetworkedSpaceshipBridge] Muted {audioSources.Length} AudioSources and {audioListeners.Length} AudioListeners on remote ship");
+
             // Cache the child transform for position interpolation on proxy ships.
             // Rigidbody is kept alive (kinematic) because SCK scripts depend on it.
             if (!Object.HasStateAuthority)

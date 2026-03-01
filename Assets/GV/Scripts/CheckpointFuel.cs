@@ -1,6 +1,7 @@
 using UnityEngine;
 using VSX.Engines3D;
 using VSX.ResourceSystem;
+using GV.Network;
 
 namespace GV.Scripts
 {
@@ -55,11 +56,11 @@ namespace GV.Scripts
             // If we found engines, try to give fuel
             if (engines != null)
             {
-                GiveFuel(engines);
+                GiveFuel(engines, other);
             }
         }
 
-        private void GiveFuel(VehicleEngines3D engines)
+        private void GiveFuel(VehicleEngines3D engines, Collider other = null)
         {
             bool fuelGiven = false;
 
@@ -91,24 +92,25 @@ namespace GV.Scripts
 
             if (fuelGiven)
             {
-                Collect();
+                bool isLocal = other != null ? NetworkAudioHelper.IsLocalPlayer(other) : true;
+                Collect(isLocal);
             }
         }
 
-        private void Collect()
+        private void Collect(bool isLocalPlayer = true)
         {
             collected = true;
 
             // Visual Feedback
-            if (collectionEffect != null)
+            if (collectionEffect != null && isLocalPlayer)
             {
                 Instantiate(collectionEffect, transform.position, transform.rotation);
             }
 
             float destroyDelay = 0f;
 
-            // Audio Feedback
-            if (collectionAudio != null && collectionAudio.clip != null)
+            // Audio Feedback — only for local player to prevent double sounds in multiplayer
+            if (isLocalPlayer && collectionAudio != null && collectionAudio.clip != null)
             {
                 collectionAudio.Play();
                 // If the audio source is on this object or a child, wait for it to finish before destroying

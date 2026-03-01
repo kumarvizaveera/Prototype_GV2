@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using GV;
+using GV.Network;
 using Fusion;
 
 namespace GV.PowerUps
@@ -184,14 +185,17 @@ namespace GV.PowerUps
                 rb.angularVelocity = Vector3.zero;
             }
 
-            // SFX
-            if (teleportSfx)
+            // SFX — only for local player to prevent double sounds in multiplayer
+            if (NetworkAudioHelper.IsLocalPlayer(rb.gameObject))
             {
-                AudioSource.PlayClipAtPoint(teleportSfx, destPos, teleportSfxVolume);
-            }
-            if (teleportSoundObject != null)
-            {
-                Instantiate(teleportSoundObject, destPos, Quaternion.identity);
+                if (teleportSfx)
+                {
+                    AudioSource.PlayClipAtPoint(teleportSfx, destPos, teleportSfxVolume);
+                }
+                if (teleportSoundObject != null)
+                {
+                    Instantiate(teleportSoundObject, destPos, Quaternion.identity);
+                }
             }
 
             if (debugLogs) Debug.Log($"[TeleportPowerUp] Teleported {rb.name} from index {anchorIndex} to {targetIndex} (+{checkpointsToJump})");

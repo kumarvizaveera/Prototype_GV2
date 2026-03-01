@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using VSX.Engines3D;
-
+using GV.Network;
 
 using TMPro;
 
@@ -96,10 +96,13 @@ namespace GV
             // Activate Boost
             handler.ActivateSuperBoost(speedMultiplier, steeringMultiplier, boostMultiplier, boostDuration);
 
-            // FX
-            if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
-            if (pickupSoundObject != null) Instantiate(pickupSoundObject, transform.position, Quaternion.identity);
-            if (pickupEffect != null) Instantiate(pickupEffect, transform.position, Quaternion.identity);
+            // FX — only play audio/VFX for the local player to prevent double sounds in multiplayer
+            if (NetworkAudioHelper.IsLocalPlayer(handler.gameObject))
+            {
+                if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
+                if (pickupSoundObject != null) Instantiate(pickupSoundObject, transform.position, Quaternion.identity);
+                if (pickupEffect != null) Instantiate(pickupEffect, transform.position, Quaternion.identity);
+            }
 
             // Consume (only if not manual, as manual means we are a shared component on a mystery sphere)
             if (!manualTriggerOnly && consumeOnPickup)

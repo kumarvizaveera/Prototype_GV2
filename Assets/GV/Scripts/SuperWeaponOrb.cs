@@ -3,6 +3,7 @@ using GV;
 using GV.Network;
 using Fusion;
 using TMPro;
+// NetworkAudioHelper already available via GV.Network
 
 namespace VSX.Engines3D
 {
@@ -159,14 +160,16 @@ namespace VSX.Engines3D
                  }
              }
 
-             // Audio
-             if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
-             if (pickupSoundObject != null) Instantiate(pickupSoundObject, transform.position, Quaternion.identity);
-
-             // Visuals
-             if (pickupEffect != null)
+             // Audio/Visuals — only for local player to prevent double sounds in multiplayer
+             if (NetworkAudioHelper.IsLocalPlayer(target))
              {
-                 Instantiate(pickupEffect, transform.position, Quaternion.identity);
+                 if (pickupSound != null) AudioSource.PlayClipAtPoint(pickupSound, transform.position);
+                 if (pickupSoundObject != null) Instantiate(pickupSoundObject, transform.position, Quaternion.identity);
+
+                 if (pickupEffect != null)
+                 {
+                     Instantiate(pickupEffect, transform.position, Quaternion.identity);
+                 }
              }
         }
     }

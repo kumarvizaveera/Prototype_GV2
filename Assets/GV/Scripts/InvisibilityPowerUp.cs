@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using VSX.RadarSystem;
 using GV;
+using GV.Network;
 using TMPro;
 
 namespace GV.PowerUps
@@ -66,9 +67,12 @@ namespace GV.PowerUps
                 PowerUpManager.Instance.RegisterCollection(powerUpType);
             }
 
-            // Feedback
-            if (collectSound != null) AudioSource.PlayClipAtPoint(collectSound, transform.position);
-            if (collectEffectObject != null) Instantiate(collectEffectObject, transform.position, Quaternion.identity);
+            // Feedback — only for local player to prevent double sounds in multiplayer
+            if (NetworkAudioHelper.IsLocalPlayer(target))
+            {
+                if (collectSound != null) AudioSource.PlayClipAtPoint(collectSound, transform.position);
+                if (collectEffectObject != null) Instantiate(collectEffectObject, transform.position, Quaternion.identity);
+            }
 
             ApplyInvisibility(target);
         }

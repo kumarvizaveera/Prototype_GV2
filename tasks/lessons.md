@@ -62,8 +62,17 @@
 - **Camera.main and FindFirstObjectByType<VehicleCamera>() crash on headless**: These return null on a headless server. Always bail early if dedicated server before touching cameras.
 - **BattleRewardBridge self-disables on server**: Rather than guarding every method, the `OnEnable()` sets `enabled = false` and returns. Clean and complete.
 - **Host mode is completely unaffected**: `IsDedicatedServer` defaults to `false`, so all guards are transparent. Zero behavior change for existing workflow.
+- **ParrelSync clones inherit Inspector settings**: When you set ServerMode to DedicatedServer in the Inspector, the clone sees it too (they share scene data). The clone then tries to start as a second server, causing "ServerAlreadyInRoom." Fix: detect clones with `ParrelSync.ClonesManager.IsClone()` and force them to Client mode.
+- **Runner can be null after failed StartGame**: If `StartGame()` fails, Fusion shuts down and destroys the Runner. Any code after `await StartGame()` that touches `Runner` will throw NullReferenceException. Always null-check Runner before using it post-StartGame.
 
 ### Auto-Creation Pattern for Scene Independence
 - **BattleRewardBridge auto-creates BattleRewardManager**: When launching directly into gameplay scene (skipping Bootstrap), BattleRewardBridge creates a BattleRewardManager with default config. Set default private key in the serialized field so auto-created instances work.
 - **PostMatchRewardUI retry subscription**: BattleRewardManager may be auto-created AFTER PostMatchRewardUI.OnEnable(). Use a `_subscribedToRewards` bool and retry in Update() until the manager exists.
 - **Graceful no-wallet handling**: When Web3Manager doesn't exist (skipped Bootstrap), show "Connect wallet to receive rewards" instead of being stuck on "Minting tokens...".
+
+### Double Audio in Multiplayer (Bug Fix — Mar 1)
+- **Root Cause 1 — Pickup/power-up sounds**: OnTriggerEnter fires on EVERY machine that detects the collision. AudioSource.PlayClipAtPoint() and .Play() had no network authority check, so both host and client played the sound. Fix: use `NetworkAudioHelper.IsLocalPlayer()` to check `HasInputAuthority` before playing audio.
+- **Root Cause 2 — Engine/weapon/boost sounds on remote ships**: DisableLocalInput() disabled input scripts but never touched AudioSources. EngineAudioController, Projectile, MissileWarningReceiver, BeamSoundEffectsController all kept playing on remote ships. Fix: mute all AudioSources and disable AudioListeners on remote ships in DisableLocalInput().
+- **Key pattern**: For pickup scripts (MonoBehaviour, not NetworkBehaviour), find the NetworkObject on the collider's root and check `HasInputAuthority`. If no NetworkObject exists (offline testing), return true so audio still works.
+- **EngineAudioController.OnEnable() re-starts audio**: After mesh swaps, audio roots toggle on/off. OnEnable calls m_Audio.Play(). Since we set `mute = true` AND `volume = 0f`, this is harmless — the audio "plays" silently.
+- **Use mute + volume=0 instead of Destroy**: SCK scripts hold references to their AudioSources. Destroying them would cause NullRef. Muting is safer.

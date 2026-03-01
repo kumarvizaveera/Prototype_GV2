@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using VSX.Health;
 using GV;
+using GV.Network;
 using TMPro;
 
 namespace GV.PowerUps
@@ -88,15 +89,18 @@ namespace GV.PowerUps
                      if (debugLogs) Debug.Log($"[ShieldPowerUp] Refreshed shield on {target.name} for {duration} seconds");
                 }
                 
-                // Play sound if assigned
-                if (collectSound != null)
+                // Play sound/VFX only for the local player to prevent double sounds in multiplayer
+                if (NetworkAudioHelper.IsLocalPlayer(target))
                 {
-                    AudioSource.PlayClipAtPoint(collectSound, transform.position);
-                }
-                
-                if (collectEffectObject != null)
-                {
-                    Instantiate(collectEffectObject, transform.position, Quaternion.identity);
+                    if (collectSound != null)
+                    {
+                        AudioSource.PlayClipAtPoint(collectSound, transform.position);
+                    }
+
+                    if (collectEffectObject != null)
+                    {
+                        Instantiate(collectEffectObject, transform.position, Quaternion.identity);
+                    }
                 }
 
                 // Remove the powerup
