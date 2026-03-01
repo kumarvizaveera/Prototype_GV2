@@ -10,6 +10,8 @@ using Fusion.Sockets;
 using VSX.CameraSystem;
 using VSX.VehicleCombatKits;
 using VSX.Vehicles;
+using UnityEngine.Splines;
+using Unity.Mathematics;
 
 namespace GV.Network
 {
@@ -28,8 +30,12 @@ namespace GV.Network
         [SerializeField] private int maxPlayers = 4;
         [SerializeField] private LevelSynchronizer levelSynchronizerPrefab;
         
-        [Header("Spawn Points")]
-        [SerializeField] private Transform[] spawnPoints;
+        [Header("Spline Spawn")]
+        [Tooltip("The track spline to spawn players along. Same one used by SplineTether.")]
+        [SerializeField] private SplineContainer spawnSpline;
+
+        [Tooltip("Minimum world-space distance between any two players along the spline.")]
+        [SerializeField] private float minSpawnSpacing = 50f;
         
         [Header("UI - TMP")]
         [SerializeField] private TMP_Text hostPromptText;   // "Press H to Host"
@@ -500,24 +506,89 @@ namespace GV.Network
         
         // ... (spawn logic omitted for brevity, keeping existing methods) ...
         
+        // ── Spline-based spawn helpers ──────────────────────────────────
+
+        /// <summary>
+        /// Pre-calculates spawn positions for all possible player slots (up to maxPlayers).
+        /// Uses LevelSynchronizer seed so every client gets the same result.
+        /// Called once when the first player joins.
+        /// </summary>
+        private Vector3[] _cachedSpawnPositions;
+        private Quaternion[] _cachedSpawnRotations;
+
+        private void CalculateSplineSpawnPoints()
+        {
+            // Already calculated this session
+            if (_cachedSpawnPositions != null) return;
+
+            _cachedSpawnPositions = new Vector3[maxPlayers];
+            _cachedSpawnRotations = new Quaternion[maxPlayers];
+
+            // If no spline assigned, fall back to simple X-axis spread
+            if (spawnSpline == null)
+            {
+                Debug.LogWarning("[NetworkManager] No spawnSpline assigned! Falling back to X-axis spread.");
+                for (int i = 0; i < maxPlayers; i++)
+                {
+                    _cachedSpawnPositions[i] = new Vector3(i * 10f, 0f, 0f);
+                    _cachedSpawnRotations[i] = Quaternion.identity;
+                }
+                return;
+            }
+
+            var spline = spawnSpline.Spline;
+
+            // Use LevelSynchronizer seed for deterministic randomness across all clients
+            int seed = LevelSynchronizer.Instance != null ? LevelSynchronizer.Instance.LevelSeed : 42;
+            System.Random rng = new System.Random(seed);
+
+            // Convert minSpawnSpacing from world units to normalized t (0–1)
+            float splineLength = spline.GetLength();
+            float spacingT = splineLength > 0f ? minSpawnSpacing / splineLength : 0.1f;
+
+            // Pick a random starting t value
+            float startT = (float)rng.NextDouble();
+
+            Debug.Log($"[NetworkManager] Spline spawn — seed: {seed}, splineLength: {splineLength:F1}, " +
+                      $"spacingT: {spacingT:F4}, startT: {startT:F4}");
+
+            for (int i = 0; i < maxPlayers; i++)
+            {
+                // Each player gets startT + (i * spacingT), wrapped to 0–1
+                float t = (startT + i * spacingT) % 1f;
+
+                // Evaluate position and tangent on the spline at this t
+                float3 localPos = SplineUtility.EvaluatePosition(spline, t);
+                float3 localTangent = SplineUtility.EvaluateTangent(spline, t);
+
+                // Convert from spline local space to world space
+                Vector3 worldPos = spawnSpline.transform.TransformPoint(localPos);
+                Vector3 worldTangent = spawnSpline.transform.TransformDirection(math.normalize(localTangent));
+
+                _cachedSpawnPositions[i] = worldPos;
+
+                // Face the ship along the spline direction
+                if (math.lengthsq(localTangent) > 0.001f)
+                    _cachedSpawnRotations[i] = Quaternion.LookRotation(worldTangent, Vector3.up);
+                else
+                    _cachedSpawnRotations[i] = Quaternion.identity;
+
+                Debug.Log($"[NetworkManager] Player slot {i} → t={t:F4}, pos={worldPos}, rot={_cachedSpawnRotations[i].eulerAngles}");
+            }
+        }
+
         private Vector3 GetSpawnPosition(PlayerRef player)
         {
-            if (spawnPoints != null && spawnPoints.Length > 0)
-            {
-                int index = player.PlayerId % spawnPoints.Length;
-                return spawnPoints[index].position;
-            }
-            return new Vector3(player.PlayerId * 10f, 0f, 0f);
+            CalculateSplineSpawnPoints();
+            int index = player.PlayerId % maxPlayers;
+            return _cachedSpawnPositions[index];
         }
-        
+
         private Quaternion GetSpawnRotation(PlayerRef player)
         {
-            if (spawnPoints != null && spawnPoints.Length > 0)
-            {
-                int index = player.PlayerId % spawnPoints.Length;
-                return spawnPoints[index].rotation;
-            }
-            return Quaternion.identity;
+            CalculateSplineSpawnPoints();
+            int index = player.PlayerId % maxPlayers;
+            return _cachedSpawnRotations[index];
         }
 
         private void SetupCameraFollow(GameObject playerObject)
