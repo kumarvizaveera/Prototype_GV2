@@ -104,8 +104,6 @@ namespace GV.Web3
         };
 
         // --- State ---
-        // The Nethereum web3 instance (created from the reward wallet's private key)
-        private Nethereum.Web3.Web3 _rewardWeb3;
 
         // Is a reward distribution currently in progress?
         private bool _isDistributing = false;
@@ -275,8 +273,10 @@ namespace GV.Web3
 
             try
             {
-                // Step 1: Create the Nethereum web3 instance from the private key
-                var web3 = GetOrCreateRewardWeb3();
+                // Step 1: Create a FRESH Nethereum web3 instance each time
+                // We don't reuse cached instances because stale nonce state causes
+                // "replacement transaction underpriced" errors
+                var web3 = CreateFreshRewardWeb3();
                 if (web3 == null)
                 {
                     OnRewardError?.Invoke("Reward wallet not configured. Check the private key in Inspector.");
@@ -318,8 +318,8 @@ namespace GV.Web3
                             $"to {ShortenAddress(player.walletAddress)} (placement: {player.placement})...");
 
                         // Get the latest nonce (transaction count) from the network
-                        // This prevents "replacement transaction underpriced" errors when
-                        // previous transactions are still pending or nonce gets cached stale
+                        // Using "pending" ensures we get the next available nonce even if
+                        // there are pending transactions in the mempool
                         var nonce = await web3.Eth.Transactions.GetTransactionCount
                             .SendRequestAsync(
                                 web3.TransactionManager.Account.Address,
@@ -328,15 +328,17 @@ namespace GV.Web3
 
                         Debug.Log($"[BattleRewardManager] Using nonce: {nonce.Value}");
 
-                        // Call mintTo(address, amount) on the ERC-20 contract
-                        // Nethereum sends a standard transaction signed by the reward wallet
+                        // Build the transaction manually with an explicit gas price
+                        // A high gas price (100 gwei) ensures we can replace any stuck
+                        // pending transactions — on Fuji testnet gas is essentially free
                         var txInput = mintToFunction.CreateTransactionInput(
                             from: web3.TransactionManager.Account.Address,
-                            gas: new HexBigInteger(200000), // gas limit (plenty for a mint)
-                            value: new HexBigInteger(0),     // no AVAX sent with this call
+                            gas: new HexBigInteger(200000),
+                            value: new HexBigInteger(0),
                             functionInput: new object[] { player.walletAddress, amountInWei }
                         );
                         txInput.Nonce = nonce;
+                        txInput.GasPrice = new HexBigInteger(30000000000); // 30 gwei — ~0.006 AVAX per mint
 
                         var txHash = await web3.Eth.TransactionManager
                             .SendTransactionAsync(txInput);
@@ -521,21 +523,20 @@ namespace GV.Web3
         {
             _tokenBalanceFormatted = $"0 {tokenSymbol}";
             OnTokenBalanceUpdated?.Invoke(_tokenBalanceFormatted);
-            _rewardWeb3 = null;
         }
 
         /// <summary>
-        /// Creates (or reuses) the Nethereum Web3 instance from the reward wallet's private key.
+        /// Creates a FRESH Nethereum Web3 instance every time.
+        /// We don't cache it because Nethereum's internal nonce tracker can get stale
+        /// and cause "replacement transaction underpriced" errors.
         ///
         /// How Nethereum works:
         /// - Account = a wallet created from a private key (can sign transactions)
         /// - Web3 = a connection to the blockchain using that wallet
         /// - We tell it to connect to the Fuji RPC URL so it can send transactions
         /// </summary>
-        private Nethereum.Web3.Web3 GetOrCreateRewardWeb3()
+        private Nethereum.Web3.Web3 CreateFreshRewardWeb3()
         {
-            if (_rewardWeb3 != null) return _rewardWeb3;
-
             if (string.IsNullOrEmpty(rewardWalletPrivateKey))
             {
                 Debug.LogError("[BattleRewardManager] No reward wallet private key set! " +
@@ -550,12 +551,12 @@ namespace GV.Web3
                 // The 43113 is the chain ID for Avalanche Fuji testnet
                 var account = new Account(rewardWalletPrivateKey, 43113);
 
-                // Create a Web3 connection using this account + the Fuji RPC URL
-                _rewardWeb3 = new Nethereum.Web3.Web3(account, rpcUrl);
+                // Create a fresh Web3 connection — no cached nonce state
+                var web3 = new Nethereum.Web3.Web3(account, rpcUrl);
 
                 Debug.Log($"[BattleRewardManager] Reward wallet ready: {ShortenAddress(account.Address)}");
 
-                return _rewardWeb3;
+                return web3;
             }
             catch (Exception ex)
             {
