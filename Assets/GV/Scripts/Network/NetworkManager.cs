@@ -101,36 +101,50 @@ namespace GV.Network
             Application.runInBackground = true;
 
             // --- Determine if this instance should run as a dedicated server ---
-            // "Auto" mode checks for the -server command-line flag (used when launching headless builds).
-            // This lets the same build work as either Host or DedicatedServer depending on launch args.
+            // ParrelSync clones share the same scene data, so they'd inherit the
+            // DedicatedServer Inspector setting. Clones must always run as regular clients.
+            bool isParrelSyncClone = false;
+            #if UNITY_EDITOR
+            isParrelSyncClone = ParrelSync.ClonesManager.IsClone();
+            #endif
+
             IsDedicatedServer = false;
-            switch (serverMode)
+            if (isParrelSyncClone)
             {
-                case ServerMode.DedicatedServer:
-                    IsDedicatedServer = true;
-                    break;
-                case ServerMode.Auto:
-                    // Check command-line args for -server flag
-                    string[] args = System.Environment.GetCommandLineArgs();
-                    foreach (string arg in args)
-                    {
-                        if (arg.ToLower() == "-server" || arg.ToLower() == "--server")
-                        {
-                            IsDedicatedServer = true;
-                            break;
-                        }
-                    }
-                    // Also check Unity's UNITY_SERVER define (set automatically in Dedicated Server builds)
-                    #if UNITY_SERVER
-                    IsDedicatedServer = true;
-                    #endif
-                    break;
-                case ServerMode.Host:
-                default:
-                    IsDedicatedServer = false;
-                    break;
+                // ParrelSync clone = always a client, never a server
+                IsDedicatedServer = false;
+                Debug.Log("[NetworkManager] ParrelSync clone detected — forcing Host/Client mode (not dedicated server)");
             }
-            Debug.Log($"[NetworkManager] ServerMode={serverMode}, IsDedicatedServer={IsDedicatedServer}");
+            else
+            {
+                switch (serverMode)
+                {
+                    case ServerMode.DedicatedServer:
+                        IsDedicatedServer = true;
+                        break;
+                    case ServerMode.Auto:
+                        // Check command-line args for -server flag
+                        string[] args = System.Environment.GetCommandLineArgs();
+                        foreach (string arg in args)
+                        {
+                            if (arg.ToLower() == "-server" || arg.ToLower() == "--server")
+                            {
+                                IsDedicatedServer = true;
+                                break;
+                            }
+                        }
+                        // Also check Unity's UNITY_SERVER define (set automatically in Dedicated Server builds)
+                        #if UNITY_SERVER
+                        IsDedicatedServer = true;
+                        #endif
+                        break;
+                    case ServerMode.Host:
+                    default:
+                        IsDedicatedServer = false;
+                        break;
+                }
+            }
+            Debug.Log($"[NetworkManager] ServerMode={serverMode}, IsDedicatedServer={IsDedicatedServer}, ParrelSyncClone={isParrelSyncClone}");
         }
 
         private void Start()
@@ -549,6 +563,13 @@ namespace GV.Network
             
             // Belt-and-suspenders: re-register callbacks and re-confirm ProvideInput AFTER StartGame.
             // Some Fusion versions clear callbacks during StartGame. Adding again is safe (Fusion deduplicates).
+            // Runner can be null if StartGame failed and triggered a shutdown.
+            if (Runner == null)
+            {
+                Debug.LogError($"[NetworkManager] Runner is null after StartGame — connection failed. ShutdownReason={result.ShutdownReason}");
+                _lastError = $"Failed: {result.ShutdownReason}";
+                return;
+            }
             Runner.AddCallbacks(this);
             Runner.ProvideInput = !IsDedicatedServer;
             Debug.Log($"[NetworkManager] Post-StartGame: re-registered callbacks, ProvideInput={Runner.ProvideInput}, " +
