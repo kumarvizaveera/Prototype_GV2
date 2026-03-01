@@ -77,16 +77,30 @@ namespace GV.Web3
         [Tooltip("Avalanche Fuji C-Chain RPC URL. Used by the reward wallet to send transactions.")]
         [SerializeField] private string rpcUrl = "https://api.avax-test.network/ext/bc/C/rpc";
 
+        // --- Bonus Reward Names (display only, customizable) ---
+        [Header("Bonus Reward Labels")]
+        [Tooltip("What to call the first bonus reward in the UI (e.g. 'XP', 'Experience', 'Shakti').")]
+        [SerializeField] private string bonusReward1Name = "XP";
+
+        [Tooltip("What to call the second bonus reward in the UI (e.g. 'Energy', 'Prana Energy', 'Tejas').")]
+        [SerializeField] private string bonusReward2Name = "Energy";
+
+        [Tooltip("What to call the third bonus reward in the UI (e.g. 'Gems', 'Ratnas', 'Crystals').")]
+        [SerializeField] private string bonusReward3Name = "Gems";
+
+        [Tooltip("What to call the fourth bonus reward in the UI (e.g. 'Coins', 'Gold', 'Mudra').")]
+        [SerializeField] private string bonusReward4Name = "Coins";
+
         // --- Reward Amounts Per Placement ---
         [Header("Reward Configuration")]
         [Tooltip("How many tokens each placement earns. Index 0 = 1st place, Index 1 = 2nd place, etc. " +
                  "These are whole token amounts (e.g. 100 means 100 PRANA).")]
         [SerializeField] private List<PlacementReward> rewardsByPlacement = new List<PlacementReward>()
         {
-            new PlacementReward { placementLabel = "1st Place", tokenAmount = 100 },
-            new PlacementReward { placementLabel = "2nd Place", tokenAmount = 60 },
-            new PlacementReward { placementLabel = "3rd Place", tokenAmount = 30 },
-            new PlacementReward { placementLabel = "4th Place", tokenAmount = 10 },
+            new PlacementReward { placementLabel = "1st Place", tokenAmount = 100, xpAmount = 500, energyAmount = 50, gemsAmount = 10, coinsAmount = 200 },
+            new PlacementReward { placementLabel = "2nd Place", tokenAmount = 60,  xpAmount = 300, energyAmount = 30, gemsAmount = 5,  coinsAmount = 120 },
+            new PlacementReward { placementLabel = "3rd Place", tokenAmount = 30,  xpAmount = 150, energyAmount = 15, gemsAmount = 2,  coinsAmount = 60 },
+            new PlacementReward { placementLabel = "4th Place", tokenAmount = 10,  xpAmount = 50,  energyAmount = 5,  gemsAmount = 0,  coinsAmount = 20 },
         };
 
         // --- State ---
@@ -122,6 +136,18 @@ namespace GV.Web3
 
         /// <summary>Token symbol (e.g. "PRANA").</summary>
         public string TokenSymbol => tokenSymbol;
+
+        /// <summary>Name for bonus reward 1 (e.g. "XP").</summary>
+        public string BonusReward1Name => bonusReward1Name;
+
+        /// <summary>Name for bonus reward 2 (e.g. "Energy").</summary>
+        public string BonusReward2Name => bonusReward2Name;
+
+        /// <summary>Name for bonus reward 3 (e.g. "Gems").</summary>
+        public string BonusReward3Name => bonusReward3Name;
+
+        /// <summary>Name for bonus reward 4 (e.g. "Coins").</summary>
+        public string BonusReward4Name => bonusReward4Name;
 
         /// <summary>The player's token balance formatted for display (e.g. "150 PRANA").</summary>
         public string TokenBalanceFormatted => _tokenBalanceFormatted;
@@ -201,6 +227,20 @@ namespace GV.Web3
         }
 
         /// <summary>
+        /// Get the full reward config for a specific placement (tokens, XP, energy, gems).
+        /// Placement is 1-based. Returns null if out of range.
+        /// </summary>
+        public PlacementReward GetPlacementReward(int placement)
+        {
+            int index = placement - 1;
+            if (index >= 0 && index < rewardsByPlacement.Count)
+            {
+                return rewardsByPlacement[index];
+            }
+            return null;
+        }
+
+        /// <summary>
         /// Distribute rewards to all players based on their placements.
         ///
         /// Call this when the match ends. Pass a list of PlayerRewardInfo
@@ -277,14 +317,29 @@ namespace GV.Web3
                         Debug.Log($"[BattleRewardManager] Minting {rewardAmount} {tokenSymbol} " +
                             $"to {ShortenAddress(player.walletAddress)} (placement: {player.placement})...");
 
+                        // Get the latest nonce (transaction count) from the network
+                        // This prevents "replacement transaction underpriced" errors when
+                        // previous transactions are still pending or nonce gets cached stale
+                        var nonce = await web3.Eth.Transactions.GetTransactionCount
+                            .SendRequestAsync(
+                                web3.TransactionManager.Account.Address,
+                                Nethereum.RPC.Eth.DTOs.BlockParameter.CreatePending()
+                            );
+
+                        Debug.Log($"[BattleRewardManager] Using nonce: {nonce.Value}");
+
                         // Call mintTo(address, amount) on the ERC-20 contract
                         // Nethereum sends a standard transaction signed by the reward wallet
-                        var txHash = await mintToFunction.SendTransactionAsync(
+                        var txInput = mintToFunction.CreateTransactionInput(
                             from: web3.TransactionManager.Account.Address,
                             gas: new HexBigInteger(200000), // gas limit (plenty for a mint)
                             value: new HexBigInteger(0),     // no AVAX sent with this call
                             functionInput: new object[] { player.walletAddress, amountInWei }
                         );
+                        txInput.Nonce = nonce;
+
+                        var txHash = await web3.Eth.TransactionManager
+                            .SendTransactionAsync(txInput);
 
                         Debug.Log($"[BattleRewardManager] Tx sent: {txHash}. Waiting for confirmation...");
 
@@ -589,5 +644,18 @@ namespace GV.Web3
 
         [Tooltip("How many tokens this placement earns. Whole numbers (e.g. 100 = 100 tokens).")]
         public float tokenAmount = 0;
+
+        [Header("Bonus Rewards (non-token, display only for now)")]
+        [Tooltip("XP earned for this placement.")]
+        public int xpAmount = 0;
+
+        [Tooltip("Energy earned for this placement.")]
+        public int energyAmount = 0;
+
+        [Tooltip("Gems earned for this placement.")]
+        public int gemsAmount = 0;
+
+        [Tooltip("Coins earned for this placement.")]
+        public int coinsAmount = 0;
     }
 }

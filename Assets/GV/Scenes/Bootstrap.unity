@@ -384,15 +384,35 @@ MonoBehaviour:
   tokenDecimals: 18
   rewardWalletPrivateKey: 0a441d05d1d856a59dde57ae027db86d41998eaeb96335467021d95ff2b76a32
   rpcUrl: https://api.avax-test.network/ext/bc/C/rpc
+  bonusReward1Name: Karma XP
+  bonusReward2Name: Surya Energy
+  bonusReward3Name: Akasha Gems
+  bonusReward4Name: Niskara Coins
   rewardsByPlacement:
   - placementLabel: 1st Place
     tokenAmount: 100
+    xpAmount: 500
+    energyAmount: 50
+    gemsAmount: 10
+    coinsAmount: 200
   - placementLabel: 2nd Place
     tokenAmount: 60
+    xpAmount: 300
+    energyAmount: 30
+    gemsAmount: 5
+    coinsAmount: 120
   - placementLabel: 3rd Place
     tokenAmount: 30
+    xpAmount: 150
+    energyAmount: 15
+    gemsAmount: 2
+    coinsAmount: 60
   - placementLabel: 4th Place
     tokenAmount: 10
+    xpAmount: 50
+    energyAmount: 5
+    gemsAmount: 0
+    coinsAmount: 20
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
