@@ -19061,10 +19061,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 6499979924966097099, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2459791625158406128}
-    - targetCorrespondingSourceObject: {fileID: 6499979924966097099, guid: c11c75430698989468fe532c3b045fae,
-        type: 3}
-      insertIndex: -1
       addedObject: {fileID: 3420246686420463674}
     - targetCorrespondingSourceObject: {fileID: 6499979924966097099, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
@@ -19504,20 +19500,6 @@ MonoBehaviour:
   visibleDuration: 3
   fadeDuration: 1
   artifactManager: {fileID: 6295521276865610172}
---- !u!114 &2459791625158406128
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5592321729158715839}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1b760f2157ab1f541bc72feb7855e319, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SetStartAtCheckpoint
-  checkpointIndex: 1
-  alignRotation: 1
 --- !u!114 &3420246686420463674
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -570,22 +570,7 @@ namespace GV.Network
                 var spawnPos = GetSpawnPosition(player);
                 var spawnRot = GetSpawnRotation(player);
 
-                // Use checkpoint 1 position if available — this matches what SetStartAtCheckpoint does.
-                // Without this, the ship spawns at the raw spawnPoints position which may be far from
-                // the track. SetStartAtCheckpoint will also teleport, but this ensures the initial
-                // Fusion spawn position is already correct (avoids 1-frame flash at wrong position).
-                if (CheckpointNetwork.Instance != null && CheckpointNetwork.Instance.Count > 0)
-                {
-                    var cp = CheckpointNetwork.Instance.GetCheckpoint(1); // 1-based: first checkpoint
-                    if (cp != null)
-                    {
-                        spawnPos = cp.position;
-                        spawnRot = cp.rotation;
-                        Debug.Log($"[NetworkManager] Using Checkpoint 1 position for spawn: {spawnPos}");
-                    }
-                }
-
-                Debug.Log($"[NetworkManager] About to spawn player {player.PlayerId} at {spawnPos}");
+                Debug.Log($"[NetworkManager] Spawning player {player.PlayerId} at spawnPoint: {spawnPos}");
                 
                 // Spawn player with explicit input authority assignment
                 var playerObject = runner.Spawn(playerPrefab, spawnPos, spawnRot, inputAuthority: player);
