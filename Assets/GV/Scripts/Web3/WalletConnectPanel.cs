@@ -252,11 +252,19 @@ namespace GV.Web3
                 showAfterConnect.SetActive(false);
             }
 
-            // Now show the Room Lobby Panel
+            // Now show the Room Lobby Panel explicitly via NetworkManager
+            // (this ensures NetworkManager has a chance to enable its buttons if they were disabled)
             if (roomLobbyPanel != null)
             {
-                roomLobbyPanel.SetActive(true);
-                Debug.Log("[WalletConnectPanel] Showing room lobby panel");
+                if (Network.NetworkManager.Instance != null)
+                {
+                    Network.NetworkManager.Instance.ShowLobbyUI();
+                }
+                else
+                {
+                    roomLobbyPanel.SetActive(true);
+                }
+                Debug.Log("[WalletConnectPanel] Showing room lobby panel via ShowLobbyUI()");
             }
         }
 

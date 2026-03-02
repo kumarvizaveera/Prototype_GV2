@@ -196,8 +196,13 @@ namespace GV.Network
 
         // ── Room UI helpers ──────────────────────────────────────────
 
-        private void ShowLobbyUI()
+        public void ShowLobbyUI()
         {
+            Debug.Log($"[NetworkManager] ShowLobbyUI called. " +
+                      $"lobbyPanel={(lobbyPanel != null ? "assigned" : "NULL")}, " +
+                      $"createBtn={(createRoomButton != null ? "assigned" : "NULL")}, " +
+                      $"joinBtn={(joinRoomButton != null ? "assigned" : "NULL")}");
+
             if (lobbyPanel != null) lobbyPanel.SetActive(true);
             if (connectedPanel != null) connectedPanel.SetActive(false);
             if (statusText != null) statusText.text = "";
