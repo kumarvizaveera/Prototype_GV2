@@ -96,6 +96,13 @@ namespace GV.Network
         public event Action<NetworkRunner, ShutdownReason> OnDisconnectedEvent;
         
         private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
+        private List<PlayerRef> _pendingSpawns = new List<PlayerRef>();
+
+        /// <summary>
+        /// True once we're in the gameplay scene and ready to spawn players.
+        /// Prevents ships from spawning in the menu/lobby scene.
+        /// </summary>
+        private bool _inGameplayScene = false;
         
         private void Awake()
         {
@@ -166,6 +173,7 @@ namespace GV.Network
             // --- DEDICATED SERVER: skip all UI, auto-start as Server ---
             if (IsDedicatedServer)
             {
+                _inGameplayScene = true; // Server is always in gameplay scene
                 Debug.Log("[NetworkManager] Dedicated Server mode — skipping UI, auto-starting as Server...");
                 StartServer();
                 return;
@@ -218,6 +226,22 @@ namespace GV.Network
             if (lobbyPanel != null) lobbyPanel.SetActive(false);
             if (connectedPanel != null) connectedPanel.SetActive(true);
             if (roomCodeDisplayText != null) roomCodeDisplayText.text = $"Room: {CurrentRoomCode}";
+        }
+
+        /// <summary>
+        /// Loads the gameplay scene. Called by "Enter Battle" button.
+        /// </summary>
+        public void LoadGameplay()
+        {
+            if (!string.IsNullOrEmpty(gameplaySceneName))
+            {
+                Debug.Log($"[NetworkManager] Loading gameplay scene: {gameplaySceneName}");
+                UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+            }
+            else
+            {
+                Debug.LogError("[NetworkManager] gameplaySceneName is empty! Set it in the Inspector.");
+            }
         }
 
         // ── Room Code Generation ─────────────────────────────────────
@@ -683,13 +707,8 @@ namespace GV.Network
                     Debug.Log("[NetworkManager] Spawned LevelSynchronizer");
                 }
 
-                // Load gameplay scene if we're in the bootstrap/lobby scene
-                // (NetworkManager survives scene load via DontDestroyOnLoad)
-                if (!IsDedicatedServer && !string.IsNullOrEmpty(gameplaySceneName))
-                {
-                    Debug.Log($"[NetworkManager] Room connected — loading gameplay scene: {gameplaySceneName}");
-                    UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
-                }
+                // Don't auto-load gameplay scene here — player clicks "Enter Battle" to proceed.
+                // This gives time for other players to join the room first.
             }
             else
             {
@@ -843,41 +862,28 @@ namespace GV.Network
         
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            Debug.Log($"[NetworkManager] Player {player.PlayerId} joined. IsServer: {runner.IsServer}, playerPrefab: {(playerPrefab != null ? playerPrefab.name : "NULL")}");
-            
+            Debug.Log($"[NetworkManager] Player {player.PlayerId} joined. IsServer: {runner.IsServer}, " +
+                      $"inGameplayScene: {_inGameplayScene}, playerPrefab: {(playerPrefab != null ? playerPrefab.name : "NULL")}");
+
             if (runner.IsServer && playerPrefab != null)
             {
-                var spawnPos = GetSpawnPosition(player);
-                var spawnRot = GetSpawnRotation(player);
-
-                Debug.Log($"[NetworkManager] Spawning player {player.PlayerId} at spawnPoint: {spawnPos}");
-                
-                // Spawn player with explicit input authority assignment
-                var playerObject = runner.Spawn(playerPrefab, spawnPos, spawnRot, inputAuthority: player);
-                
-                Debug.Log($"[NetworkManager] Spawn returned: {(playerObject != null ? playerObject.name : "NULL")}");
-                
-                // Double-check: explicitly assign input authority after spawn
-                if (playerObject != null)
+                // Don't spawn ships in the menu/lobby scene — queue them for when gameplay scene loads
+                if (!_inGameplayScene)
                 {
-                    playerObject.AssignInputAuthority(player);
-                    Debug.Log($"[NetworkManager] Assigned InputAuthority to {player}, now authority is: {playerObject.InputAuthority}");
-
-                    // Setup camera to follow the local player (Host mode only).
-                    // On a dedicated server there IS no local player — runner.LocalPlayer is invalid.
-                    if (!IsDedicatedServer && player == runner.LocalPlayer)
-                    {
-                        SetupCameraFollow(playerObject.gameObject);
-                    }
+                    Debug.Log($"[NetworkManager] Player {player.PlayerId} queued — waiting for gameplay scene to spawn.");
+                    if (!_pendingSpawns.Contains(player))
+                        _pendingSpawns.Add(player);
                 }
-                
-                _spawnedPlayers[player] = playerObject;
+                else
+                {
+                    SpawnPlayer(runner, player);
+                }
             }
             else
             {
                 Debug.LogWarning($"[NetworkManager] NOT spawning - IsServer: {runner.IsServer}, playerPrefab: {(playerPrefab != null ? "assigned" : "NULL")}");
             }
-            
+
             // Show "Client has joined" on the host when a non-host player joins, then auto-hide.
             // Skip on dedicated server — no UI to show.
             if (!IsDedicatedServer && runner.IsServer && player != runner.LocalPlayer && clientJoinedText != null)
@@ -889,6 +895,31 @@ namespace GV.Network
             }
 
             OnPlayerJoinedGame?.Invoke(runner, player);
+        }
+
+        private void SpawnPlayer(NetworkRunner runner, PlayerRef player)
+        {
+            var spawnPos = GetSpawnPosition(player);
+            var spawnRot = GetSpawnRotation(player);
+
+            Debug.Log($"[NetworkManager] Spawning player {player.PlayerId} at spawnPoint: {spawnPos}");
+
+            var playerObject = runner.Spawn(playerPrefab, spawnPos, spawnRot, inputAuthority: player);
+
+            Debug.Log($"[NetworkManager] Spawn returned: {(playerObject != null ? playerObject.name : "NULL")}");
+
+            if (playerObject != null)
+            {
+                playerObject.AssignInputAuthority(player);
+                Debug.Log($"[NetworkManager] Assigned InputAuthority to {player}, now authority is: {playerObject.InputAuthority}");
+
+                if (!IsDedicatedServer && player == runner.LocalPlayer)
+                {
+                    SetupCameraFollow(playerObject.gameObject);
+                }
+            }
+
+            _spawnedPlayers[player] = playerObject;
         }
         
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
@@ -1060,7 +1091,27 @@ namespace GV.Network
             }
         }
         public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
-        public void OnSceneLoadDone(NetworkRunner runner) { }
+        public void OnSceneLoadDone(NetworkRunner runner)
+        {
+            var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            Debug.Log($"[NetworkManager] OnSceneLoadDone — scene: {activeScene}, pending spawns: {_pendingSpawns.Count}");
+
+            // Check if we've arrived in the gameplay scene
+            if (!string.IsNullOrEmpty(gameplaySceneName) && activeScene == gameplaySceneName)
+            {
+                _inGameplayScene = true;
+
+                // Spawn all players that joined while we were still in the lobby
+                if (runner.IsServer)
+                {
+                    foreach (var player in _pendingSpawns)
+                    {
+                        SpawnPlayer(runner, player);
+                    }
+                    _pendingSpawns.Clear();
+                }
+            }
+        }
         public void OnSceneLoadStart(NetworkRunner runner) { }
         public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
         public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }

@@ -195,7 +195,15 @@ namespace GV.Web3
 
         private void OnPlayClicked()
         {
-            LoadGameplayScene();
+            // Use NetworkManager's gameplay scene — single source of truth
+            if (Network.NetworkManager.Instance != null)
+            {
+                Network.NetworkManager.Instance.LoadGameplay();
+            }
+            else
+            {
+                LoadGameplayScene();
+            }
         }
 
         private void LoadGameplayScene()
