@@ -80,10 +80,12 @@ namespace GV.Web3
             // Verify Web3Manager is present
             if (Web3Manager.Instance == null)
             {
-                Debug.LogError(
+                Debug.LogWarning(
                     "[Web3Bootstrap] Web3Manager not found! " +
-                    "Create an empty GameObject in this scene and add the Web3Manager component."
+                    "Auto-creating a Web3Manager GameObject with default settings."
                 );
+                GameObject web3ManagerObj = new GameObject("Web3Manager");
+                web3ManagerObj.AddComponent<Web3Manager>();
             }
             else
             {
