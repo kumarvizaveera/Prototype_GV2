@@ -10035,12 +10035,12 @@ PrefabInstance:
     - target: {fileID: 2346978277444490418, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       propertyPath: healthCapacity
-      value: 1200
+      value: 10000
       objectReference: {fileID: 0}
     - target: {fileID: 2346978277444490418, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       propertyPath: startingHealth
-      value: 1200
+      value: 10000
       objectReference: {fileID: 0}
     - target: {fileID: 2346978277444490418, guid: c11c75430698989468fe532c3b045fae,
         type: 3}

@@ -521,6 +521,11 @@ namespace GV.Network
 
             var sceneInfo = new NetworkSceneInfo();
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            Debug.Log($"[NetworkManager] Active scene: '{scene.name}', buildIndex={scene.buildIndex}, isLoaded={scene.isLoaded}");
+            if (scene.buildIndex < 0)
+            {
+                Debug.LogError("[NetworkManager] WARNING: Scene buildIndex is negative! This scene may not be in Build Settings.");
+            }
             sceneInfo.AddSceneRef(SceneRef.FromIndex(scene.buildIndex));
             
             // Setup AppSettings with fixed region and fallback AppID
@@ -529,13 +534,17 @@ namespace GV.Network
             string appId = "";
             string appVersion = "1.0";
             
-            if (Fusion.Photon.Realtime.PhotonAppSettings.Global != null && 
-                Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings != null)
+            bool globalSettingsFound = Fusion.Photon.Realtime.PhotonAppSettings.Global != null &&
+                Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings != null;
+            Debug.Log($"[NetworkManager] PhotonAppSettings.Global found: {globalSettingsFound}");
+
+            if (globalSettingsFound)
             {
                 appId = Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings.AppIdFusion;
                 appVersion = Fusion.Photon.Realtime.PhotonAppSettings.Global.AppSettings.AppVersion;
+                Debug.Log($"[NetworkManager] Loaded from Global: AppId length={appId?.Length ?? 0}, AppVersion='{appVersion}'");
             }
-            
+
             // Fail-safe: Hardcode the known AppID if retrieval failed
             if (string.IsNullOrEmpty(appId))
             {
@@ -548,18 +557,32 @@ namespace GV.Network
             appSettings.FixedRegion = fixedRegion;
             appSettings.UseNameServer = true;
             
-            Debug.Log($"[NetworkManager] Starting game. Region: {fixedRegion}, AppID: ...{appId.Substring(Math.Max(0, appId.Length - 4))}");
+            Debug.Log($"[NetworkManager] Starting game. Mode={mode}, Region={fixedRegion}, " +
+                      $"Session=GV_Race, MaxPlayers={maxPlayers}, " +
+                      $"AppID=...{appId.Substring(Math.Max(0, appId.Length - 4))}, " +
+                      $"AppVersion='{appVersion}', UseNameServer={appSettings.UseNameServer}");
             _lastError = $"Starting... Region: {fixedRegion}"; // Show status in UI
 
-            var result = await Runner.StartGame(new StartGameArgs
+            StartGameResult result;
+            try
             {
-                GameMode = mode,
-                SessionName = "GV_Race",
-                PlayerCount = maxPlayers,
-                Scene = sceneInfo,
-                SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>(),
-                CustomPhotonAppSettings = appSettings
-            });
+                result = await Runner.StartGame(new StartGameArgs
+                {
+                    GameMode = mode,
+                    SessionName = "GV_Race",
+                    PlayerCount = maxPlayers,
+                    Scene = sceneInfo,
+                    SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>(),
+                    CustomPhotonAppSettings = appSettings
+                });
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[NetworkManager] EXCEPTION during StartGame: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+                _lastError = $"Exception: {ex.Message}";
+                return;
+            }
+            Debug.Log($"[NetworkManager] StartGame returned: Ok={result.Ok}, ShutdownReason={result.ShutdownReason}");
             
             // Belt-and-suspenders: re-register callbacks and re-confirm ProvideInput AFTER StartGame.
             // Some Fusion versions clear callbacks during StartGame. Adding again is safe (Fusion deduplicates).
@@ -850,7 +873,10 @@ namespace GV.Network
         
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
         {
-            Debug.Log($"[NetworkManager] Shutdown: {shutdownReason}");
+            Debug.LogWarning($"[NetworkManager] OnShutdown called! Reason={shutdownReason}, " +
+                $"Runner={(runner != null ? "exists" : "NULL")}, " +
+                $"IsRunning={(runner != null && runner.IsRunning ? "YES" : "NO")}, " +
+                $"IsDedicatedServer={IsDedicatedServer}");
             _lastError = $"Shutdown: {shutdownReason}";
 
             // Reset UI texts on disconnect (skip on dedicated server — no UI)

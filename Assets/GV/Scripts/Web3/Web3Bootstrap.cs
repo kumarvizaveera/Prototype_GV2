@@ -32,8 +32,30 @@ namespace GV.Web3
         [Tooltip("The scene to load after bootstrap is done. Leave empty to stay in this scene.")]
         [SerializeField] private string nextSceneName = "SCK_MainMenu";
 
+        [Tooltip("On dedicated server, skip the menu and load this scene directly (where NetworkManager lives).")]
+        [SerializeField] private string gameplaySceneName = "VPS_Tests";
+
         [Tooltip("If true, loads the next scene automatically. If false, waits for manual trigger.")]
         [SerializeField] private bool autoLoadNextScene = true;
+
+        /// <summary>
+        /// Checks if this build should run as a dedicated server.
+        /// Same logic as ServerBootstrap and NetworkManager.
+        /// </summary>
+        private bool IsDedicatedServer()
+        {
+            #if UNITY_SERVER
+            return true;
+            #endif
+
+            string[] args = System.Environment.GetCommandLineArgs();
+            foreach (string arg in args)
+            {
+                if (arg.ToLower() == "-server" || arg.ToLower() == "--server")
+                    return true;
+            }
+            return false;
+        }
 
         private void Start()
         {
@@ -62,6 +84,17 @@ namespace GV.Web3
             else
             {
                 Debug.Log("[Web3Bootstrap] Web3Manager found and ready.");
+            }
+
+            // --- Dedicated Server: skip menu, go straight to gameplay scene ---
+            // The server has no player to click "Enter Battle," so we jump directly
+            // to the scene that has NetworkManager (which auto-starts as Server).
+            if (IsDedicatedServer())
+            {
+                string serverScene = !string.IsNullOrEmpty(gameplaySceneName) ? gameplaySceneName : nextSceneName;
+                Debug.Log($"[Web3Bootstrap] DEDICATED SERVER — skipping menu, loading gameplay scene: {serverScene}");
+                SceneManager.LoadScene(serverScene);
+                return;
             }
 
             // Move to the main menu

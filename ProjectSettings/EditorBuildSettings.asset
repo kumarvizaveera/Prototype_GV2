@@ -74,9 +74,15 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/SCK_MainMenu_2.unity
     guid: 005ebaea33d0e8f418fa4d417eabd2e0
-  - enabled: 1
+  - enabled: 0
     path: Assets/MP_Mechanics_6.unity
     guid: 56860f4e2f5caa848a36230d3c9c25b3
+  - enabled: 0
+    path: Assets/VPS.unity
+    guid: d815d8bc539239d4384bf600d8a1fa44
+  - enabled: 1
+    path: Assets/VPS_Tests.unity
+    guid: 16c50ba3261298144a7304e9cbb379bd
   m_configObjects:
     com.unity.input.settings: {fileID: 11400000, guid: 15762e7d1852b174496d703157a471ea,
       type: 2}

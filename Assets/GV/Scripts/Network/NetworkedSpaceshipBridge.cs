@@ -257,6 +257,7 @@ namespace GV.Network
         private Rigidbody _cachedRb = null;
         private int _prevSyncTick = -1;
         private bool _followInitialized = false;
+        private bool _proxyFollowFirstLog = false;
         private Vector3 _intendedPosition;
         private Quaternion _intendedRotation;
         private Vector3 _smoothVelocity = Vector3.zero;
@@ -374,15 +375,21 @@ namespace GV.Network
                     }
                 }
 
-                // Disable NetworkTransform on ALL non-authority ships.
-                // Our [Networked] properties handle sync. NetworkTransform syncs the ROOT
-                // transform (stuck at spawn in SCK), not the CHILD where physics lives.
-                var nt = GetComponent<Fusion.NetworkTransform>();
-                if (nt != null)
-                {
-                    nt.enabled = false;
-                    Debug.Log($"[NetworkedSpaceshipBridge] Disabled NetworkTransform on non-authority ship");
-                }
+            }
+
+            // Disable NetworkTransform on ALL machines (server, host, AND clients).
+            // Our custom [Networked] SyncPosition/SyncRotation properties handle position sync.
+            // NetworkTransform syncs the ROOT transform, but in SCK the Rigidbody lives on a CHILD.
+            // Physics moves the child, so the root stays stuck at spawn. If NetworkTransform is
+            // enabled on the server, it writes spawn-position to Fusion's internal state every tick,
+            // which conflicts with our manual SyncPosition writes and can prevent proper replication
+            // — especially in Dedicated Server mode where all ships are remote to the server.
+            var nt = GetComponent<Fusion.NetworkTransform>();
+            if (nt != null)
+            {
+                nt.enabled = false;
+                Debug.Log($"[NetworkedSpaceshipBridge] Disabled NetworkTransform on {gameObject.name} " +
+                          $"(StateAuth={Object.HasStateAuthority}, InputAuth={Object.HasInputAuthority})");
             }
 
             // --- Immediately disable input on remote player ships ---
@@ -1765,6 +1772,16 @@ namespace GV.Network
             // === PROXY SHIPS: SmoothDamp position follow (kinematic) ===
             if (SyncTick > 0)
             {
+                // One-time diagnostic: confirm proxy follow pipeline is active
+                if (!_proxyFollowFirstLog)
+                {
+                    _proxyFollowFirstLog = true;
+                    Debug.Log($"[NetworkedSpaceshipBridge] PROXY FOLLOW ACTIVE on {gameObject.name}: " +
+                              $"SyncTick={SyncTick}, SyncPos={SyncPosition}, " +
+                              $"cachedTarget={((_cachedTarget != null) ? _cachedTarget.name : "NULL")}, " +
+                              $"cachedRb={(_cachedRb != null ? "YES" : "NULL")}");
+                }
+
                 // Check for new ticks (handles initialization on first tick)
                 bool tickChanged = CheckNewTick();
 

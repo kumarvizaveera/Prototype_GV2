@@ -78,23 +78,86 @@ The existing RPC input pipeline (`HasStateAuthority && !HasInputAuthority` in Fi
 
 ---
 
-## What's Left for Part A
+---
 
-### Unity Tasks (Veera)
-- [ ] Add ServerBootstrap.cs to the first scene that loads
-- [ ] Test Host mode still works (it should — IsDedicatedServer defaults to false)
-- [ ] Test with ParrelSync: main editor set to DedicatedServer, clone presses J
-- [ ] When ready: build Dedicated Server target in Unity (File → Build Settings → Dedicated Server → Linux)
-- [ ] Upload to VPS following VPS_Setup_Guide.md
+## Session 2 — March 2, 2026: Testing, Bug Fixes & VPS Deployment
 
-### Part B (Future)
-- Scale from 4 to 20-30 players per match
-- Requires Part A to be tested and deployed first
-- Full plan in `tasks/Dedicated_Server_Plan.md`
+### Bug Fix: Proxy Position Sync Broken After Dedicated Server Migration
+
+**Problem:** Two ParrelSync clones couldn't see each other's ships move — proxy positions were stuck at spawn.
+
+**Root Cause:** `NetworkTransform` was only disabled on non-authority ships (inside `!HasStateAuthority` block in `Spawned()`). On the dedicated server, ALL ships are "state authority" but the physics Rigidbody lives on a CHILD object, not the root transform. NetworkTransform syncs the ROOT, which stays at spawn position. It was writing spawn-position into Fusion's internal state every tick, overriding our custom `SyncPosition` writes.
+
+**Fix (NetworkedSpaceshipBridge.cs):**
+- Moved NetworkTransform disable OUTSIDE the `!HasStateAuthority` block so it runs on ALL machines (server, host, and clients)
+- Added one-time diagnostic log when proxy follow first activates
+
+**Why it worked before:** In Host mode, the host IS the client with InputAuthority — NetworkTransform's root-position happened to match. In Dedicated Server mode, no one has InputAuthority on the server, so the conflict became visible.
+
+### Bug Fix: Server Stuck at Menu Scene
+
+**Problem:** VPS dedicated server loaded the Bootstrap scene which then loaded the menu scene (SCK_MainMenu_2). With no player to click "Enter Battle," the server sat there forever.
+
+**Fix (Web3Bootstrap.cs):**
+- Added `IsDedicatedServer()` method that checks `UNITY_SERVER` define and `-server` command-line flag
+- Added `gameplaySceneName` field (Inspector, defaults to "VPS_Tests")
+- In `Start()`, if dedicated server is detected, skip menu and load gameplay scene directly
+
+### Bug Fix: ShutdownReason=GameNotFound on VPS
+
+**Problem:** Server loaded the correct gameplay scene (VPS_Tests) but Fusion failed with `ShutdownReason=GameNotFound` — couldn't create or join a session.
+
+**Root Cause:** NetworkManager's `ServerMode` was set to **Host** in the Inspector (not Auto or DedicatedServer). When set to Host, the `-server` command-line flag is completely ignored — the code only checks command-line args in the `Auto` case. So the VPS was trying to run as a regular game build with `autoHostInBuild`, not as a proper dedicated server.
+
+**Fix:** Changed `ServerMode` to **DedicatedServer** directly in the Inspector on the VPS_Tests scene's NetworkManager. This forces dedicated server mode without needing command-line flags.
+
+### Diagnostic Logging Added (NetworkManager.cs)
+
+Added detailed logging to help debug future connection issues:
+- Active scene name and build index (catches "scene not in Build Settings" errors)
+- Whether `PhotonAppSettings.Global` loaded or fell back to hardcoded AppID
+- Full StartGame parameters (mode, region, session name, AppID, AppVersion)
+- Try-catch around `Runner.StartGame()` to capture exceptions
+- Enhanced `OnShutdown` logging with Runner state details
+
+### VPS Deployment — Successfully Tested
+
+- Built Linux Standalone from Unity
+- Uploaded to Hostinger VPS at `187.124.96.178` via SCP
+- Server runs with: `/root/gv2-server/L_Tests_3.x86_64 -server -logFile /dev/stdout -batchmode -nographics`
+- Two editor clients successfully connect and play
+- Host mode (press H) still works in editor
+
+### Files Changed This Session
+
+| File | Changes |
+|------|---------|
+| NetworkedSpaceshipBridge.cs | Moved NetworkTransform disable to ALL machines; added proxy follow diagnostic log |
+| Web3Bootstrap.cs | Added IsDedicatedServer() check, gameplaySceneName field, skip-to-gameplay for server |
+| NetworkManager.cs | Added scene/AppID/StartGame diagnostics, try-catch, enhanced OnShutdown logging; ServerMode set to DedicatedServer in Inspector |
+| tasks/lessons.md | Added "Proxy Position Sync Broken in Dedicated Server Mode" entry |
+
+---
+
+## What's Left
+
+### Completed
+- [x] Test Host mode still works — confirmed, press H in editor works fine
+- [x] Deploy dedicated server build to VPS
+- [x] Clients connect and play via VPS dedicated server
+
+### Remaining
+- [ ] Test position sync between two clients connected to VPS (proxy ships moving correctly)
+- [ ] Test with more than 2 clients
+- [ ] Set up systemd auto-restart on VPS (see VPS_Setup_Guide.md)
+- [ ] Part B: Scale from 4 to 20-30 players per match
 
 ---
 
 ## Lessons Added to lessons.md
 - ParrelSync clones inherit Inspector settings — must detect and override
 - Runner can be null after failed StartGame — always null-check
+- NetworkTransform must be disabled on ALL machines, not just non-authority — it syncs ROOT transform which conflicts with custom SyncPosition on CHILD Rigidbody
+- ServerMode=Host in Inspector ignores the -server command-line flag — use Auto or DedicatedServer
+- Dedicated server needs to skip menu scene (no player to click UI buttons)
 - All previous dedicated server lessons (guard patterns, LocalPlayer safety, camera crashes, etc.)
