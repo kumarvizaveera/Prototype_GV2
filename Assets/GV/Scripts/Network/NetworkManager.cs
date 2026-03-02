@@ -64,6 +64,10 @@ namespace GV.Network
         [SerializeField] private bool autoClientInBuild = false; // Set true when editor hosts, build joins
         [SerializeField] private string fixedRegion = "us"; // Force US region by default
 
+        [Header("Scene Loading")]
+        [Tooltip("The gameplay scene to load after creating/joining a room. Leave empty to stay in current scene.")]
+        [SerializeField] private string gameplaySceneName = "";
+
         /// <summary>
         /// Auto = normal game client. If the -server command-line flag or UNITY_SERVER define is detected, runs as dedicated server.
         /// DedicatedServer = forces headless server mode (no camera, no UI, no local player).
@@ -168,7 +172,9 @@ namespace GV.Network
             }
 
             // --- Setup Room UI ---
-            ShowLobbyUI();
+            // Hide lobby panel on start — WalletConnectPanel will show it after wallet connects
+            if (lobbyPanel != null) lobbyPanel.SetActive(false);
+            if (connectedPanel != null) connectedPanel.SetActive(false);
 
             // Wire up button clicks
             if (createRoomButton != null)
@@ -196,6 +202,10 @@ namespace GV.Network
             if (connectedPanel != null) connectedPanel.SetActive(false);
             if (statusText != null) statusText.text = "";
             if (roomCodeInput != null) roomCodeInput.text = "";
+
+            // Re-enable buttons in case they were disabled during a previous attempt
+            if (createRoomButton != null) createRoomButton.interactable = true;
+            if (joinRoomButton != null) joinRoomButton.interactable = true;
         }
 
         private void ShowConnectedUI()
@@ -666,6 +676,14 @@ namespace GV.Network
                 {
                     Runner.Spawn(levelSynchronizerPrefab);
                     Debug.Log("[NetworkManager] Spawned LevelSynchronizer");
+                }
+
+                // Load gameplay scene if we're in the bootstrap/lobby scene
+                // (NetworkManager survives scene load via DontDestroyOnLoad)
+                if (!IsDedicatedServer && !string.IsNullOrEmpty(gameplaySceneName))
+                {
+                    Debug.Log($"[NetworkManager] Room connected — loading gameplay scene: {gameplaySceneName}");
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
                 }
             }
             else

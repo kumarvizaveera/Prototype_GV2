@@ -30,10 +30,10 @@ namespace GV.Web3
     {
         [Header("Scene Flow")]
         [Tooltip("The scene to load after bootstrap is done. Leave empty to stay in this scene.")]
-        [SerializeField] private string nextSceneName = "SCK_MainMenu";
+        [SerializeField] private string nextSceneName = "";
 
         [Tooltip("On dedicated server, skip the menu and load this scene directly (where NetworkManager lives).")]
-        [SerializeField] private string gameplaySceneName = "VPS_Tests";
+        [SerializeField] private string gameplaySceneName = "";
 
         [Tooltip("If true, loads the next scene automatically. If false, waits for manual trigger.")]
         [SerializeField] private bool autoLoadNextScene = true;
@@ -49,10 +49,14 @@ namespace GV.Web3
             #endif
 
             string[] args = System.Environment.GetCommandLineArgs();
+            Debug.Log($"[Web3Bootstrap] Command line args: {string.Join(", ", args)}");
             foreach (string arg in args)
             {
                 if (arg.ToLower() == "-server" || arg.ToLower() == "--server")
+                {
+                    Debug.Log($"[Web3Bootstrap] Found server flag: {arg}");
                     return true;
+                }
             }
             return false;
         }
@@ -97,10 +101,10 @@ namespace GV.Web3
                 return;
             }
 
-            // Move to the main menu
+            // Load the menu scene (where wallet UI + room UI live)
             if (autoLoadNextScene && !string.IsNullOrEmpty(nextSceneName))
             {
-                Debug.Log($"[Web3Bootstrap] Loading next scene: {nextSceneName}");
+                Debug.Log($"[Web3Bootstrap] Loading menu scene: {nextSceneName}");
                 SceneManager.LoadScene(nextSceneName);
             }
         }

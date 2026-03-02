@@ -338,6 +338,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GV.Web3.Web3Bootstrap
   nextSceneName: SCK_MainMenu_2
+  gameplaySceneName: VPS_Tests
   autoLoadNextScene: 1
 --- !u!114 &1766639442
 MonoBehaviour:

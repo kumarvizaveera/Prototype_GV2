@@ -56,11 +56,15 @@ namespace GV.Web3
         [SerializeField] private Button connectExternalWalletButton;
 
         [Header("Post-Connect")]
-        [Tooltip("If set, this GameObject will be activated after wallet connects (e.g. a 'Play' button or lobby panel).")]
+        [Tooltip("If set, this GameObject will be activated after wallet connects (e.g. ship selection or room lobby panel).")]
         [SerializeField] private GameObject showAfterConnect;
 
         [Tooltip("The button that loads the gameplay scene after wallet is connected.")]
         [SerializeField] private Button playButton;
+
+        [Header("Room Lobby")]
+        [Tooltip("The room lobby panel (Create Room / Join Room). Shown after wallet connects. Assign the same LobbyPanel that NetworkManager uses.")]
+        [SerializeField] private GameObject roomLobbyPanel;
 
         [Header("Scene Loading")]
         [Tooltip("The gameplay scene to load when the player clicks Play.")]
@@ -211,6 +215,16 @@ namespace GV.Web3
             {
                 showAfterConnect.SetActive(true);
             }
+
+            // Show the room lobby panel (Create Room / Join Room)
+            if (roomLobbyPanel != null)
+            {
+                roomLobbyPanel.SetActive(true);
+                Debug.Log("[WalletConnectPanel] Showing room lobby panel");
+            }
+
+            // Hide the wallet connect panel — wallet is done, room UI takes over
+            Show(false);
 
             if (autoLoadAfterConnect)
             {

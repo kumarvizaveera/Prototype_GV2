@@ -1,0 +1,85 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4457085417121877800
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2835685240634570984}
+  - component: {fileID: 3321802266016400811}
+  - component: {fileID: 6617326205315597493}
+  m_Layer: 0
+  m_Name: Network Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2835685240634570984
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4457085417121877800}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1223.5001, y: 1091, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3321802266016400811
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4457085417121877800}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a97857137675fac48ac3157bdbce6c92, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.Network.NetworkedPlayerInput
+  enableAutoForward: 0
+--- !u!114 &6617326205315597493
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4457085417121877800}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4942a011233e82048aaeda1aa8b5a976, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.Network.NetworkManager
+  runnerPrefab: {fileID: 0}
+  playerPrefab: {fileID: 3880726929680333257, guid: 727cfc9575dc77e4b80763b62874dd67,
+    type: 3}
+  maxPlayers: 4
+  levelSynchronizerPrefab: {fileID: 320073460500205683, guid: 74a916f0c82b7d648a2adb6448200c45,
+    type: 3}
+  spawnSpline: {fileID: 1084239169620881824, guid: ceed05c8864558f48803cf094ed7c1bd,
+    type: 3}
+  minSpawnSpacing: 250
+  lobbyPanel: {fileID: 0}
+  createRoomButton: {fileID: 0}
+  joinRoomButton: {fileID: 0}
+  roomCodeInput: {fileID: 0}
+  statusText: {fileID: 0}
+  connectedPanel: {fileID: 0}
+  roomCodeDisplayText: {fileID: 0}
+  playerCountText: {fileID: 0}
+  clientJoinedText: {fileID: 0}
+  disconnectButton: {fileID: 0}
+  showDebugUI: 0
+  serverMode: 0
+  autoHostInBuild: 0
+  autoClientInBuild: 0
+  fixedRegion: us
+  gameplaySceneName: Room_Tests_2
