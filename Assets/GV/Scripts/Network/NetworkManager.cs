@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using Fusion;
 using Fusion.Sockets;
@@ -37,17 +38,25 @@ namespace GV.Network
         [Tooltip("Minimum world-space distance between any two players along the spline.")]
         [SerializeField] private float minSpawnSpacing = 50f;
 
-        [Header("UI - TMP")]
-        [SerializeField] private TMP_Text hostPromptText;   // "Press H to Host"
-        [SerializeField] private TMP_Text joinPromptText;   // "Press J to Join"
-        [SerializeField] private TMP_Text clientJoinedText;  // "Client has joined"
-        [SerializeField] private TMP_Text playerCountText;   // "Players: 1/4"
+        [Header("Room UI — Lobby (before connecting)")]
+        [SerializeField] private GameObject lobbyPanel;          // Parent panel: show before connected, hide after
+        [SerializeField] private Button createRoomButton;        // "Create Room" button
+        [SerializeField] private Button joinRoomButton;          // "Join Room" button
+        [SerializeField] private TMP_InputField roomCodeInput;   // Text field where joiner types the room code
+        [SerializeField] private TMP_Text statusText;            // "Creating...", "Joining...", errors
+
+        [Header("Room UI — Connected (after connecting)")]
+        [SerializeField] private GameObject connectedPanel;      // Parent panel: show after connected, hide before
+        [SerializeField] private TMP_Text roomCodeDisplayText;   // "Room: A3K9"
+        [SerializeField] private TMP_Text playerCountText;       // "Players: 2/4"
+        [SerializeField] private TMP_Text clientJoinedText;      // "Client has joined" notification
+        [SerializeField] private Button disconnectButton;        // Disconnect button
 
         [Header("Debug")]
         [SerializeField] private bool showDebugUI = true;
 
         [Header("Server Mode")]
-        [Tooltip("Host = player's machine runs server + client (current behavior).\nDedicatedServer = headless server, no local player.\nAuto = checks for -server command-line flag.")]
+        [Tooltip("Auto = normal game client (detects -server flag for VPS).\nDedicatedServer = headless server, no local player.")]
         [SerializeField] private ServerMode serverMode = ServerMode.Auto;
 
         [Header("Auto Start")]
@@ -56,19 +65,23 @@ namespace GV.Network
         [SerializeField] private string fixedRegion = "us"; // Force US region by default
 
         /// <summary>
-        /// Determines how this instance should start:
-        /// Host = traditional host mode (server + client on same machine, has a local player)
-        /// DedicatedServer = headless server only (no camera, no UI, no local player)
-        /// Auto = reads command-line args: -server flag → DedicatedServer, otherwise Host
+        /// Auto = normal game client. If the -server command-line flag or UNITY_SERVER define is detected, runs as dedicated server.
+        /// DedicatedServer = forces headless server mode (no camera, no UI, no local player).
         /// </summary>
-        public enum ServerMode { Host, DedicatedServer, Auto }
+        public enum ServerMode { Auto, DedicatedServer }
 
         /// <summary>
         /// True when running as a dedicated server (no local player, no rendering).
         /// Other scripts check this to skip camera/UI/input code.
         /// </summary>
         public bool IsDedicatedServer { get; private set; }
-        
+
+        /// <summary>
+        /// The room code for the current session (e.g. "A3K9").
+        /// Set when creating a room, or when joining one.
+        /// </summary>
+        public string CurrentRoomCode { get; private set; } = "";
+
         public NetworkRunner Runner { get; private set; }
         public bool IsConnected => Runner != null && Runner.IsRunning;
         
@@ -123,6 +136,7 @@ namespace GV.Network
                         IsDedicatedServer = true;
                         break;
                     case ServerMode.Auto:
+                    default:
                         // Check command-line args for -server flag
                         string[] args = System.Environment.GetCommandLineArgs();
                         foreach (string arg in args)
@@ -137,10 +151,6 @@ namespace GV.Network
                         #if UNITY_SERVER
                         IsDedicatedServer = true;
                         #endif
-                        break;
-                    case ServerMode.Host:
-                    default:
-                        IsDedicatedServer = false;
                         break;
                 }
             }
@@ -157,31 +167,96 @@ namespace GV.Network
                 return;
             }
 
-            // Initialize TMP prompts (client/host only — server has no UI)
-            if (hostPromptText != null)
-            {
-                hostPromptText.text = "Press H to Host";
-                hostPromptText.gameObject.SetActive(true);
-            }
-            if (joinPromptText != null)
-            {
-                joinPromptText.text = "Press J to Join";
-                joinPromptText.gameObject.SetActive(true);
-            }
+            // --- Setup Room UI ---
+            ShowLobbyUI();
+
+            // Wire up button clicks
+            if (createRoomButton != null)
+                createRoomButton.onClick.AddListener(OnCreateRoomClicked);
+            if (joinRoomButton != null)
+                joinRoomButton.onClick.AddListener(OnJoinRoomClicked);
+            if (disconnectButton != null)
+                disconnectButton.onClick.AddListener(Disconnect);
+
             if (clientJoinedText != null)
-            {
                 clientJoinedText.gameObject.SetActive(false);
-            }
 
             if (!Application.isEditor && (autoHostInBuild || autoClientInBuild))
             {
-                // Use AutoHostOrClient — Fusion automatically decides:
-                //   - If session "GV_Race" doesn't exist yet → becomes Host
-                //   - If session "GV_Race" already exists → joins as Client
-                // This works regardless of which machine starts first, no Inspector changes needed.
                 Debug.Log("[NetworkManager] Auto-starting with AutoHostOrClient (Build)...");
                 StartAutoHostOrClient();
             }
+        }
+
+        // ── Room UI helpers ──────────────────────────────────────────
+
+        private void ShowLobbyUI()
+        {
+            if (lobbyPanel != null) lobbyPanel.SetActive(true);
+            if (connectedPanel != null) connectedPanel.SetActive(false);
+            if (statusText != null) statusText.text = "";
+            if (roomCodeInput != null) roomCodeInput.text = "";
+        }
+
+        private void ShowConnectedUI()
+        {
+            if (lobbyPanel != null) lobbyPanel.SetActive(false);
+            if (connectedPanel != null) connectedPanel.SetActive(true);
+            if (roomCodeDisplayText != null) roomCodeDisplayText.text = $"Room: {CurrentRoomCode}";
+        }
+
+        // ── Room Code Generation ─────────────────────────────────────
+
+        /// <summary>
+        /// Generates a random 4-character room code using uppercase letters and digits.
+        /// Excludes confusing characters: O, 0, I, 1, L to avoid mix-ups when sharing verbally.
+        /// </summary>
+        private string GenerateRoomCode()
+        {
+            const string chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no O,0,I,1,L
+            char[] code = new char[4];
+            for (int i = 0; i < 4; i++)
+                code[i] = chars[UnityEngine.Random.Range(0, chars.Length)];
+            return new string(code);
+        }
+
+        // ── Button Handlers ──────────────────────────────────────────
+
+        /// <summary>
+        /// Called when player clicks "Create Room."
+        /// Generates a room code and starts as Host with that code as the Fusion session name.
+        /// </summary>
+        public void OnCreateRoomClicked()
+        {
+            CurrentRoomCode = GenerateRoomCode();
+            Debug.Log($"[NetworkManager] Creating room with code: {CurrentRoomCode}");
+            if (statusText != null) statusText.text = "Creating room...";
+            if (createRoomButton != null) createRoomButton.interactable = false;
+            if (joinRoomButton != null) joinRoomButton.interactable = false;
+            StartHost();
+        }
+
+        /// <summary>
+        /// Called when player clicks "Join Room."
+        /// Reads the code from the input field and joins that Fusion session.
+        /// </summary>
+        public void OnJoinRoomClicked()
+        {
+            if (roomCodeInput == null) return;
+
+            string code = roomCodeInput.text.Trim().ToUpper();
+            if (code.Length != 4)
+            {
+                if (statusText != null) statusText.text = "Enter a 4-character room code";
+                return;
+            }
+
+            CurrentRoomCode = code;
+            Debug.Log($"[NetworkManager] Joining room with code: {CurrentRoomCode}");
+            if (statusText != null) statusText.text = "Joining room...";
+            if (createRoomButton != null) createRoomButton.interactable = false;
+            if (joinRoomButton != null) joinRoomButton.interactable = false;
+            StartClient();
         }
 
         public async void StartAutoHostOrClient()
@@ -259,38 +334,15 @@ namespace GV.Network
             // The server only receives data (OnReliableDataReceived), never sends.
             if (IsDedicatedServer) return;
 
-            // Simple keyboard controls for prototype
             if (!IsConnected)
             {
-                // Show TMP prompts when not connected
-                if (hostPromptText != null) hostPromptText.gameObject.SetActive(true);
-                if (joinPromptText != null) joinPromptText.gameObject.SetActive(true);
-                if (playerCountText != null) playerCountText.gameObject.SetActive(false);
-
-                if (Input.GetKeyDown(KeyCode.H))
-                {
-                    if (_failedStatusCoroutine != null) { StopCoroutine(_failedStatusCoroutine); _failedStatusCoroutine = null; }
-                    if (hostPromptText != null) hostPromptText.text = "Hosting....";
-                    if (joinPromptText != null) joinPromptText.text = "";
-                    StartHost();
-                }
-                else if (Input.GetKeyDown(KeyCode.J)) // Changed to J to avoid conflict with Join
-                {
-                    if (_failedStatusCoroutine != null) { StopCoroutine(_failedStatusCoroutine); _failedStatusCoroutine = null; }
-                    if (joinPromptText != null) joinPromptText.text = "Joining....";
-                    if (hostPromptText != null) hostPromptText.text = "";
-                    StartClient();
-                }
-                return;
+                return; // Lobby UI is button-driven, nothing to poll here
             }
             else
             {
-                // Hide TMP prompts once connected
-                if (hostPromptText != null) hostPromptText.gameObject.SetActive(false);
-                if (joinPromptText != null) joinPromptText.gameObject.SetActive(false);
+                // Update player count on the connected panel
                 if (playerCountText != null)
                 {
-                    playerCountText.gameObject.SetActive(true);
                     playerCountText.text = $"Players: {Runner.ActivePlayers.Count()}/{maxPlayers}";
                 }
             }
@@ -557,8 +609,11 @@ namespace GV.Network
             appSettings.FixedRegion = fixedRegion;
             appSettings.UseNameServer = true;
             
+            // Use room code as session name. Dedicated server and AutoHostOrClient fall back to "GV_Race".
+            string sessionName = !string.IsNullOrEmpty(CurrentRoomCode) ? CurrentRoomCode : "GV_Race";
+
             Debug.Log($"[NetworkManager] Starting game. Mode={mode}, Region={fixedRegion}, " +
-                      $"Session=GV_Race, MaxPlayers={maxPlayers}, " +
+                      $"Session={sessionName}, MaxPlayers={maxPlayers}, " +
                       $"AppID=...{appId.Substring(Math.Max(0, appId.Length - 4))}, " +
                       $"AppVersion='{appVersion}', UseNameServer={appSettings.UseNameServer}");
             _lastError = $"Starting... Region: {fixedRegion}"; // Show status in UI
@@ -569,7 +624,7 @@ namespace GV.Network
                 result = await Runner.StartGame(new StartGameArgs
                 {
                     GameMode = mode,
-                    SessionName = "GV_Race",
+                    SessionName = sessionName,
                     PlayerCount = maxPlayers,
                     Scene = sceneInfo,
                     SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>(),
@@ -600,8 +655,12 @@ namespace GV.Network
 
             if (result.Ok)
             {
-                Debug.Log($"[NetworkManager] Started game as {mode}, LocalPlayer={Runner.LocalPlayer}");
+                Debug.Log($"[NetworkManager] Started game as {mode}, LocalPlayer={Runner.LocalPlayer}, Session={sessionName}");
                 OnConnectedEvent?.Invoke(Runner);
+
+                // Switch from lobby UI to connected UI
+                if (!IsDedicatedServer)
+                    ShowConnectedUI();
 
                 if (Runner.IsServer && levelSynchronizerPrefab != null)
                 {
@@ -613,6 +672,13 @@ namespace GV.Network
             {
                 Debug.LogError($"[NetworkManager] Failed to start: {result.ShutdownReason}");
                 _lastError = $"Failed: {result.ShutdownReason}";
+
+                // Go back to lobby so player can try again
+                if (!IsDedicatedServer)
+                {
+                    ShowLobbyUI();
+                    if (statusText != null) statusText.text = $"Failed: {result.ShutdownReason}";
+                }
             }
         }
         
@@ -860,14 +926,13 @@ namespace GV.Network
 
         private IEnumerator ShowConnectionFailedStatus(string message)
         {
-            if (hostPromptText != null) hostPromptText.text = message;
-            if (joinPromptText != null) joinPromptText.text = "";
-            
+            if (statusText != null) statusText.text = message;
+
             yield return new WaitForSeconds(3f);
-            
-            if (hostPromptText != null) hostPromptText.text = "Press H to Host";
-            if (joinPromptText != null) joinPromptText.text = "Press J to Join";
-            
+
+            // Reset lobby to let player try again
+            ShowLobbyUI();
+
             _failedStatusCoroutine = null;
         }
         
@@ -879,19 +944,19 @@ namespace GV.Network
                 $"IsDedicatedServer={IsDedicatedServer}");
             _lastError = $"Shutdown: {shutdownReason}";
 
-            // Reset UI texts on disconnect (skip on dedicated server — no UI)
+            // Reset UI on disconnect (skip on dedicated server — no UI)
             if (!IsDedicatedServer)
             {
                 if (_failedStatusCoroutine != null) StopCoroutine(_failedStatusCoroutine);
 
+                CurrentRoomCode = "";
                 if (shutdownReason != ShutdownReason.Ok)
                 {
                     _failedStatusCoroutine = StartCoroutine(ShowConnectionFailedStatus("Connection Failed"));
                 }
                 else
                 {
-                    if (hostPromptText != null) hostPromptText.text = "Press H to Host";
-                    if (joinPromptText != null) joinPromptText.text = "Press J to Join";
+                    ShowLobbyUI();
                 }
             }
             
@@ -907,12 +972,13 @@ namespace GV.Network
         }
         public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
         public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { request.Accept(); }
-        public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) 
+        public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
         {
             _lastError = $"Connect Failed: {reason}";
-            
+            CurrentRoomCode = "";
+
             if (_failedStatusCoroutine != null) StopCoroutine(_failedStatusCoroutine);
-            _failedStatusCoroutine = StartCoroutine(ShowConnectionFailedStatus("Connection Failed"));
+            _failedStatusCoroutine = StartCoroutine(ShowConnectionFailedStatus($"Connection Failed: {reason}"));
         }
         public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
         public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
@@ -1010,16 +1076,13 @@ namespace GV.Network
             if (!IsConnected)
             {
                 GUILayout.Label("Photon Fusion 2");
-                GUILayout.Label("Press H to Host");
-                GUILayout.Label("Press J to Join");
-
-                if (GUILayout.Button("Host Game")) StartHost();
-                if (GUILayout.Button("Join Game")) StartClient();
+                GUILayout.Label("Use UI to Create/Join Room");
             }
             else
             {
                 GUILayout.Label($"Connected as {(Runner.IsServer ? "Host" : "Client")}");
                 GUILayout.Label($"Players: {Runner.ActivePlayers.Count()}");
+                GUILayout.Label($"Room: {CurrentRoomCode}");
                 GUILayout.Label($"Session: {Runner.SessionInfo.Name}");
 
                 // HOST-side: show raw data receive stats
