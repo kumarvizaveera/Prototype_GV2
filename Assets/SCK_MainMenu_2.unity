@@ -630,7 +630,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.654902}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1146,7 +1146,7 @@ MonoBehaviour:
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
   m_Interactable: 1
-  m_TargetGraphic: {fileID: 2102587521}
+  m_TargetGraphic: {fileID: 260241631}
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
@@ -2810,7 +2810,7 @@ PrefabInstance:
     - target: {fileID: 4344221584491248672, guid: 3b54c6453f85beb4ea701ea42d976825,
         type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -326
+      value: -157
       objectReference: {fileID: 0}
     - target: {fileID: 4770541680718503513, guid: 3b54c6453f85beb4ea701ea42d976825,
         type: 3}
@@ -3807,7 +3807,7 @@ MonoBehaviour:
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
   m_Interactable: 1
-  m_TargetGraphic: {fileID: 2102587521}
+  m_TargetGraphic: {fileID: 999773076}
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
@@ -5557,7 +5557,7 @@ MonoBehaviour:
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
   m_Interactable: 1
-  m_TargetGraphic: {fileID: 2102587521}
+  m_TargetGraphic: {fileID: 1408283772}
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
@@ -7692,7 +7692,7 @@ MonoBehaviour:
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
   m_Interactable: 1
-  m_TargetGraphic: {fileID: 2102587521}
+  m_TargetGraphic: {fileID: 1831326531}
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []

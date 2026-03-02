@@ -82,7 +82,7 @@ namespace GV.Web3
                 Web3Manager.Instance.OnError += HandleError;
             }
 
-            // Listen for ship selection — Play button only appears after a ship is confirmed
+            // Listen for ship selection
             if (ShipNFTManager.Instance != null)
             {
                 ShipNFTManager.Instance.OnShipSelected += HandleShipSelected;
@@ -119,10 +119,16 @@ namespace GV.Web3
             {
                 playButton.onClick.RemoveAllListeners();
                 playButton.onClick.AddListener(OnPlayClicked);
-                playButton.gameObject.SetActive(false); // Hidden until wallet connects
+                playButton.gameObject.SetActive(false); // Hidden until room connects
             }
 
             SetStatus("");
+
+            // Listen for Room Connection if NetworkManager exists
+            if (Network.NetworkManager.Instance != null)
+            {
+                Network.NetworkManager.Instance.OnConnectedEvent += HandleRoomConnected;
+            }
         }
 
         private void OnDisable()
@@ -136,6 +142,11 @@ namespace GV.Web3
             if (ShipNFTManager.Instance != null)
             {
                 ShipNFTManager.Instance.OnShipSelected -= HandleShipSelected;
+            }
+
+            if (Network.NetworkManager.Instance != null)
+            {
+                Network.NetworkManager.Instance.OnConnectedEvent -= HandleRoomConnected;
             }
         }
 
@@ -216,37 +227,51 @@ namespace GV.Web3
                 showAfterConnect.SetActive(true);
             }
 
-            // Show the room lobby panel (Create Room / Join Room)
+            // Ensure the room lobby panel is hidden while picking ships
+            if (roomLobbyPanel != null)
+            {
+                roomLobbyPanel.SetActive(false);
+            }
+
+            // Hide the wallet connect panel — wallet is done, ship selection takes over
+            Show(false);
+        }
+
+        /// <summary>
+        /// Called when the player confirms a ship in ShipSelectionUI.
+        /// Now we can show the Room Lobby.
+        /// </summary>
+        private void HandleShipSelected(ShipDefinition ship)
+        {
+            Debug.Log($"[WalletConnectPanel] Ship selected: {ship.displayName}");
+            SetStatus($"Ship: {ship.displayName} | Proceeding to Room Lobby.");
+
+            // Hide ship selection explicitly if needed
+            if (showAfterConnect != null)
+            {
+                showAfterConnect.SetActive(false);
+            }
+
+            // Now show the Room Lobby Panel
             if (roomLobbyPanel != null)
             {
                 roomLobbyPanel.SetActive(true);
                 Debug.Log("[WalletConnectPanel] Showing room lobby panel");
             }
-
-            // Hide the wallet connect panel — wallet is done, room UI takes over
-            Show(false);
-
-            if (autoLoadAfterConnect)
-            {
-                // Go straight to gameplay (skip ship selection — for quick testing)
-                LoadGameplayScene();
-            }
-            // Play button stays hidden — it appears after the player picks a ship
-            // (handled by HandleShipSelected below)
         }
 
-        /// <summary>
-        /// Called when the player confirms a ship in ShipSelectionUI.
-        /// Now we can show the Play button.
-        /// </summary>
-        private void HandleShipSelected(ShipDefinition ship)
+        private void HandleRoomConnected(Fusion.NetworkRunner runner)
         {
-            Debug.Log($"[WalletConnectPanel] Ship selected: {ship.displayName}");
-            SetStatus($"Ship: {ship.displayName} | Ready to play!");
-
+            Debug.Log("[WalletConnectPanel] Room connection established. Showing Play button.");
             if (playButton != null)
             {
                 playButton.gameObject.SetActive(true);
+            }
+
+            if (autoLoadAfterConnect)
+            {
+                // Go straight to gameplay (skip play button — for quick testing)
+                LoadGameplayScene();
             }
         }
 
@@ -259,14 +284,19 @@ namespace GV.Web3
         // --- UI Helpers ---
 
         /// <summary>
-        /// Shows/hides the panel.
+        /// Shows/hides the wallet connection UI elements, keeping the main panel active so children remain visible.
         /// </summary>
         public void Show(bool visible = true)
         {
-            if (panel != null)
-            {
-                panel.SetActive(visible);
-            }
+            if (emailInputField != null) emailInputField.gameObject.SetActive(visible);
+            if (connectEmailButton != null) connectEmailButton.gameObject.SetActive(visible);
+            if (connectGoogleButton != null) connectGoogleButton.gameObject.SetActive(visible);
+            if (connectDiscordButton != null) connectDiscordButton.gameObject.SetActive(visible);
+            if (connectGuestButton != null) connectGuestButton.gameObject.SetActive(visible);
+            if (connectExternalWalletButton != null) connectExternalWalletButton.gameObject.SetActive(visible);
+            if (titleText != null) titleText.gameObject.SetActive(visible);
+            
+            // Note: We leave statusText active so it can show "Connected" or "Ship Selected"
         }
 
         private void SetStatus(string message)
