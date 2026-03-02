@@ -1218,7 +1218,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 862092845}
+  m_Father: {fileID: 585671228}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -1889,6 +1889,12 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 2643279768765258688, guid: 495fa160402391a4a970cc570882acd7,
     type: 3}
   m_PrefabInstance: {fileID: 510727989}
+  m_PrefabAsset: {fileID: 0}
+--- !u!224 &585671228 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 5889085586365398974, guid: 3b54c6453f85beb4ea701ea42d976825,
+    type: 3}
+  m_PrefabInstance: {fileID: 767885481}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &597162301
 GameObject:
@@ -2779,7 +2785,7 @@ PrefabInstance:
     - target: {fileID: 2302533727816481677, guid: 3b54c6453f85beb4ea701ea42d976825,
         type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2537517701804973114, guid: 3b54c6453f85beb4ea701ea42d976825,
         type: 3}
@@ -2795,7 +2801,7 @@ PrefabInstance:
     - target: {fileID: 2537517701804973114, guid: 3b54c6453f85beb4ea701ea42d976825,
         type: 3}
       propertyPath: m_RaycastTarget
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2643679104159084979, guid: 3b54c6453f85beb4ea701ea42d976825,
         type: 3}
@@ -3397,12 +3403,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 842175715}
   m_CullTransparentMesh: 1
---- !u!224 &862092845 stripped
-RectTransform:
-  m_CorrespondingSourceObject: {fileID: 5889085586365398974, guid: 3b54c6453f85beb4ea701ea42d976825,
-    type: 3}
-  m_PrefabInstance: {fileID: 767885481}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &905813543
 GameObject:
   m_ObjectHideFlags: 0

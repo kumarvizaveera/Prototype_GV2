@@ -303,7 +303,15 @@ namespace GV.Web3
             if (connectGuestButton != null) connectGuestButton.gameObject.SetActive(visible);
             if (connectExternalWalletButton != null) connectExternalWalletButton.gameObject.SetActive(visible);
             if (titleText != null) titleText.gameObject.SetActive(visible);
-            
+
+            // Disable raycast blocking on the panel's background Image so it doesn't
+            // eat clicks meant for UI behind it (like the room lobby buttons)
+            if (panel != null)
+            {
+                var panelImage = panel.GetComponent<UnityEngine.UI.Image>();
+                if (panelImage != null) panelImage.raycastTarget = visible;
+            }
+
             // Note: We leave statusText active so it can show "Connected" or "Ship Selected"
         }
 
