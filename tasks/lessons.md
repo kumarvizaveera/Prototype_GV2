@@ -88,3 +88,13 @@
 - **Why it worked before**: In Host mode (one player hosts), the host was also a player. NetworkTransform being enabled on the host was less visible because the host's own ship position came from local physics. In Dedicated Server mode with multiple clients and NO local player, every ship was remote to the server, maximizing the conflict.
 - **Fix**: Disable NetworkTransform on ALL machines (server, host, AND clients) immediately in Spawned(). Our custom [Networked] SyncPosition/SyncRotation properties are the single source of truth.
 - **Lesson**: When using custom [Networked] properties for position sync, ALWAYS disable NetworkTransform on the same object — on every machine, not just clients. Fusion's NetworkTransform and manual [Networked] position writes can interfere even though they're technically separate state values.
+
+## Session: Mar 3, 2026
+
+### Scene Flow & UI Lessons
+- **Unity serialization overrides code defaults**: Changing `string gameplaySceneName = "SomeScene"` in code does NOT update the value already saved in the scene file. The Inspector keeps the old serialized value. To fix: set defaults to `""` and always set values in Inspector, or right-click the component → Reset.
+- **Build Target "Dedicated Server" defines `UNITY_SERVER` globally**: Even in the Editor, this makes `IsDedicatedServer()` return true. If your server detection is misfiring, check your Build Target (File → Build Settings). Switch to "Windows, Mac, Linux" for normal Editor testing.
+- **Hidden UI panels block raycasts**: When `Show(false)` hides a panel by disabling child elements, the panel's own `Image` component with `raycastTarget = true` still receives clicks. Fix: set `raycastTarget = false` on the panel Image when hiding.
+- **Don't spawn players in menu scenes**: Fusion's `OnPlayerJoined()` fires as soon as someone connects — even if you're still in the menu scene. Use a flag (`_inGameplayScene`) and a pending list (`_pendingSpawns`) to delay spawning until the gameplay scene loads.
+- **Two NetworkManagers = bad**: Photon Fusion only supports one Runner. Creating a separate "UI-only" NetworkManager would conflict. Keep one NetworkManager with all lobby UI references.
+- **Inspector-only scene names prevent stale hardcodes**: When testing different scenes frequently, use empty string defaults and set scene names only in the Inspector. Hardcoded defaults get baked into serialized scene data and persist even after code changes.

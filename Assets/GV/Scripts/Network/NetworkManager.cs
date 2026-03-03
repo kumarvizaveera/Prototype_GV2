@@ -51,6 +51,7 @@ namespace GV.Network
         [SerializeField] private TMP_Text playerCountText;       // "Players: 2/4"
         [SerializeField] private TMP_Text clientJoinedText;      // "Client has joined" notification
         [SerializeField] private Button disconnectButton;        // Disconnect button
+        [SerializeField] private Button enterBattleButton;       // "Enter Battle" — loads gameplay scene
 
         [Header("Debug")]
         [SerializeField] private bool showDebugUI = true;
@@ -124,6 +125,10 @@ namespace GV.Network
             // Critical for local testing on same machine (prevents Host from pausing when alt-tabbed)
             Application.runInBackground = true;
 
+            // Subscribe to Unity's scene loaded event as backup
+            // (Fusion's OnSceneLoadDone may not fire when we load scenes manually)
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnUnitySceneLoaded;
+
             // --- Determine if this instance should run as a dedicated server ---
             // ParrelSync clones share the same scene data, so they'd inherit the
             // DedicatedServer Inspector setting. Clones must always run as regular clients.
@@ -191,6 +196,11 @@ namespace GV.Network
                 joinRoomButton.onClick.AddListener(OnJoinRoomClicked);
             if (disconnectButton != null)
                 disconnectButton.onClick.AddListener(Disconnect);
+            if (enterBattleButton != null)
+            {
+                enterBattleButton.onClick.AddListener(LoadGameplay);
+                enterBattleButton.gameObject.SetActive(false); // Show only after room connects
+            }
 
             if (clientJoinedText != null)
                 clientJoinedText.gameObject.SetActive(false);
@@ -226,6 +236,7 @@ namespace GV.Network
             if (lobbyPanel != null) lobbyPanel.SetActive(false);
             if (connectedPanel != null) connectedPanel.SetActive(true);
             if (roomCodeDisplayText != null) roomCodeDisplayText.text = $"Room: {CurrentRoomCode}";
+            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(true);
         }
 
         /// <summary>
@@ -729,6 +740,37 @@ namespace GV.Network
             if (Runner != null)
             {
                 Runner.Shutdown();
+            }
+        }
+
+        private void OnDestroy()
+        {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnUnitySceneLoaded;
+        }
+
+        /// <summary>
+        /// Backup scene load handler — Fusion's OnSceneLoadDone may not fire
+        /// when we load scenes manually with SceneManager.LoadScene().
+        /// </summary>
+        private void OnUnitySceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            Debug.Log($"[NetworkManager] Unity sceneLoaded — scene: {scene.name}, " +
+                      $"gameplaySceneName: {gameplaySceneName}, pending: {_pendingSpawns.Count}");
+
+            if (!string.IsNullOrEmpty(gameplaySceneName) && scene.name == gameplaySceneName)
+            {
+                _inGameplayScene = true;
+
+                // Spawn all players that joined while we were in the lobby
+                if (Runner != null && Runner.IsServer)
+                {
+                    Debug.Log($"[NetworkManager] Gameplay scene loaded — spawning {_pendingSpawns.Count} pending players");
+                    foreach (var player in _pendingSpawns)
+                    {
+                        SpawnPlayer(Runner, player);
+                    }
+                    _pendingSpawns.Clear();
+                }
             }
         }
         

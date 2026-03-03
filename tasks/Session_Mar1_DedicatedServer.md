@@ -139,14 +139,106 @@ Added detailed logging to help debug future connection issues:
 
 ---
 
+## Session 3 — March 3, 2026: Room Code UI, Scene Flow & Enter Battle
+
+### Overview
+
+Replaced the old keyboard-driven H/J host/join system with a proper room code UI. Players now create or join rooms using 4-character codes. Also fixed the full scene flow so the game goes: Bootstrap → Menu (wallet + ship + room UI) → Gameplay.
+
+### Major Changes
+
+**Removed Host ServerMode option**
+- `ServerMode` enum reduced from 3 options (Host, DedicatedServer, Auto) to 2 (Auto, DedicatedServer)
+- No more pressing H or J — everything goes through the room lobby UI
+
+**Room Code System (NetworkManager.cs)**
+- Create Room generates a random 4-character code (letters/numbers, excluding O/0/I/1/L to avoid confusion)
+- Join Room accepts a typed code
+- The room code is used as Fusion's `SessionName` — same code = same room
+- Creator starts as `GameMode.Host`, joiner starts as `GameMode.Client`
+- Added lobby UI fields: `roomLobbyPanel`, `createRoomButton`, `joinRoomButton`, `roomCodeInput`, `roomCodeDisplay`, `connectedPanel`, `playerCountText`
+- Added `ShowLobbyUI()` method called after ship selection
+- Added `ShowConnectedUI()` method that shows room code + player count + Enter Battle button
+
+**Deferred Player Spawning (NetworkManager.cs)**
+- Added `_inGameplayScene` flag and `_pendingSpawns` list
+- `OnPlayerJoined()` no longer spawns ships immediately — it queues players if still in menu scene
+- Extracted `SpawnPlayer()` method from the old OnPlayerJoined logic
+- `OnSceneLoadDone()` and `OnUnitySceneLoaded()` spawn all pending players when gameplay scene loads
+- This prevents ships from spawning in the menu scene (which was causing firing sounds on left-click)
+
+**Enter Battle Button (NetworkManager.cs)**
+- Added `enterBattleButton` field — wired to `LoadGameplay()` in Start()
+- `LoadGameplay()` loads the gameplay scene set in Inspector
+- Button is hidden until room is connected, then shown via `ShowConnectedUI()`
+
+**Scene Flow Fixes (Web3Bootstrap.cs)**
+- All default scene names changed to empty strings — Inspector is the only source of truth
+- Fixed false dedicated server detection: Unity's Build Target "Dedicated Server" auto-defines `UNITY_SERVER`, making `IsDedicatedServer()` return true even in Editor. Fix: switch Build Target back to "Windows, Mac, Linux"
+- Added debug logging for command-line args
+
+**WalletConnectPanel Raycast Fix (WalletConnectPanel.cs)**
+- `Show(false)` now disables `raycastTarget` on the panel's background Image
+- Previously, the hidden panel's background was eating clicks meant for the room lobby buttons behind it
+- `OnPlayClicked()` now delegates to `NetworkManager.Instance.LoadGameplay()` instead of loading scenes directly
+
+### Scene Flow (Final)
+
+```
+Bootstrap (Web3Bootstrap)
+  ├── If dedicated server → load gameplay scene directly
+  └── If normal client → load SCK_MainMenu_2
+
+SCK_MainMenu_2
+  ├── WalletConnectPanel: connect wallet (or play as guest)
+  ├── Ship selection (ShipNFTManager)
+  ├── Room Lobby: Create Room / Join Room with 4-char code
+  └── Connected Panel: shows room code, player count, Enter Battle button
+
+Room_Tests_2 (gameplay)
+  └── Players spawn here after Enter Battle is clicked
+```
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| NetworkManager.cs | Removed Host mode, added room code system, lobby UI fields, deferred spawning, Enter Battle button, LoadGameplay() method |
+| WalletConnectPanel.cs | Disabled raycastTarget on hide, delegated play button to NetworkManager, added ship selection → lobby flow |
+| Web3Bootstrap.cs | Empty string defaults, debug logging, fixed UNITY_SERVER false positive |
+| ServerBootstrap.cs | No changes (already correct) |
+
+### Bugs Fixed
+
+1. **Bootstrap loading wrong scene** — `UNITY_SERVER` auto-defined by Build Target caused `IsDedicatedServer()` to return true. Fix: switch Build Target.
+2. **Hardcoded scene defaults overriding Inspector** — Code defaults persisted in serialized scene data. Fix: set all defaults to empty strings.
+3. **Web3 UI disappearing after wallet connect** — WalletConnectPanel hid itself but room lobby wasn't shown yet. Fix: wired ship selection → ShowLobbyUI() flow.
+4. **Create Room button not clickable** — Hidden WalletConnectPanel's background Image was blocking raycasts. Fix: disable raycastTarget when hiding.
+5. **Spaceship firing in menu scene** — OnPlayerJoined spawned ships immediately in menu. Fix: deferred spawning with _inGameplayScene flag.
+6. **Enter Battle not loading scene** — Old playButton from WalletConnectPanel wasn't wired to new flow. Fix: added enterBattleButton to NetworkManager, wired to LoadGameplay().
+
+### Key Lessons
+
+- **Unity serialization overrides code defaults**: Changing a default value in code does NOT change the value already saved in a scene. You must update the Inspector manually (or reset the component).
+- **Build Target defines `UNITY_SERVER`**: Setting Build Target to "Dedicated Server" defines `UNITY_SERVER` globally — even in the Editor. This makes `IsDedicatedServer()` true everywhere. Always check Build Target if server detection is misfiring.
+- **Overlapping UI panels block raycasts**: When hiding a UI panel, disable `raycastTarget` on its Image component — otherwise the invisible panel eats clicks meant for panels behind it.
+- **Don't spawn players in menu scenes**: Use a flag (`_inGameplayScene`) and a pending list to defer spawning until the gameplay scene loads.
+- **Inspector-only scene names are safer**: Using empty string defaults and requiring Inspector values prevents stale hardcoded names from loading wrong scenes during testing.
+
+---
+
 ## What's Left
 
 ### Completed
 - [x] Test Host mode still works — confirmed, press H in editor works fine
 - [x] Deploy dedicated server build to VPS
 - [x] Clients connect and play via VPS dedicated server
+- [x] Room code UI — Create Room / Join Room with 4-char codes
+- [x] Scene flow: Bootstrap → Menu → Gameplay with Enter Battle button
+- [x] Deferred player spawning (no ships in menu scene)
 
 ### Remaining
+- [ ] Test full multiplayer flow: second player joins with room code (ParrelSync clone)
 - [ ] Test position sync between two clients connected to VPS (proxy ships moving correctly)
 - [ ] Test with more than 2 clients
 - [ ] Set up systemd auto-restart on VPS (see VPS_Setup_Guide.md)
@@ -160,4 +252,8 @@ Added detailed logging to help debug future connection issues:
 - NetworkTransform must be disabled on ALL machines, not just non-authority — it syncs ROOT transform which conflicts with custom SyncPosition on CHILD Rigidbody
 - ServerMode=Host in Inspector ignores the -server command-line flag — use Auto or DedicatedServer
 - Dedicated server needs to skip menu scene (no player to click UI buttons)
+- Unity serialization overrides code defaults — Inspector values persist even when you change the default in code
+- Build Target "Dedicated Server" defines UNITY_SERVER globally, even in Editor
+- Hidden UI panels with raycastTarget=true block clicks on panels behind them
+- Don't spawn players in menu scenes — defer with a flag and pending list
 - All previous dedicated server lessons (guard patterns, LocalPlayer safety, camera crashes, etc.)
