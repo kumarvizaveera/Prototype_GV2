@@ -227,6 +227,94 @@ Room_Tests_2 (gameplay)
 
 ---
 
+## Session 4 — March 3, 2026 (continued): Spawn Fix, UI Cleanup & Panel Isolation
+
+### Overview
+
+Fixed ships spawning in the wrong place after Enter Battle, then cleaned up several UI issues: panels bleeding into each other, buttons not clickable, and elements appearing before their time.
+
+### Bug Fix: Ships Spawning Off-Spline After Enter Battle
+
+**Problem:** After pressing Enter Battle, ships spawned at random positions instead of on the Spline_2 track.
+
+**Root Cause (two layers):**
+
+1. **DontDestroyOnLoad loses scene references:** NetworkManager persists across scenes, so its `spawnSpline` Inspector reference to a SplineContainer in the gameplay scene becomes null after scene load. The code fell back to a simple X-axis spread.
+
+2. **Prefab asset reference vs scene instance:** The Network Manager *prefab* had `spawnSpline` pointing to the Spline_2 *prefab asset* (transform at origin), not the scene instance (correct world position). This prefab reference survived scene loads and looked non-null, so the auto-find code skipped the search — but all spawn positions were calculated relative to origin, putting ships nowhere near the actual track.
+
+**Fix (NetworkManager.cs):**
+- Added `TryFindSpawnSpline()` method — uses `GameObject.Find("Spline_2")` to locate the scene instance's SplineContainer on every gameplay scene load
+- Always searches by name, never trusts the serialized prefab reference for world-space data
+- Always clears `_cachedSpawnPositions` on scene change so positions are recalculated with the correct spline
+- Added `spawnSplineName` field (defaults to "Spline_2") for the auto-find target
+- Called in both `OnUnitySceneLoaded` and `OnSceneLoadDone` before spawning pending players
+
+### UI Cleanup: Panel Isolation
+
+**Problem:** ShipSelectionPanel was a child of WalletConnectPanel, causing UI elements to bleed between panels.
+
+**Fix:** Moved ShipSelectionPanel to be a sibling root under Canvas:
+```
+Canvas
+  ├── WalletConnectPanel
+  └── ShipSelectionPanel   ← was nested inside WalletConnectPanel
+```
+
+### Bug Fix: ShipSelectionPanel Visible at Game Start
+
+**Problem:** ConfirmButton and "Loading your ships..." status text from ShipSelectionPanel appeared immediately on the wallet connect screen.
+
+**Root Cause:** ShipSelectionPanel was active in the scene hierarchy, so `OnEnable()` fired at game start — showing loading state before the wallet was even connected.
+
+**Fix (ShipSelectionUI.cs):**
+- Added `Awake()` that calls `gameObject.SetActive(false)` — starts fully hidden
+- Changed `Show()` to toggle `gameObject.SetActive()` — since it's now its own root, hiding the whole GameObject is correct
+- WalletConnectPanel's `showAfterConnect.SetActive(true)` wakes it up at the right time
+
+### Bug Fix: DisconnectButton Not Clickable
+
+**Problem:** DisconnectButton in ConnectedPanel wasn't responding to clicks.
+
+**Root Cause:** Same raycast blocking pattern as session 3 bug #4. `WalletConnectPanel.Show(false)` hid child buttons but kept the root GameObject active. Its background Image was still receiving raycasts and blocking everything behind it.
+
+**Fix (WalletConnectPanel.cs):**
+- `HandleWalletConnected` now calls `gameObject.SetActive(false)` instead of `Show(false)` — fully removes the panel from UI
+- Moved `HandleShipSelected` and `HandleRoomConnected` event subscriptions from `OnEnable`/`OnDisable` to `Start`/`OnDestroy` — these events fire after the wallet panel hides, so they need to survive `gameObject.SetActive(false)`
+
+### UI Polish: Send OTP Button
+
+**Change:** Renamed "Connect Email" button to "Send OTP". Button now only appears after the player starts typing in the email input field.
+
+**Fix (WalletConnectPanel.cs):**
+- `OnEnable()` hides `connectEmailButton` on start
+- Added `emailInputField.onValueChanged` listener → `OnEmailInputChanged()`
+- `OnEmailInputChanged()` shows the button when text is non-empty, hides when cleared
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| NetworkManager.cs | Added `TryFindSpawnSpline()`, `spawnSplineName` field, auto-find spline on gameplay scene load, clear cached positions on scene change |
+| ShipSelectionUI.cs | Added `Awake()` to start hidden, `Show()` uses `gameObject.SetActive()` |
+| WalletConnectPanel.cs | Full deactivate on wallet connect, moved ship/room event subs to `Start`/`OnDestroy`, Send OTP button hidden until email typed |
+
+### Bugs Fixed
+
+1. **Ships spawning off-spline** — Prefab's `spawnSpline` pointed to Spline_2 asset (origin) not scene instance. Fix: auto-find scene instance by name on every gameplay scene load.
+2. **ShipSelectionPanel visible at start** — Panel active in hierarchy, `OnEnable` showed loading UI immediately. Fix: `Awake()` sets `gameObject.SetActive(false)`.
+3. **DisconnectButton not clickable** — Hidden WalletConnectPanel still blocking raycasts. Fix: fully deactivate with `gameObject.SetActive(false)`.
+4. **Send OTP button always visible** — Shown before email input had any text. Fix: hidden by default, revealed on `onValueChanged`.
+
+### Key Lessons
+
+- **Prefab asset references vs scene instance references**: A serialized field pointing to a prefab asset gives wrong world-space positions (transform at origin). Always use `GameObject.Find()` at runtime to get the scene instance for world-space data.
+- **Fully deactivate panels when done**: `Show(false)` that only hides children still leaves the root Image blocking raycasts. Use `gameObject.SetActive(false)` when the panel is no longer needed.
+- **Event subscriptions must outlive the panel**: If events fire after a panel hides (ship selection, room connect), subscribe in `Start`/`OnDestroy` instead of `OnEnable`/`OnDisable` — otherwise deactivating the GameObject kills the subscription.
+- **Separate UI panels as siblings, not parent-child**: Nesting panels causes bleed-through. Each panel should be its own root under Canvas.
+
+---
+
 ## What's Left
 
 ### Completed
@@ -236,6 +324,9 @@ Room_Tests_2 (gameplay)
 - [x] Room code UI — Create Room / Join Room with 4-char codes
 - [x] Scene flow: Bootstrap → Menu → Gameplay with Enter Battle button
 - [x] Deferred player spawning (no ships in menu scene)
+- [x] Ships spawn on spline correctly after Enter Battle
+- [x] UI panel isolation — no more bleed-through between wallet/ship/lobby panels
+- [x] DisconnectButton working in ConnectedPanel
 
 ### Remaining
 - [ ] Test full multiplayer flow: second player joins with room code (ParrelSync clone)
@@ -256,4 +347,5 @@ Room_Tests_2 (gameplay)
 - Build Target "Dedicated Server" defines UNITY_SERVER globally, even in Editor
 - Hidden UI panels with raycastTarget=true block clicks on panels behind them
 - Don't spawn players in menu scenes — defer with a flag and pending list
+- Prefab asset references vs scene instance references — always Find() the scene instance for world-space data
 - All previous dedicated server lessons (guard patterns, LocalPlayer safety, camera crashes, etc.)

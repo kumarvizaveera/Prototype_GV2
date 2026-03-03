@@ -239,22 +239,54 @@ namespace GV.Network
             if (lobbyPanel != null) lobbyPanel.SetActive(false);
             if (connectedPanel != null) connectedPanel.SetActive(true);
             if (roomCodeDisplayText != null) roomCodeDisplayText.text = $"Room: {CurrentRoomCode}";
-            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(true);
+
+            // Only the HOST sees "Enter Battle" — clients wait for the host to start.
+            // Fusion's NetworkSceneManagerDefault syncs the scene change to clients automatically.
+            bool isHost = Runner != null && Runner.IsServer;
+            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(isHost);
+
+            if (!isHost && statusText != null)
+            {
+                statusText.gameObject.SetActive(true);
+                statusText.text = "Waiting for host to start...";
+            }
         }
 
         /// <summary>
         /// Loads the gameplay scene. Called by "Enter Battle" button.
+        /// ONLY the HOST/SERVER actually loads the scene — Fusion's NetworkSceneManagerDefault
+        /// automatically syncs the scene change to all connected clients.
+        /// If a CLIENT clicks this, it shows a waiting message (the host hasn't started yet).
         /// </summary>
         public void LoadGameplay()
         {
-            if (!string.IsNullOrEmpty(gameplaySceneName))
+            if (string.IsNullOrEmpty(gameplaySceneName))
             {
-                Debug.Log($"[NetworkManager] Loading gameplay scene: {gameplaySceneName}");
+                Debug.LogError("[NetworkManager] gameplaySceneName is empty! Set it in the Inspector.");
+                return;
+            }
+
+            if (Runner == null)
+            {
+                Debug.LogError("[NetworkManager] Runner is null — not connected!");
+                return;
+            }
+
+            if (Runner.IsServer)
+            {
+                // HOST: Load the scene. NetworkSceneManagerDefault will sync to all clients.
+                Debug.Log($"[NetworkManager] HOST loading gameplay scene: {gameplaySceneName}");
                 UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
             }
             else
             {
-                Debug.LogError("[NetworkManager] gameplaySceneName is empty! Set it in the Inspector.");
+                // CLIENT: Don't load manually — Fusion will sync the scene from the host.
+                Debug.Log("[NetworkManager] CLIENT: waiting for host to start the game...");
+                if (statusText != null)
+                {
+                    statusText.gameObject.SetActive(true);
+                    statusText.text = "Waiting for host to start...";
+                }
             }
         }
 
@@ -767,16 +799,63 @@ namespace GV.Network
                 // Auto-find the spawn spline in the newly loaded gameplay scene
                 TryFindSpawnSpline();
 
-                // Spawn all players that joined while we were in the lobby
+                // Delay spawning by 1 frame so all scene objects (VehicleCamera, etc.)
+                // have their Start() called. sceneLoaded fires after Awake() but before Start().
                 if (Runner != null && Runner.IsServer)
                 {
-                    Debug.Log($"[NetworkManager] Gameplay scene loaded — spawning {_pendingSpawns.Count} pending players");
-                    foreach (var player in _pendingSpawns)
-                    {
-                        SpawnPlayer(Runner, player);
-                    }
-                    _pendingSpawns.Clear();
+                    StartCoroutine(SpawnPendingPlayersNextFrame());
                 }
+            }
+        }
+
+        /// <summary>
+        /// Waits one frame after scene load, then spawns all players.
+        /// This ensures VehicleCamera and other scene objects have their Start() called,
+        /// so SetupCamera() in NetworkedSpaceshipBridge can find and use them.
+        /// Also re-collects all active players (not just _pendingSpawns) to handle
+        /// scene re-entry and second attempts where OnPlayerJoined won't fire again.
+        /// </summary>
+        private IEnumerator SpawnPendingPlayersNextFrame()
+        {
+            yield return null; // Wait one frame for scene Start() calls
+
+            if (Runner == null || !Runner.IsServer)
+                yield break;
+
+            // Collect ALL active players that need spawning — not just _pendingSpawns.
+            // This handles the case where a player was already "joined" (OnPlayerJoined won't
+            // fire again) but their ship was destroyed by a scene reload.
+            var playersToSpawn = new List<PlayerRef>();
+
+            // First add any pending spawns from OnPlayerJoined
+            foreach (var player in _pendingSpawns)
+            {
+                if (!playersToSpawn.Contains(player))
+                    playersToSpawn.Add(player);
+            }
+            _pendingSpawns.Clear();
+
+            // Then add any active players who don't have a spawned ship
+            foreach (var player in Runner.ActivePlayers)
+            {
+                if (!_spawnedPlayers.ContainsKey(player) && !playersToSpawn.Contains(player))
+                {
+                    Debug.Log($"[NetworkManager] Active player {player.PlayerId} has no ship — adding to spawn list");
+                    playersToSpawn.Add(player);
+                }
+                else if (_spawnedPlayers.ContainsKey(player) && _spawnedPlayers[player] == null)
+                {
+                    // Ship reference went null (destroyed by scene load) — respawn
+                    Debug.Log($"[NetworkManager] Player {player.PlayerId}'s ship was destroyed — re-spawning");
+                    _spawnedPlayers.Remove(player);
+                    playersToSpawn.Add(player);
+                }
+            }
+
+            Debug.Log($"[NetworkManager] Spawning {playersToSpawn.Count} players after 1-frame delay");
+            foreach (var player in playersToSpawn)
+            {
+                SpawnPlayer(Runner, player);
             }
         }
         
@@ -988,6 +1067,13 @@ namespace GV.Network
 
         private void SpawnPlayer(NetworkRunner runner, PlayerRef player)
         {
+            // Guard: don't double-spawn if both OnUnitySceneLoaded and OnSceneLoadDone fire
+            if (_spawnedPlayers.ContainsKey(player) && _spawnedPlayers[player] != null)
+            {
+                Debug.Log($"[NetworkManager] Player {player.PlayerId} already has a ship — skipping spawn");
+                return;
+            }
+
             var spawnPos = GetSpawnPosition(player);
             var spawnRot = GetSpawnRotation(player);
 
@@ -1193,14 +1279,12 @@ namespace GV.Network
                 // Auto-find the spawn spline in the newly loaded gameplay scene
                 TryFindSpawnSpline();
 
-                // Spawn all players that joined while we were still in the lobby
+                // Use the same delayed spawn as OnUnitySceneLoaded — wait 1 frame for Start() calls.
+                // Both callbacks may fire (Fusion's OnSceneLoadDone + Unity's sceneLoaded).
+                // SpawnPendingPlayersNextFrame handles duplicates by checking _spawnedPlayers.
                 if (runner.IsServer)
                 {
-                    foreach (var player in _pendingSpawns)
-                    {
-                        SpawnPlayer(runner, player);
-                    }
-                    _pendingSpawns.Clear();
+                    StartCoroutine(SpawnPendingPlayersNextFrame());
                 }
             }
         }
