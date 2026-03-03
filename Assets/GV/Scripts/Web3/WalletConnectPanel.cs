@@ -73,19 +73,25 @@ namespace GV.Web3
         [Tooltip("If true, automatically loads the gameplay scene after wallet connects (skips Play button).")]
         [SerializeField] private bool autoLoadAfterConnect = false;
 
+        private void Start()
+        {
+            // These events must survive gameObject.SetActive(false) — they fire
+            // AFTER the wallet panel hides (ship selection, room connect).
+            // Using Start/OnDestroy instead of OnEnable/OnDisable keeps them alive.
+            if (ShipNFTManager.Instance != null)
+                ShipNFTManager.Instance.OnShipSelected += HandleShipSelected;
+
+            if (Network.NetworkManager.Instance != null)
+                Network.NetworkManager.Instance.OnConnectedEvent += HandleRoomConnected;
+        }
+
         private void OnEnable()
         {
-            // Listen for Web3Manager events
+            // Listen for Web3Manager events (only needed while panel is visible)
             if (Web3Manager.Instance != null)
             {
                 Web3Manager.Instance.OnWalletConnected += HandleWalletConnected;
                 Web3Manager.Instance.OnError += HandleError;
-            }
-
-            // Listen for ship selection
-            if (ShipNFTManager.Instance != null)
-            {
-                ShipNFTManager.Instance.OnShipSelected += HandleShipSelected;
             }
 
             // Wire up buttons (safe to call multiple times — we remove listeners first)
@@ -123,12 +129,6 @@ namespace GV.Web3
             }
 
             SetStatus("");
-
-            // Listen for Room Connection if NetworkManager exists
-            if (Network.NetworkManager.Instance != null)
-            {
-                Network.NetworkManager.Instance.OnConnectedEvent += HandleRoomConnected;
-            }
         }
 
         private void OnDisable()
@@ -138,16 +138,15 @@ namespace GV.Web3
                 Web3Manager.Instance.OnWalletConnected -= HandleWalletConnected;
                 Web3Manager.Instance.OnError -= HandleError;
             }
+        }
 
+        private void OnDestroy()
+        {
             if (ShipNFTManager.Instance != null)
-            {
                 ShipNFTManager.Instance.OnShipSelected -= HandleShipSelected;
-            }
 
             if (Network.NetworkManager.Instance != null)
-            {
                 Network.NetworkManager.Instance.OnConnectedEvent -= HandleRoomConnected;
-            }
         }
 
         // --- Button Handlers ---
@@ -241,8 +240,11 @@ namespace GV.Web3
                 roomLobbyPanel.SetActive(false);
             }
 
-            // Hide the wallet connect panel — wallet is done, ship selection takes over
-            Show(false);
+            // Fully deactivate the wallet connect panel — wallet is done, ship selection takes over.
+            // Using gameObject.SetActive(false) instead of Show(false) so the entire panel
+            // is removed from the UI, preventing any leftover Image from blocking raycasts
+            // on panels that appear later (lobby, connected panel, etc.)
+            gameObject.SetActive(false);
         }
 
         /// <summary>
