@@ -244,11 +244,11 @@ namespace GV.Network
             bool isHost = Runner != null && Runner.IsServer;
             if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(isHost);
 
-            // Show waiting message for clients
-            if (!isHost && statusText != null)
+            // Show waiting message for clients (use clientJoinedText since it's inside connectedPanel)
+            if (!isHost && clientJoinedText != null)
             {
-                statusText.gameObject.SetActive(true);
-                statusText.text = "Waiting for host to start...";
+                clientJoinedText.text = "Waiting for host to start the match...";
+                clientJoinedText.gameObject.SetActive(true);
             }
         }
 
