@@ -49,6 +49,10 @@ namespace GV.Web3
         private bool _localShipDead = false;
         private float _shipDeathTime = 0f;
 
+        // Survivor detection: only start checking after all ships have spawned
+        private bool _allShipsSpawned = false;
+        private int _expectedPlayers = 0;
+
         private void OnEnable()
         {
             // Dedicated server has no wallet, no UI, no rewards to display — disable entirely.
@@ -103,6 +107,14 @@ namespace GV.Web3
                     Debug.Log($"[BattleRewardBridge] EliminationTracker timeout ({eliminationTimeout}s) — using fallback placement.");
                     DistributeWithDummyPlacement();
                 }
+            }
+
+            // Survivor check: if our ship is alive and we've been monitoring other ships,
+            // check if all enemy ships are dead → we win (1st place).
+            // This covers the HOST (surviving player) who never gets HandleLocalShipDestroyed.
+            if (!_hasDistributedThisMatch && !_localShipDead && _subscribedToVehicle)
+            {
+                CheckIfLastStanding();
             }
 
             if (enableTestKey && Input.GetKeyDown(testKey))
@@ -291,12 +303,28 @@ namespace GV.Web3
             if (_hasDistributedThisMatch) return;
             _hasDistributedThisMatch = true;
 
+            // Calculate a reasonable placement based on whether our ship is alive or dead.
+            // If our ship died, we're NOT 1st place — count how many other ships are still alive.
+            int placement = 1;
+            if (_localShipDead)
+            {
+                // Count alive players to figure out our placement
+                int aliveCount = CountAliveShips();
+                // If 1 ship is still alive, we're 2nd. If 2 alive, we're 3rd, etc.
+                placement = Mathf.Max(2, aliveCount + 1);
+                Debug.Log($"[BattleRewardBridge] Fallback: local ship is dead, {aliveCount} ships still alive → placement {placement}");
+            }
+            else
+            {
+                Debug.Log("[BattleRewardBridge] Fallback: local ship is ALIVE → placement 1");
+            }
+
             bool walletConnected = Web3Manager.Instance != null && Web3Manager.Instance.IsWalletConnected;
 
             if (!walletConnected)
             {
                 Debug.LogWarning("[BattleRewardBridge] No wallet connected — showing placement but can't mint tokens.");
-                if (postMatchUI != null) postMatchUI.ShowNoWallet(1);
+                if (postMatchUI != null) postMatchUI.ShowNoWallet(placement);
                 return;
             }
 
@@ -304,15 +332,88 @@ namespace GV.Web3
             players.Add(new PlayerRewardInfo
             {
                 walletAddress = Web3Manager.Instance.WalletAddress,
-                placement = 1
+                placement = placement
             });
 
-            if (postMatchUI != null) postMatchUI.ShowProcessing(1);
+            if (postMatchUI != null) postMatchUI.ShowProcessing(placement);
 
             if (BattleRewardManager.Instance != null)
             {
                 BattleRewardManager.Instance.DistributeRewards(players);
             }
+        }
+
+        /// <summary>
+        /// Checks if the local player is the last ship standing.
+        /// This is the survivor's reward trigger — covers the case where
+        /// the host's ship is alive and all enemies are dead.
+        /// Only triggers after we've seen at least 2 ships spawn (avoids
+        /// false positive when we're the only one loaded so far).
+        /// </summary>
+        private void CheckIfLastStanding()
+        {
+            // Count total networked ships in the scene (alive or dead)
+            var allVehicles = FindObjectsOfType<VehicleHealth>();
+            int totalNetworkedShips = 0;
+            foreach (var vh in allVehicles)
+            {
+                if (vh.GetComponentInParent<Fusion.NetworkObject>() != null)
+                    totalNetworkedShips++;
+            }
+
+            // Don't check until at least 2 ships have spawned
+            if (totalNetworkedShips < 2) return;
+
+            int aliveCount = CountAliveShips();
+
+            // If exactly 1 ship alive and our ship is that one → we won!
+            if (aliveCount == 1 && _localVehicleHealth != null)
+            {
+                bool localAlive = false;
+                foreach (var d in _localVehicleHealth.Damageables)
+                {
+                    if (d != null && !d.Destroyed && d.CurrentHealth > 0f)
+                    {
+                        localAlive = true;
+                        break;
+                    }
+                }
+
+                if (localAlive)
+                {
+                    Debug.Log("[BattleRewardBridge] Last ship standing! Local player wins → 1st Place");
+                    DistributeWithDummyPlacement();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Counts how many networked ships are still alive (not destroyed).
+        /// Used by the fallback placement logic.
+        /// </summary>
+        private int CountAliveShips()
+        {
+            int alive = 0;
+            var allVehicles = FindObjectsOfType<VehicleHealth>();
+            foreach (var vh in allVehicles)
+            {
+                var netObj = vh.GetComponentInParent<Fusion.NetworkObject>();
+                if (netObj == null) continue;
+
+                // Check if at least one damageable is still alive
+                bool isAlive = false;
+                foreach (var d in vh.Damageables)
+                {
+                    if (d != null && !d.Destroyed && d.CurrentHealth > 0f)
+                    {
+                        isAlive = true;
+                        break;
+                    }
+                }
+
+                if (isAlive) alive++;
+            }
+            return alive;
         }
 
         private void TriggerTestRewards()

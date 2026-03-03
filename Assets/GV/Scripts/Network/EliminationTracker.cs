@@ -82,10 +82,16 @@ namespace GV.Network
             // Keep trying to subscribe to game manager events
             TrySubscribeToGameManager();
 
-            if (!_isRacing) return;
-
+            // Always monitor vehicles — don't gate on _isRacing.
+            // Our match flow uses a custom countdown (not NetworkedGameManager),
+            // so OnRaceStarted may never fire. Start tracking as soon as ships exist.
             MonitorPlayerVehicles();
-            CheckForEliminations();
+
+            // Only check for eliminations once we have at least 2 players being monitored
+            if (_monitoredVehicles.Count >= 2)
+            {
+                CheckForEliminations();
+            }
         }
 
         private void OnDisable()

@@ -908,6 +908,13 @@ namespace GV.Network
                 // Auto-find the spawn spline in the newly loaded gameplay scene
                 TryFindSpawnSpline();
 
+                // Register scene-placed NetworkObjects with Fusion.
+                // Because we load scenes manually (SceneManager.LoadScene) instead of through
+                // Fusion's NetworkSceneManagerDefault, Fusion doesn't know about NetworkObjects
+                // placed in the scene (like BattleZoneController). This tells Fusion to adopt them
+                // so their Spawned() callback fires and [Networked] properties work.
+                RegisterSceneNetworkObjects(scene);
+
                 // Delay spawning by 1 frame so all scene objects (VehicleCamera, etc.)
                 // have their Start() called. sceneLoaded fires after Awake() but before Start().
                 if (Runner != null && Runner.IsServer)
@@ -915,6 +922,38 @@ namespace GV.Network
                     StartCoroutine(SpawnPendingPlayersNextFrame());
                 }
             }
+        }
+
+        /// <summary>
+        /// Finds all NetworkObjects placed in the scene and registers them with Fusion.
+        /// This is necessary because we load scenes manually (bypassing Fusion's scene manager),
+        /// so Fusion doesn't automatically discover scene-placed NetworkObjects.
+        /// Without this, components like BattleZoneController never get Spawned() called.
+        /// </summary>
+        private void RegisterSceneNetworkObjects(UnityEngine.SceneManagement.Scene scene)
+        {
+            if (Runner == null)
+            {
+                Debug.LogWarning("[NetworkManager] RegisterSceneNetworkObjects — Runner is null, skipping.");
+                return;
+            }
+
+            // Collect all NetworkObjects in the loaded scene (same approach Fusion uses internally)
+            var sceneObjects = scene.GetComponents<NetworkObject>(includeInactive: true, out var rootObjects);
+
+            if (sceneObjects.Length == 0)
+            {
+                Debug.Log("[NetworkManager] RegisterSceneNetworkObjects — no NetworkObjects found in scene.");
+                return;
+            }
+
+            // Sort by SortKey for deterministic ordering (must match on host and clients)
+            System.Array.Sort(sceneObjects, NetworkObjectSortKeyComparer.Instance);
+
+            var sceneRef = SceneRef.FromIndex(scene.buildIndex);
+            int registered = Runner.RegisterSceneObjects(sceneRef, sceneObjects);
+            Debug.Log($"[NetworkManager] RegisterSceneNetworkObjects — registered {registered}/{sceneObjects.Length} " +
+                      $"NetworkObjects in scene '{scene.name}' (SceneRef={sceneRef})");
         }
 
         /// <summary>

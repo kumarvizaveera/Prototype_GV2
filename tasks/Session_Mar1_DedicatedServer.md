@@ -315,6 +315,126 @@ Canvas
 
 ---
 
+---
+
+## Session 5 — March 3, 2026 (continued): Multiplayer Scene Sync, Countdown & Reward Fixes
+
+### Overview
+
+Fixed the full ParrelSync multiplayer flow: host camera, client scene loading, spawn positions, synced countdown timer, and battle reward placement bugs. The room code flow now works end-to-end with two players.
+
+### Bug Fix: Camera Not Following Host Ship After Enter Battle
+
+**Problem:** Host pressed Enter Battle, ship spawned, but camera stayed static.
+
+**Root Cause:** Ships were spawned inside `OnUnitySceneLoaded`, which fires after `Awake()` but BEFORE `Start()`. VehicleCamera hadn't run `Start()` yet, so `SetupCamera()` couldn't find it.
+
+**Fix (NetworkManager.cs):**
+- Added `SpawnPendingPlayersNextFrame()` coroutine — waits one frame (`yield return null`) before spawning
+- This ensures all scene objects have their `Start()` called before we try to find VehicleCamera
+
+### Bug Fix: Client Not Loading Gameplay Scene When Host Starts
+
+**Problem:** Client stayed stuck on the join room UI when host pressed Enter Battle. Could hear firing sounds but no gameplay visuals.
+
+**Root Cause (multiple failed approaches):**
+1. Tried making `LoadGameplay()` HOST-only and relying on Fusion's `NetworkSceneManagerDefault` to sync — **failed**, it doesn't reliably sync mid-game scene changes
+2. Tried sending raw data "LOAD" command with no delay — **failed**, host loaded scene before Fusion could transmit the data
+3. Tried showing Enter Battle on BOTH sides — **failed**, user wanted client to auto-load
+
+**Final Fix (NetworkManager.cs):**
+- HOST sends 4-byte "LOAD" magic via `Runner.SendReliableDataToPlayer()` to all clients
+- `LoadGameplayWithClientSync()` coroutine waits 10 frames after sending before loading the scene on host
+- CLIENT receives "LOAD" in `OnReliableDataReceived()`, calls `HideAllMenuUI()` and `SceneManager.LoadScene()`
+- Added `HideAllMenuUI()` method — hides all DontDestroyOnLoad UI panels (lobby, connected, buttons, status text)
+
+### Bug Fix: Both Ships Spawning at Same Position
+
+**Problem:** Both players' ships appeared on top of each other at the same spline position.
+
+**Root Cause:** Fusion re-fires `OnPlayerJoined` after scene changes for existing players. HOST got spawned by `OnPlayerJoined` at slot 0 (via `_spawnedPlayers.Count` which was 0). Then the coroutine only had CLIENT left, also at index 0.
+
+**Fix (NetworkManager.cs):**
+- Changed `SpawnPendingPlayersNextFrame()` to use `_spawnedPlayers.Count` as the slot index in the spawn loop
+- Since `_spawnedPlayers.Count` grows after each `SpawnPlayer()` call, each player gets the next available slot
+- Added double-spawn guard in `SpawnPlayer()` — checks if player already has a non-null ship
+
+### Feature: Synced Countdown Timer (5, 4, 3, 2, 1, GO!)
+
+**What it does:** When host presses Enter Battle, both screens show "Match starting in 5... 4... 3... 2... 1... GO!" before loading gameplay.
+
+**Implementation (NetworkManager.cs):**
+- Added `COUNTDOWN_KEY` / `COUNTDOWN_MAGIC` raw data constants (4-byte "CNTD")
+- `LoadGameplay()` now sends COUNTDOWN command to all clients, then starts `CountdownThenLoad()` coroutine on host
+- CLIENT receives COUNTDOWN in `OnReliableDataReceived()` and starts the same coroutine
+- `CountdownThenLoad()` shows countdown on `clientJoinedText` (inside connectedPanel), waits 1 second per tick
+- After "GO!" + 0.3s pause, HOST starts `LoadGameplayWithClientSync()` to send LOAD and transition
+- Cancels any running "Client has joined" auto-hide coroutine so it doesn't hide countdown text
+
+### UI: Client Waiting State
+
+**What it does:** After client joins a room, they see "Waiting for host to start the match..." instead of the Enter Battle button.
+
+**Implementation (NetworkManager.cs):**
+- `ShowConnectedUI()` now checks `Runner.IsServer` — only HOST gets the Enter Battle button
+- CLIENT sees "Waiting for host to start the match..." on `clientJoinedText`
+
+### Bug Fix: Battle Rewards — Client Gets 1st Place, Host Gets No Popup
+
+**Problem:** When client's ship was destroyed, client showed "1st Place + 100 PRANA". Host (still alive) got no reward popup at all.
+
+**Root Cause (3 issues):**
+
+1. **EliminationTracker never tracked anything:** `Update()` was gated on `_isRacing` which waited for `NetworkedGameManager.OnRaceStarted`. Our match flow uses a custom countdown — not NetworkedGameManager — so `_isRacing` was never set to true. No eliminations were ever detected.
+
+2. **Fallback hardcoded 1st place:** `BattleRewardBridge.DistributeWithDummyPlacement()` always gave `placement = 1`, even for dead players. When the 5-second EliminationTracker timeout expired, the dead client got 1st place.
+
+3. **No reward trigger for survivors:** The host's ship was alive, so `HandleLocalShipDestroyed` never fired. With EliminationTracker broken, `OnMatchResultsReady` never fired either. The host had no way to receive rewards.
+
+**Fix 1 (EliminationTracker.cs):**
+- Removed `_isRacing` gate from `Update()` — now monitors vehicles as soon as ships exist
+- Only checks for eliminations when `_monitoredVehicles.Count >= 2` (at least 2 ships detected)
+
+**Fix 2 (BattleRewardBridge.cs — DistributeWithDummyPlacement):**
+- If local ship is dead (`_localShipDead = true`), counts alive ships and calculates placement: `Mathf.Max(2, aliveCount + 1)`
+- If local ship is alive, gives 1st place
+- Added `CountAliveShips()` helper — iterates all VehicleHealth, checks Damageables for any with `CurrentHealth > 0`
+
+**Fix 3 (BattleRewardBridge.cs — CheckIfLastStanding):**
+- New method called every frame when local ship is alive and subscribed to vehicle events
+- Counts total networked ships and alive ships
+- If `totalNetworkedShips >= 2` and `aliveCount == 1` and local ship is alive → triggers 1st place reward
+- This covers the surviving player (host) who never gets `HandleLocalShipDestroyed`
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| NetworkManager.cs | HOST-only Enter Battle, raw data LOAD/COUNTDOWN commands, 10-frame delay, CountdownThenLoad coroutine, SpawnPendingPlayersNextFrame with 1-frame delay, HideAllMenuUI, ShowConnectedUI host/client split, double-spawn guard, _spawnedPlayers.Count slot index |
+| EliminationTracker.cs | Removed _isRacing gate, track as soon as 2+ ships exist |
+| BattleRewardBridge.cs | Smart fallback placement (dead=last, alive=1st), CountAliveShips helper, CheckIfLastStanding for survivors |
+
+### Bugs Fixed
+
+1. **Camera not following host ship** — Ships spawned before VehicleCamera.Start(). Fix: 1-frame delay before spawning.
+2. **Client not loading gameplay** — Fusion's NetworkSceneManagerDefault doesn't sync mid-game scene changes. Fix: raw data LOAD command with 10-frame transmission delay.
+3. **Ships at same position** — Fusion re-fires OnPlayerJoined after scene load, causing duplicate slot 0. Fix: use _spawnedPlayers.Count as slot index.
+4. **Client gets 1st place when destroyed** — Fallback hardcoded placement=1. Fix: count alive ships.
+5. **Host gets no reward popup** — No trigger for surviving player. Fix: CheckIfLastStanding polls for last-ship-alive state.
+6. **EliminationTracker not detecting deaths** — Gated on _isRacing which was never set. Fix: removed gate, check as soon as 2+ ships monitored.
+
+### Key Lessons
+
+- **Fusion re-fires OnPlayerJoined after scene changes** — Don't assume it only fires once per player. Use a guard (`_spawnedPlayers.ContainsKey`) to prevent double-spawning.
+- **NetworkSceneManagerDefault doesn't reliably sync manual scene loads** — If you use `SceneManager.LoadScene()` yourself, you need your own sync mechanism (raw data commands work).
+- **Raw data needs transmission time** — If you send data and immediately load a scene, the data may not reach clients. Add a delay (10 frames works).
+- **Unity's sceneLoaded fires before Start()** — Spawning objects in sceneLoaded means scene components like cameras haven't initialized yet. Wait one frame.
+- **Fallback logic must be placement-aware** — A dead player should never default to 1st place. Always check ship health state.
+- **Surviving players need their own reward trigger** — HandleLocalShipDestroyed only covers losers. Winners need a separate detection path (poll for last-standing state).
+- **EliminationTracker shouldn't depend on NetworkedGameManager** — If your match flow doesn't use the game manager's race state, the tracker must work independently.
+
+---
+
 ## What's Left
 
 ### Completed
@@ -327,10 +447,17 @@ Canvas
 - [x] Ships spawn on spline correctly after Enter Battle
 - [x] UI panel isolation — no more bleed-through between wallet/ship/lobby panels
 - [x] DisconnectButton working in ConnectedPanel
+- [x] ParrelSync room code flow — host creates, clone joins, both load gameplay
+- [x] Camera follows host ship after Enter Battle
+- [x] Client auto-loads gameplay when host starts match
+- [x] Ships spawn at different positions
+- [x] Synced countdown timer (5, 4, 3, 2, 1, GO!)
+- [x] Client sees "Waiting for host to start" after joining
+- [x] Battle rewards — correct placement for destroyed (2nd) and surviving (1st) players
 
 ### Remaining
-- [ ] Test full multiplayer flow: second player joins with room code (ParrelSync clone)
 - [ ] Test position sync between two clients connected to VPS (proxy ships moving correctly)
+- [ ] Rebuild Linux server with latest changes and deploy to VPS
 - [ ] Test with more than 2 clients
 - [ ] Set up systemd auto-restart on VPS (see VPS_Setup_Guide.md)
 - [ ] Part B: Scale from 4 to 20-30 players per match
@@ -348,4 +475,11 @@ Canvas
 - Hidden UI panels with raycastTarget=true block clicks on panels behind them
 - Don't spawn players in menu scenes — defer with a flag and pending list
 - Prefab asset references vs scene instance references — always Find() the scene instance for world-space data
+- Fusion re-fires OnPlayerJoined after scene changes — guard against double-spawning
+- NetworkSceneManagerDefault doesn't sync manual scene loads — use raw data commands
+- Raw data needs transmission time before scene change — add a delay
+- Unity's sceneLoaded fires before Start() — wait one frame before spawning
+- Fallback reward logic must check ship health — dead players shouldn't get 1st place
+- Surviving players need their own reward trigger — poll for last-standing state
+- EliminationTracker shouldn't gate on NetworkedGameManager if match flow is custom
 - All previous dedicated server lessons (guard patterns, LocalPlayer safety, camera crashes, etc.)

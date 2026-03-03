@@ -46,9 +46,16 @@ namespace GV.Network
         [Networked] public float NetworkedShrinkDuration { get; set; }
 
         private TickTimer _damageTimer;
+        private bool _loggedRenderOnce;
 
         public override void Spawned()
         {
+            Debug.Log($"[BattleZoneController] Spawned() — HasStateAuthority={Object.HasStateAuthority}, " +
+                      $"autoStart={autoStart}, initialRadius={initialRadius}, shrinkDuration={shrinkDuration}, " +
+                      $"IsDedicatedServer={NetworkManager.Instance?.IsDedicatedServer}, " +
+                      $"sphereVisual={(sphereVisual != null ? sphereVisual.name : "NULL")}, " +
+                      $"timerText={(timerText != null ? "assigned" : "NULL")}");
+
             if (Object.HasStateAuthority)
             {
                 CurrentRadius = initialRadius;
@@ -119,7 +126,24 @@ namespace GV.Network
         public override void Render()
         {
             // Dedicated server has no visuals or UI — skip rendering.
-            if (NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer) return;
+            if (NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer)
+            {
+                if (!_loggedRenderOnce)
+                {
+                    Debug.LogWarning("[BattleZoneController] Render() SKIPPED — IsDedicatedServer is TRUE. " +
+                                     "If you're in the Editor, check NetworkManager's ServerMode in Inspector (should be Auto, not DedicatedServer).");
+                    _loggedRenderOnce = true;
+                }
+                return;
+            }
+
+            if (!_loggedRenderOnce)
+            {
+                Debug.Log($"[BattleZoneController] Render() running — CurrentRadius={CurrentRadius}, " +
+                          $"IsShrinking={IsShrinking}, sphereVisual={(sphereVisual != null ? "OK" : "NULL")}, " +
+                          $"timerText={(timerText != null ? "OK" : "NULL")}");
+                _loggedRenderOnce = true;
+            }
 
             // Update visual size on all clients
             if (sphereVisual != null)
