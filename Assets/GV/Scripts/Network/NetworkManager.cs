@@ -103,13 +103,6 @@ namespace GV.Network
         private List<PlayerRef> _pendingSpawns = new List<PlayerRef>();
 
         /// <summary>
-        /// Increments each time a player is spawned. Used for spawn slot index
-        /// to guarantee each player gets a different position on the spline.
-        /// Reset when gameplay scene loads.
-        /// </summary>
-        private int _spawnSlotCounter = 0;
-
-        /// <summary>
         /// True once we're in the gameplay scene and ready to spawn players.
         /// Prevents ships from spawning in the menu/lobby scene.
         /// </summary>
@@ -789,7 +782,6 @@ namespace GV.Network
             if (!string.IsNullOrEmpty(gameplaySceneName) && scene.name == gameplaySceneName)
             {
                 _inGameplayScene = true;
-                _spawnSlotCounter = 0; // Reset spawn slots for new gameplay session
 
                 // Auto-find the spawn spline in the newly loaded gameplay scene
                 TryFindSpawnSpline();
@@ -847,10 +839,14 @@ namespace GV.Network
                 }
             }
 
-            Debug.Log($"[NetworkManager] Spawning {playersToSpawn.Count} players after 1-frame delay");
+            Debug.Log($"[NetworkManager] Spawning {playersToSpawn.Count} players after 1-frame delay " +
+                      $"(already spawned: {_spawnedPlayers.Count})");
             foreach (var player in playersToSpawn)
             {
-                SpawnPlayer(Runner, player);
+                // Use _spawnedPlayers.Count as slot — it grows after each SpawnPlayer call,
+                // so each player gets the next available slot. This handles the case where
+                // OnPlayerJoined already spawned some players (e.g., host) at earlier slots.
+                SpawnPlayer(Runner, player, _spawnedPlayers.Count);
             }
         }
         
@@ -968,22 +964,6 @@ namespace GV.Network
             }
         }
 
-        private Vector3 GetSpawnPosition(PlayerRef player)
-        {
-            CalculateSplineSpawnPoints();
-            int index = Mathf.Clamp(_spawnSlotCounter, 0, maxPlayers - 1);
-            Debug.Log($"[NetworkManager] GetSpawnPosition: player={player.PlayerId}, slotIndex={index}, " +
-                      $"pos={_cachedSpawnPositions[index]}, splineFound={spawnSpline != null}");
-            return _cachedSpawnPositions[index];
-        }
-
-        private Quaternion GetSpawnRotation(PlayerRef player)
-        {
-            CalculateSplineSpawnPoints();
-            int index = Mathf.Clamp(_spawnSlotCounter, 0, maxPlayers - 1);
-            return _cachedSpawnRotations[index];
-        }
-
         private void SetupCameraFollow(GameObject playerObject)
         {
             Debug.Log($"[NetworkManager] SetupCameraFollow called for: {playerObject.name}");
@@ -1041,7 +1021,7 @@ namespace GV.Network
                 }
                 else
                 {
-                    SpawnPlayer(runner, player);
+                    SpawnPlayer(runner, player, _spawnedPlayers.Count);
                 }
             }
             else
@@ -1062,7 +1042,7 @@ namespace GV.Network
             OnPlayerJoinedGame?.Invoke(runner, player);
         }
 
-        private void SpawnPlayer(NetworkRunner runner, PlayerRef player)
+        private void SpawnPlayer(NetworkRunner runner, PlayerRef player, int slotIndex = -1)
         {
             // Guard: don't double-spawn if both OnUnitySceneLoaded and OnSceneLoadDone fire
             if (_spawnedPlayers.ContainsKey(player) && _spawnedPlayers[player] != null)
@@ -1071,11 +1051,16 @@ namespace GV.Network
                 return;
             }
 
-            var spawnPos = GetSpawnPosition(player);
-            var spawnRot = GetSpawnRotation(player);
-            _spawnSlotCounter++; // Increment AFTER getting pos/rot so next player gets different slot
+            // Use explicit slot index if provided, otherwise fall back to count of existing ships
+            if (slotIndex < 0) slotIndex = _spawnedPlayers.Count;
 
-            Debug.Log($"[NetworkManager] Spawning player {player.PlayerId} at spawnPoint: {spawnPos}, slot was {_spawnSlotCounter - 1}");
+            CalculateSplineSpawnPoints();
+            int clampedIndex = Mathf.Clamp(slotIndex, 0, maxPlayers - 1);
+            var spawnPos = _cachedSpawnPositions[clampedIndex];
+            var spawnRot = _cachedSpawnRotations[clampedIndex];
+
+            Debug.Log($"[NetworkManager] Spawning player {player.PlayerId} at slot {clampedIndex}, " +
+                      $"pos={spawnPos}, splineFound={spawnSpline != null}");
 
             var playerObject = runner.Spawn(playerPrefab, spawnPos, spawnRot, inputAuthority: player);
 
