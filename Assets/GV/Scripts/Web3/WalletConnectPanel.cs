@@ -99,6 +99,14 @@ namespace GV.Web3
             {
                 connectEmailButton.onClick.RemoveAllListeners();
                 connectEmailButton.onClick.AddListener(OnConnectEmailClicked);
+                connectEmailButton.gameObject.SetActive(false); // Hidden until player types in email field
+            }
+
+            // Show "Send OTP" button as soon as the player starts typing an email
+            if (emailInputField != null)
+            {
+                emailInputField.onValueChanged.RemoveAllListeners();
+                emailInputField.onValueChanged.AddListener(OnEmailInputChanged);
             }
             if (connectGoogleButton != null)
             {
@@ -147,6 +155,15 @@ namespace GV.Web3
 
             if (Network.NetworkManager.Instance != null)
                 Network.NetworkManager.Instance.OnConnectedEvent -= HandleRoomConnected;
+        }
+
+        // --- Input Handlers ---
+
+        private void OnEmailInputChanged(string text)
+        {
+            // Show "Send OTP" button only when there's text in the email field
+            if (connectEmailButton != null)
+                connectEmailButton.gameObject.SetActive(!string.IsNullOrEmpty(text));
         }
 
         // --- Button Handlers ---
