@@ -579,21 +579,21 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 163886858}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 692049845}
   - {fileID: 905813544}
   - {fileID: 1408283770}
   - {fileID: 597162302}
-  m_Father: {fileID: 973323716}
+  m_Father: {fileID: 381094079}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 552, y: -29}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 26, y: 774}
+  m_SizeDelta: {x: -2060, y: -990}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &163886860
 MonoBehaviour:
@@ -1218,7 +1218,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 585671228}
+  m_Father: {fileID: 1352770000}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -1663,6 +1663,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 973323716}
+  - {fileID: 163886859}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -1890,12 +1891,6 @@ RectTransform:
     type: 3}
   m_PrefabInstance: {fileID: 510727989}
   m_PrefabAsset: {fileID: 0}
---- !u!224 &585671228 stripped
-RectTransform:
-  m_CorrespondingSourceObject: {fileID: 5889085586365398974, guid: 3b54c6453f85beb4ea701ea42d976825,
-    type: 3}
-  m_PrefabInstance: {fileID: 767885481}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &597162301
 GameObject:
   m_ObjectHideFlags: 0
@@ -1911,7 +1906,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &597162302
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2390,7 +2385,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: -89, y: -167}
+  m_AnchoredPosition: {x: 218, y: -467}
   m_SizeDelta: {x: 1000, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &692049846
@@ -3470,7 +3465,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: -448, y: -225}
+  m_AnchoredPosition: {x: -383, y: -576}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &905813545
@@ -3675,7 +3670,6 @@ RectTransform:
   - {fileID: 1831326529}
   - {fileID: 842175716}
   - {fileID: 260241629}
-  - {fileID: 163886859}
   m_Father: {fileID: 381094079}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -5497,6 +5491,12 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!224 &1352770000 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 5889085586365398974, guid: 3b54c6453f85beb4ea701ea42d976825,
+    type: 3}
+  m_PrefabInstance: {fileID: 767885481}
+  m_PrefabAsset: {fileID: 0}
 --- !u!114 &1381574886
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5562,7 +5562,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 380.9, y: -534.2}
+  m_AnchoredPosition: {x: 727, y: -952}
   m_SizeDelta: {x: 200, y: 70}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!114 &1408283771
@@ -8400,10 +8400,11 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'EnterButton '
+  m_text: Play
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 37ef1f7d4f6abed42bd49a6a0453892a, type: 2}
+  m_sharedMaterial: {fileID: 9123942880416622910, guid: 37ef1f7d4f6abed42bd49a6a0453892a,
+    type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

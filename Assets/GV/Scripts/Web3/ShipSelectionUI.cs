@@ -66,6 +66,12 @@ namespace GV.Web3
         // Currently highlighted card
         private ShipDefinition _highlightedShip;
 
+        private void Awake()
+        {
+            // Start hidden — WalletConnectPanel will call Show(true) after wallet connects
+            gameObject.SetActive(false);
+        }
+
         private void OnEnable()
         {
             if (ShipNFTManager.Instance != null)
@@ -109,7 +115,7 @@ namespace GV.Web3
         /// <summary>Show or hide the selection panel.</summary>
         public void Show(bool visible = true)
         {
-            if (panel != null) panel.SetActive(visible);
+            gameObject.SetActive(visible);
         }
 
         // --- Event Handlers ---
