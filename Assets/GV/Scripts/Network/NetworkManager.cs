@@ -103,6 +103,13 @@ namespace GV.Network
         private List<PlayerRef> _pendingSpawns = new List<PlayerRef>();
 
         /// <summary>
+        /// Increments each time a player is spawned. Used for spawn slot index
+        /// to guarantee each player gets a different position on the spline.
+        /// Reset when gameplay scene loads.
+        /// </summary>
+        private int _spawnSlotCounter = 0;
+
+        /// <summary>
         /// True once we're in the gameplay scene and ready to spawn players.
         /// Prevents ships from spawning in the menu/lobby scene.
         /// </summary>
@@ -239,17 +246,7 @@ namespace GV.Network
             if (lobbyPanel != null) lobbyPanel.SetActive(false);
             if (connectedPanel != null) connectedPanel.SetActive(true);
             if (roomCodeDisplayText != null) roomCodeDisplayText.text = $"Room: {CurrentRoomCode}";
-
-            // Only the HOST sees "Enter Battle" — clients wait for the host to start.
-            // Fusion's NetworkSceneManagerDefault syncs the scene change to clients automatically.
-            bool isHost = Runner != null && Runner.IsServer;
-            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(isHost);
-
-            if (!isHost && statusText != null)
-            {
-                statusText.gameObject.SetActive(true);
-                statusText.text = "Waiting for host to start...";
-            }
+            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(true);
         }
 
         /// <summary>
@@ -266,9 +263,9 @@ namespace GV.Network
         }
 
         /// <summary>
-        /// Loads the gameplay scene. Called by "Enter Battle" button.
-        /// ONLY the HOST/SERVER actually loads the scene — it sends a scene load command
-        /// to all connected clients via raw reliable data. Clients load when they receive it.
+        /// Loads the gameplay scene. Called by "Enter Battle" button on BOTH host and client.
+        /// Each side loads the scene independently. The 1-frame spawn delay in
+        /// SpawnPendingPlayersNextFrame ensures VehicleCamera is ready before ships spawn.
         /// </summary>
         public void LoadGameplay()
         {
@@ -278,49 +275,13 @@ namespace GV.Network
                 return;
             }
 
-            if (Runner == null)
-            {
-                Debug.LogError("[NetworkManager] Runner is null — not connected!");
-                return;
-            }
+            Debug.Log($"[NetworkManager] Loading gameplay scene: {gameplaySceneName} " +
+                      $"(IsServer={Runner?.IsServer}, IsClient={Runner?.IsClient})");
 
-            if (Runner.IsServer)
-            {
-                // HOST: Send "load scene" command to all clients FIRST, then load locally.
-                // Clients receive this in OnReliableDataReceived and load the same scene.
-                Debug.Log($"[NetworkManager] HOST loading gameplay scene: {gameplaySceneName}");
+            // Hide all menu UI — these are on DontDestroyOnLoad and persist across scenes
+            HideAllMenuUI();
 
-                foreach (var player in Runner.ActivePlayers)
-                {
-                    if (player != Runner.LocalPlayer)
-                    {
-                        try
-                        {
-                            Runner.SendReliableDataToPlayer(player, SCENE_LOAD_KEY, SCENE_LOAD_MAGIC);
-                            Debug.Log($"[NetworkManager] Sent SCENE_LOAD command to player {player.PlayerId}");
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Debug.LogError($"[NetworkManager] Failed to send scene load to player {player.PlayerId}: {ex.Message}");
-                        }
-                    }
-                }
-
-                // Hide menu UI before loading
-                HideAllMenuUI();
-
-                UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
-            }
-            else
-            {
-                // CLIENT: Don't load manually — host will send SCENE_LOAD command.
-                Debug.Log("[NetworkManager] CLIENT: waiting for host to start the game...");
-                if (statusText != null)
-                {
-                    statusText.gameObject.SetActive(true);
-                    statusText.text = "Waiting for host to start...";
-                }
-            }
+            UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
         }
 
         // ── Room Code Generation ─────────────────────────────────────
@@ -383,13 +344,6 @@ namespace GV.Network
             await StartGame(GameMode.AutoHostOrClient);
         }
         
-        // --- RAW DATA SCENE LOAD COMMAND ---
-        // When the HOST clicks Enter Battle, it sends this command to all clients.
-        // Clients receive it in OnReliableDataReceived and load the gameplay scene.
-        // This is needed because NetworkSceneManagerDefault doesn't auto-sync mid-game scene changes.
-        private static readonly ReliableKey SCENE_LOAD_KEY = ReliableKey.FromInts(0x47, 0x56, 0x53, 0x43); // "GVSC"
-        private static readonly byte[] SCENE_LOAD_MAGIC = { 0x4C, 0x4F, 0x41, 0x44 }; // "LOAD"
-
         // --- RAW DATA INPUT TRANSPORT ---
         // Fusion's OnInput/GetInput pipeline and RPCs both silently fail in our setup.
         // This bypasses both entirely using Runner.SendReliableDataToServer(), which:
@@ -835,6 +789,7 @@ namespace GV.Network
             if (!string.IsNullOrEmpty(gameplaySceneName) && scene.name == gameplaySceneName)
             {
                 _inGameplayScene = true;
+                _spawnSlotCounter = 0; // Reset spawn slots for new gameplay session
 
                 // Auto-find the spawn spline in the newly loaded gameplay scene
                 TryFindSpawnSpline();
@@ -1016,17 +971,16 @@ namespace GV.Network
         private Vector3 GetSpawnPosition(PlayerRef player)
         {
             CalculateSplineSpawnPoints();
-            // Use spawn ORDER (how many ships already exist) instead of PlayerId % maxPlayers.
-            // PlayerId values can collide (e.g., IDs 0 and 4 both map to index 0 with maxPlayers=4).
-            int index = Mathf.Clamp(_spawnedPlayers.Count, 0, maxPlayers - 1);
-            Debug.Log($"[NetworkManager] GetSpawnPosition: player={player.PlayerId}, spawnIndex={index} (existing ships: {_spawnedPlayers.Count})");
+            int index = Mathf.Clamp(_spawnSlotCounter, 0, maxPlayers - 1);
+            Debug.Log($"[NetworkManager] GetSpawnPosition: player={player.PlayerId}, slotIndex={index}, " +
+                      $"pos={_cachedSpawnPositions[index]}, splineFound={spawnSpline != null}");
             return _cachedSpawnPositions[index];
         }
 
         private Quaternion GetSpawnRotation(PlayerRef player)
         {
             CalculateSplineSpawnPoints();
-            int index = Mathf.Clamp(_spawnedPlayers.Count, 0, maxPlayers - 1);
+            int index = Mathf.Clamp(_spawnSlotCounter, 0, maxPlayers - 1);
             return _cachedSpawnRotations[index];
         }
 
@@ -1119,8 +1073,9 @@ namespace GV.Network
 
             var spawnPos = GetSpawnPosition(player);
             var spawnRot = GetSpawnRotation(player);
+            _spawnSlotCounter++; // Increment AFTER getting pos/rot so next player gets different slot
 
-            Debug.Log($"[NetworkManager] Spawning player {player.PlayerId} at spawnPoint: {spawnPos}");
+            Debug.Log($"[NetworkManager] Spawning player {player.PlayerId} at spawnPoint: {spawnPos}, slot was {_spawnSlotCounter - 1}");
 
             var playerObject = runner.Spawn(playerPrefab, spawnPos, spawnRot, inputAuthority: player);
 
@@ -1267,29 +1222,6 @@ namespace GV.Network
                           $"player={player}, dataLen={data.Count}, key={key}, " +
                           $"thisID={GetInstanceID()}, Instance.ID={(Instance != null ? Instance.GetInstanceID().ToString() : "NULL")}, " +
                           $"sameInstance={Instance == this}");
-            }
-
-            // --- SCENE LOAD COMMAND (4 bytes = "LOAD" magic) ---
-            // Sent by HOST to all clients when Enter Battle is clicked.
-            if (data.Count == SCENE_LOAD_MAGIC.Length)
-            {
-                bool isSceneCmd = true;
-                for (int i = 0; i < SCENE_LOAD_MAGIC.Length; i++)
-                {
-                    if (data.Array[data.Offset + i] != SCENE_LOAD_MAGIC[i])
-                    {
-                        isSceneCmd = false;
-                        break;
-                    }
-                }
-
-                if (isSceneCmd && !string.IsNullOrEmpty(gameplaySceneName))
-                {
-                    Debug.Log($"[NetworkManager] CLIENT received SCENE_LOAD command from host — loading {gameplaySceneName}");
-                    HideAllMenuUI();
-                    UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
-                    return;
-                }
             }
 
             // --- INPUT DATA (37+ bytes) ---
