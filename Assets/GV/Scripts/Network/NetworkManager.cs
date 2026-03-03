@@ -239,7 +239,17 @@ namespace GV.Network
             if (lobbyPanel != null) lobbyPanel.SetActive(false);
             if (connectedPanel != null) connectedPanel.SetActive(true);
             if (roomCodeDisplayText != null) roomCodeDisplayText.text = $"Room: {CurrentRoomCode}";
-            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(true);
+
+            // Only HOST gets the Enter Battle button — clients wait for the host to start
+            bool isHost = Runner != null && Runner.IsServer;
+            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(isHost);
+
+            // Show waiting message for clients
+            if (!isHost && statusText != null)
+            {
+                statusText.gameObject.SetActive(true);
+                statusText.text = "Waiting for host to start...";
+            }
         }
 
         /// <summary>
@@ -256,9 +266,9 @@ namespace GV.Network
         }
 
         /// <summary>
-        /// Loads the gameplay scene. Called by "Enter Battle" button on BOTH host and client.
-        /// Each side loads the scene independently. The 1-frame spawn delay in
-        /// SpawnPendingPlayersNextFrame ensures VehicleCamera is ready before ships spawn.
+        /// Loads the gameplay scene. Called by "Enter Battle" button (HOST only).
+        /// HOST sends a "load scene" command to all clients via raw reliable data,
+        /// waits a few frames for Fusion to transmit it, then loads the scene locally.
         /// </summary>
         public void LoadGameplay()
         {
@@ -268,12 +278,46 @@ namespace GV.Network
                 return;
             }
 
-            Debug.Log($"[NetworkManager] Loading gameplay scene: {gameplaySceneName} " +
-                      $"(IsServer={Runner?.IsServer}, IsClient={Runner?.IsClient})");
+            if (Runner == null || !Runner.IsServer)
+            {
+                Debug.LogWarning("[NetworkManager] LoadGameplay called but not the server — ignoring.");
+                return;
+            }
 
-            // Hide all menu UI — these are on DontDestroyOnLoad and persist across scenes
+            StartCoroutine(LoadGameplayWithClientSync());
+        }
+
+        /// <summary>
+        /// Sends scene load command to all clients, waits for transmission, then loads locally.
+        /// The delay gives Fusion time to actually send the data before the scene change.
+        /// </summary>
+        private IEnumerator LoadGameplayWithClientSync()
+        {
+            Debug.Log($"[NetworkManager] HOST: Sending scene load command to all clients...");
+
+            // Send "LOAD" command to every connected client
+            foreach (var player in Runner.ActivePlayers)
+            {
+                if (player != Runner.LocalPlayer)
+                {
+                    try
+                    {
+                        Runner.SendReliableDataToPlayer(player, SCENE_LOAD_KEY, SCENE_LOAD_MAGIC);
+                        Debug.Log($"[NetworkManager] Sent SCENE_LOAD to player {player.PlayerId}");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[NetworkManager] Failed to send scene load to player {player.PlayerId}: {ex.Message}");
+                    }
+                }
+            }
+
+            // Wait 10 frames for Fusion to transmit the data to clients
+            for (int i = 0; i < 10; i++)
+                yield return null;
+
+            Debug.Log($"[NetworkManager] HOST: Now loading gameplay scene: {gameplaySceneName}");
             HideAllMenuUI();
-
             UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
         }
 
@@ -337,6 +381,12 @@ namespace GV.Network
             await StartGame(GameMode.AutoHostOrClient);
         }
         
+        // --- RAW DATA SCENE LOAD COMMAND ---
+        // HOST sends this to all clients when Enter Battle is clicked.
+        // Clients receive it in OnReliableDataReceived and load the gameplay scene.
+        private static readonly ReliableKey SCENE_LOAD_KEY = ReliableKey.FromInts(0x47, 0x56, 0x53, 0x43); // "GVSC"
+        private static readonly byte[] SCENE_LOAD_MAGIC = { 0x4C, 0x4F, 0x41, 0x44 }; // "LOAD"
+
         // --- RAW DATA INPUT TRANSPORT ---
         // Fusion's OnInput/GetInput pipeline and RPCs both silently fail in our setup.
         // This bypasses both entirely using Runner.SendReliableDataToServer(), which:
@@ -1207,6 +1257,28 @@ namespace GV.Network
                           $"player={player}, dataLen={data.Count}, key={key}, " +
                           $"thisID={GetInstanceID()}, Instance.ID={(Instance != null ? Instance.GetInstanceID().ToString() : "NULL")}, " +
                           $"sameInstance={Instance == this}");
+            }
+
+            // --- SCENE LOAD COMMAND (exactly 4 bytes: "LOAD") ---
+            // Host sends this to tell clients to load the gameplay scene
+            if (data.Count == SCENE_LOAD_MAGIC.Length && !runner.IsServer)
+            {
+                byte[] bytes = new byte[data.Count];
+                System.Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, data.Count);
+
+                bool isLoadCommand = true;
+                for (int i = 0; i < SCENE_LOAD_MAGIC.Length; i++)
+                {
+                    if (bytes[i] != SCENE_LOAD_MAGIC[i]) { isLoadCommand = false; break; }
+                }
+
+                if (isLoadCommand)
+                {
+                    Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD command from host! Loading {gameplaySceneName}...");
+                    HideAllMenuUI();
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+                    return; // Don't process as input data
+                }
             }
 
             // --- INPUT DATA (37+ bytes) ---
