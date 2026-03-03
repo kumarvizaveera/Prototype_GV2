@@ -2021,6 +2021,11 @@ PrefabInstance:
       objectReference: {fileID: 767885489}
     - target: {fileID: 6617326205315597493, guid: 5ed828d42d12fbf49a94e174b095ff2c,
         type: 3}
+      propertyPath: minSpawnSpacing
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617326205315597493, guid: 5ed828d42d12fbf49a94e174b095ff2c,
+        type: 3}
       propertyPath: playerCountText
       value: 
       objectReference: {fileID: 767885484}

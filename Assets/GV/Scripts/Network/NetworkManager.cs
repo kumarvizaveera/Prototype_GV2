@@ -35,6 +35,9 @@ namespace GV.Network
         [Tooltip("The track spline to spawn players along. Same one used by SplineTether.")]
         [SerializeField] private SplineContainer spawnSpline;
 
+        [Tooltip("Name of the spline GameObject to auto-find in gameplay scene (if spawnSpline is null).")]
+        [SerializeField] private string spawnSplineName = "Spline_2";
+
         [Tooltip("Minimum world-space distance between any two players along the spline.")]
         [SerializeField] private float minSpawnSpacing = 50f;
 
@@ -761,6 +764,9 @@ namespace GV.Network
             {
                 _inGameplayScene = true;
 
+                // Auto-find the spawn spline in the newly loaded gameplay scene
+                TryFindSpawnSpline();
+
                 // Spawn all players that joined while we were in the lobby
                 if (Runner != null && Runner.IsServer)
                 {
@@ -777,6 +783,47 @@ namespace GV.Network
         // ... (spawn logic omitted for brevity, keeping existing methods) ...
         
         // ── Spline-based spawn helpers ──────────────────────────────────
+
+        /// <summary>
+        /// Searches the current scene for a SplineContainer on a GameObject matching spawnSplineName.
+        /// Called when the gameplay scene loads, since the NetworkManager persists via DontDestroyOnLoad
+        /// and can't hold a direct Inspector reference to objects in other scenes.
+        /// </summary>
+        private void TryFindSpawnSpline()
+        {
+            // Clear cached positions — scene changed, so old positions are invalid
+            _cachedSpawnPositions = null;
+            _cachedSpawnRotations = null;
+
+            if (string.IsNullOrEmpty(spawnSplineName))
+            {
+                Debug.LogWarning("[NetworkManager] spawnSplineName is empty — can't auto-find spline.");
+                return;
+            }
+
+            // ALWAYS search for the scene instance of the spline by name.
+            // The prefab's spawnSpline field may point to the Spline_2 PREFAB ASSET
+            // (transform at origin) instead of the SCENE INSTANCE (correct world position).
+            // A prefab reference survives scene loads but gives wrong world-space positions.
+            var splineObj = GameObject.Find(spawnSplineName);
+            if (splineObj != null)
+            {
+                spawnSpline = splineObj.GetComponent<SplineContainer>();
+                if (spawnSpline != null)
+                {
+                    Debug.Log($"[NetworkManager] Found spawnSpline on scene instance '{spawnSplineName}' " +
+                              $"at worldPos: {splineObj.transform.position}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[NetworkManager] Found '{spawnSplineName}' but it has no SplineContainer component!");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[NetworkManager] Could not find GameObject named '{spawnSplineName}' in scene!");
+            }
+        }
 
         /// <summary>
         /// Pre-calculates spawn positions for all possible player slots (up to maxPlayers).
@@ -1142,6 +1189,9 @@ namespace GV.Network
             if (!string.IsNullOrEmpty(gameplaySceneName) && activeScene == gameplaySceneName)
             {
                 _inGameplayScene = true;
+
+                // Auto-find the spawn spline in the newly loaded gameplay scene
+                TryFindSpawnSpline();
 
                 // Spawn all players that joined while we were still in the lobby
                 if (runner.IsServer)
