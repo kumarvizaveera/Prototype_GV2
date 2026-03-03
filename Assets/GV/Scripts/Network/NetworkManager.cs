@@ -253,10 +253,22 @@ namespace GV.Network
         }
 
         /// <summary>
+        /// Hides all menu/lobby UI panels. Called before loading gameplay scene.
+        /// These panels are on the NetworkManager (DontDestroyOnLoad) so they persist
+        /// across scene loads and need to be explicitly hidden.
+        /// </summary>
+        private void HideAllMenuUI()
+        {
+            if (lobbyPanel != null) lobbyPanel.SetActive(false);
+            if (connectedPanel != null) connectedPanel.SetActive(false);
+            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(false);
+            if (statusText != null) statusText.gameObject.SetActive(false);
+        }
+
+        /// <summary>
         /// Loads the gameplay scene. Called by "Enter Battle" button.
-        /// ONLY the HOST/SERVER actually loads the scene — Fusion's NetworkSceneManagerDefault
-        /// automatically syncs the scene change to all connected clients.
-        /// If a CLIENT clicks this, it shows a waiting message (the host hasn't started yet).
+        /// ONLY the HOST/SERVER actually loads the scene — it sends a scene load command
+        /// to all connected clients via raw reliable data. Clients load when they receive it.
         /// </summary>
         public void LoadGameplay()
         {
@@ -274,13 +286,34 @@ namespace GV.Network
 
             if (Runner.IsServer)
             {
-                // HOST: Load the scene. NetworkSceneManagerDefault will sync to all clients.
+                // HOST: Send "load scene" command to all clients FIRST, then load locally.
+                // Clients receive this in OnReliableDataReceived and load the same scene.
                 Debug.Log($"[NetworkManager] HOST loading gameplay scene: {gameplaySceneName}");
+
+                foreach (var player in Runner.ActivePlayers)
+                {
+                    if (player != Runner.LocalPlayer)
+                    {
+                        try
+                        {
+                            Runner.SendReliableDataToPlayer(player, SCENE_LOAD_KEY, SCENE_LOAD_MAGIC);
+                            Debug.Log($"[NetworkManager] Sent SCENE_LOAD command to player {player.PlayerId}");
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.LogError($"[NetworkManager] Failed to send scene load to player {player.PlayerId}: {ex.Message}");
+                        }
+                    }
+                }
+
+                // Hide menu UI before loading
+                HideAllMenuUI();
+
                 UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
             }
             else
             {
-                // CLIENT: Don't load manually — Fusion will sync the scene from the host.
+                // CLIENT: Don't load manually — host will send SCENE_LOAD command.
                 Debug.Log("[NetworkManager] CLIENT: waiting for host to start the game...");
                 if (statusText != null)
                 {
@@ -350,6 +383,13 @@ namespace GV.Network
             await StartGame(GameMode.AutoHostOrClient);
         }
         
+        // --- RAW DATA SCENE LOAD COMMAND ---
+        // When the HOST clicks Enter Battle, it sends this command to all clients.
+        // Clients receive it in OnReliableDataReceived and load the gameplay scene.
+        // This is needed because NetworkSceneManagerDefault doesn't auto-sync mid-game scene changes.
+        private static readonly ReliableKey SCENE_LOAD_KEY = ReliableKey.FromInts(0x47, 0x56, 0x53, 0x43); // "GVSC"
+        private static readonly byte[] SCENE_LOAD_MAGIC = { 0x4C, 0x4F, 0x41, 0x44 }; // "LOAD"
+
         // --- RAW DATA INPUT TRANSPORT ---
         // Fusion's OnInput/GetInput pipeline and RPCs both silently fail in our setup.
         // This bypasses both entirely using Runner.SendReliableDataToServer(), which:
@@ -976,14 +1016,17 @@ namespace GV.Network
         private Vector3 GetSpawnPosition(PlayerRef player)
         {
             CalculateSplineSpawnPoints();
-            int index = player.PlayerId % maxPlayers;
+            // Use spawn ORDER (how many ships already exist) instead of PlayerId % maxPlayers.
+            // PlayerId values can collide (e.g., IDs 0 and 4 both map to index 0 with maxPlayers=4).
+            int index = Mathf.Clamp(_spawnedPlayers.Count, 0, maxPlayers - 1);
+            Debug.Log($"[NetworkManager] GetSpawnPosition: player={player.PlayerId}, spawnIndex={index} (existing ships: {_spawnedPlayers.Count})");
             return _cachedSpawnPositions[index];
         }
 
         private Quaternion GetSpawnRotation(PlayerRef player)
         {
             CalculateSplineSpawnPoints();
-            int index = player.PlayerId % maxPlayers;
+            int index = Mathf.Clamp(_spawnedPlayers.Count, 0, maxPlayers - 1);
             return _cachedSpawnRotations[index];
         }
 
@@ -1226,6 +1269,30 @@ namespace GV.Network
                           $"sameInstance={Instance == this}");
             }
 
+            // --- SCENE LOAD COMMAND (4 bytes = "LOAD" magic) ---
+            // Sent by HOST to all clients when Enter Battle is clicked.
+            if (data.Count == SCENE_LOAD_MAGIC.Length)
+            {
+                bool isSceneCmd = true;
+                for (int i = 0; i < SCENE_LOAD_MAGIC.Length; i++)
+                {
+                    if (data.Array[data.Offset + i] != SCENE_LOAD_MAGIC[i])
+                    {
+                        isSceneCmd = false;
+                        break;
+                    }
+                }
+
+                if (isSceneCmd && !string.IsNullOrEmpty(gameplaySceneName))
+                {
+                    Debug.Log($"[NetworkManager] CLIENT received SCENE_LOAD command from host — loading {gameplaySceneName}");
+                    HideAllMenuUI();
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+                    return;
+                }
+            }
+
+            // --- INPUT DATA (37+ bytes) ---
             // Accept any reliable data with the right size (skip key comparison — ReliableKey == may not work)
             if (data.Count >= 37)
             {
