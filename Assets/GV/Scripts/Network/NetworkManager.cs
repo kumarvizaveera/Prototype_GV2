@@ -107,7 +107,8 @@ namespace GV.Network
         /// Prevents ships from spawning in the menu/lobby scene.
         /// </summary>
         private bool _inGameplayScene = false;
-        
+        private Coroutine _hideClientJoinedCoroutine;
+
         private void Awake()
         {
             Debug.Log($"[NetworkManager] Awake() on instance {GetInstanceID()}, " +
@@ -284,7 +285,72 @@ namespace GV.Network
                 return;
             }
 
-            StartCoroutine(LoadGameplayWithClientSync());
+            // Disable the button so it can't be pressed twice
+            if (enterBattleButton != null) enterBattleButton.interactable = false;
+
+            // Send countdown command to all clients, then start countdown on host too
+            Debug.Log("[NetworkManager] HOST: Sending COUNTDOWN command to all clients...");
+            foreach (var player in Runner.ActivePlayers)
+            {
+                if (player != Runner.LocalPlayer)
+                {
+                    try
+                    {
+                        Runner.SendReliableDataToPlayer(player, COUNTDOWN_KEY, COUNTDOWN_MAGIC);
+                        Debug.Log($"[NetworkManager] Sent COUNTDOWN to player {player.PlayerId}");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[NetworkManager] Failed to send countdown to player {player.PlayerId}: {ex.Message}");
+                    }
+                }
+            }
+
+            // Start countdown on host side
+            StartCoroutine(CountdownThenLoad());
+        }
+
+        /// <summary>
+        /// Shows a countdown on screen (5, 4, 3, 2, 1) then triggers scene loading.
+        /// Called on HOST after sending countdown command to clients.
+        /// Called on CLIENT after receiving countdown command from host.
+        /// </summary>
+        private IEnumerator CountdownThenLoad()
+        {
+            // Cancel any "Client has joined" auto-hide so it doesn't hide our countdown
+            if (_hideClientJoinedCoroutine != null)
+            {
+                StopCoroutine(_hideClientJoinedCoroutine);
+                _hideClientJoinedCoroutine = null;
+            }
+
+            // Show countdown using clientJoinedText (inside connectedPanel, visible on both sides)
+            if (clientJoinedText != null)
+            {
+                clientJoinedText.gameObject.SetActive(true);
+            }
+
+            for (int i = COUNTDOWN_SECONDS; i > 0; i--)
+            {
+                if (clientJoinedText != null)
+                    clientJoinedText.text = $"Match starting in {i}...";
+                Debug.Log($"[NetworkManager] Countdown: {i}");
+                yield return new WaitForSeconds(1f);
+            }
+
+            if (clientJoinedText != null)
+                clientJoinedText.text = "GO!";
+            Debug.Log("[NetworkManager] Countdown finished!");
+
+            // Small pause to show "GO!"
+            yield return new WaitForSeconds(0.3f);
+
+            // HOST: send LOAD command to clients and then load the scene
+            if (Runner != null && Runner.IsServer)
+            {
+                StartCoroutine(LoadGameplayWithClientSync());
+            }
+            // CLIENT: just wait — the LOAD command from host will trigger scene load via OnReliableDataReceived
         }
 
         /// <summary>
@@ -386,6 +452,12 @@ namespace GV.Network
         // Clients receive it in OnReliableDataReceived and load the gameplay scene.
         private static readonly ReliableKey SCENE_LOAD_KEY = ReliableKey.FromInts(0x47, 0x56, 0x53, 0x43); // "GVSC"
         private static readonly byte[] SCENE_LOAD_MAGIC = { 0x4C, 0x4F, 0x41, 0x44 }; // "LOAD"
+
+        // HOST sends this to tell clients to start the countdown timer
+        private static readonly ReliableKey COUNTDOWN_KEY = ReliableKey.FromInts(0x47, 0x56, 0x43, 0x44); // "GVCD"
+        private static readonly byte[] COUNTDOWN_MAGIC = { 0x43, 0x4E, 0x54, 0x44 }; // "CNTD"
+
+        private const int COUNTDOWN_SECONDS = 5;
 
         // --- RAW DATA INPUT TRANSPORT ---
         // Fusion's OnInput/GetInput pipeline and RPCs both silently fail in our setup.
@@ -1086,7 +1158,8 @@ namespace GV.Network
                 clientJoinedText.text = "Client has joined";
                 clientJoinedText.gameObject.SetActive(true);
                 Debug.Log("[NetworkManager] Client has joined — showing TMP notification");
-                StartCoroutine(HideClientJoinedAfterDelay(3f));
+                if (_hideClientJoinedCoroutine != null) StopCoroutine(_hideClientJoinedCoroutine);
+                _hideClientJoinedCoroutine = StartCoroutine(HideClientJoinedAfterDelay(3f));
             }
 
             OnPlayerJoinedGame?.Invoke(runner, player);
@@ -1257,6 +1330,27 @@ namespace GV.Network
                           $"player={player}, dataLen={data.Count}, key={key}, " +
                           $"thisID={GetInstanceID()}, Instance.ID={(Instance != null ? Instance.GetInstanceID().ToString() : "NULL")}, " +
                           $"sameInstance={Instance == this}");
+            }
+
+            // --- COUNTDOWN COMMAND (exactly 4 bytes: "CNTD") ---
+            // Host sends this to tell clients to start the countdown timer
+            if (data.Count == COUNTDOWN_MAGIC.Length && !runner.IsServer)
+            {
+                byte[] countdownBytes = new byte[data.Count];
+                System.Buffer.BlockCopy(data.Array, data.Offset, countdownBytes, 0, data.Count);
+
+                bool isCountdown = true;
+                for (int i = 0; i < COUNTDOWN_MAGIC.Length; i++)
+                {
+                    if (countdownBytes[i] != COUNTDOWN_MAGIC[i]) { isCountdown = false; break; }
+                }
+
+                if (isCountdown)
+                {
+                    Debug.Log("[NetworkManager] CLIENT: Received COUNTDOWN command from host! Starting countdown...");
+                    StartCoroutine(CountdownThenLoad());
+                    return;
+                }
             }
 
             // --- SCENE LOAD COMMAND (exactly 4 bytes: "LOAD") ---
