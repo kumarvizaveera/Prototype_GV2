@@ -464,6 +464,86 @@ Fixed the full ParrelSync multiplayer flow: host camera, client scene loading, s
 
 ---
 
+## Session 6 — March 6, 2026: Scene NetworkObject Registration, UI Null Safety & Ship Lock Feature
+
+### Overview
+
+Fixed scene-placed NetworkObjects (like BattleZoneController) not working after Enter Battle, fixed a NullReferenceException crash in the wallet connect flow, and added the ability to lock ships in the selection screen.
+
+### Bug Fix: BattleZoneController Not Working (No Sphere, No Timer)
+
+**Problem:** After pressing Enter Battle, BattleZoneController's `Spawned()` was never called — no sphere visual, no shrink timer, no zone damage.
+
+**Root Cause:** The gameplay scene is loaded manually with `SceneManager.LoadScene()` (bypassing Fusion's `NetworkSceneManagerDefault`). Fusion never discovers scene-placed NetworkObjects when scenes are loaded this way, so their `Spawned()` callback never fires and `[Networked]` properties never initialize.
+
+**Fix (NetworkManager.cs):**
+- Added `RegisterSceneNetworkObjects(scene)` method — called in `OnUnitySceneLoaded` right after the gameplay scene loads
+- Uses `scene.GetComponents<NetworkObject>()` (Fusion's extension method) to find all scene-placed NetworkObjects
+- Sorts them by `SortKey` using `NetworkObjectSortKeyComparer.Instance` for deterministic ordering (must match on host and clients)
+- Calls `Runner.RegisterSceneObjects(sceneRef, sceneObjects)` — the same API Fusion's own scene manager uses internally
+- This triggers `Spawned()` on all scene-placed NetworkBehaviours (BattleZoneController, etc.)
+
+**Why it affects ALL scene-placed NetworkObjects:** Any NetworkBehaviour in the gameplay scene (not just BattleZoneController) was silently broken. This fix makes all of them work.
+
+### Bug Fix: NullReferenceException in WalletConnectPanel.OnConnectGuestClicked
+
+**Problem:** Clicking the Guest button (or any connect button) crashed with NullReferenceException at `Web3Manager.Instance.ConnectAsGuest()`.
+
+**Root Cause:** `Web3Manager.Instance` was null — the Web3Manager GameObject wasn't in the scene or hadn't initialized yet when the button was clicked.
+
+**Fix (WalletConnectPanel.cs):**
+- Added `CheckWeb3Manager()` guard method that checks `Web3Manager.Instance != null`
+- Added the guard to ALL button handlers: email, Google, Discord, guest, external wallet
+- Instead of crashing, shows "Web3 not ready — is Web3Manager in the scene?" and logs an error
+
+### Feature: Locked Ships in Selection Screen
+
+**What it does:** Ships can be marked as locked in the Inspector — they show up greyed out with a lock overlay and cannot be selected, regardless of NFT ownership. Useful for "coming soon" ships, level-gated ships, or temporarily disabled ships.
+
+**ShipNFTManager.cs (ShipDefinition):**
+- Added `bool isLocked = false` field with Inspector tooltip
+- Added `IsShipAvailable(ship)` method — returns true only if owned AND not locked
+- `SelectShip()` now blocks locked ships before checking ownership
+
+**ShipCardUI.cs:**
+- `Setup()` now takes a `bool locked` parameter — card is only interactable when `owned && !locked`
+- Added optional `lockReasonText` field (TMP_Text) — shows "Locked" vs "Not Owned" on the lock overlay
+- Lock overlay activates for both locked and unowned ships
+
+**ShipSelectionUI.cs:**
+- Passes `ship.isLocked` to `ShipCardUI.Setup()`
+- Clicking a locked card shows "{name} is locked." status message
+- Auto-select on panel open skips locked ships
+
+### Diagnostic Logging Added (BattleZoneController.cs)
+
+- `Spawned()` logs authority, settings, and Inspector reference status
+- `Render()` logs once whether it's running or being skipped (and why)
+- Warns if `IsDedicatedServer` is true in Editor (common misconfiguration)
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| NetworkManager.cs | Added `RegisterSceneNetworkObjects()` method, called in `OnUnitySceneLoaded` after gameplay scene loads |
+| BattleZoneController.cs | Added diagnostic logging in `Spawned()` and `Render()` |
+| WalletConnectPanel.cs | Added `CheckWeb3Manager()` null guard to all connect button handlers |
+| ShipNFTManager.cs | Added `isLocked` to ShipDefinition, `IsShipAvailable()` method, locked guard in `SelectShip()` |
+| ShipCardUI.cs | Added `locked` param to `Setup()`, `lockReasonText` field, "Locked"/"Not Owned" display |
+| ShipSelectionUI.cs | Passes `isLocked` to card setup, locked-specific status message, skip locked on auto-select |
+
+### Bugs Fixed
+
+1. **BattleZoneController not working** — Scene-placed NetworkObjects never spawned because manual `SceneManager.LoadScene()` bypasses Fusion. Fix: `Runner.RegisterSceneObjects()` after scene load.
+2. **Guest button NullReferenceException** — `Web3Manager.Instance` was null. Fix: null guard on all connect buttons.
+
+### Key Lessons
+
+- **Manual scene loads bypass Fusion's NetworkObject discovery** — If you use `SceneManager.LoadScene()` instead of Fusion's scene manager, you must manually call `Runner.RegisterSceneObjects()` with all scene-placed NetworkObjects, sorted by `SortKey` for deterministic ordering. Without this, `Spawned()` never fires and `[Networked]` properties don't work.
+- **Singleton null checks on UI button handlers** — Any button that calls a singleton (like `Web3Manager.Instance`) should guard against null. The singleton's `Awake()` may not have run yet if it's in a different scene or the GameObject was destroyed.
+
+---
+
 ## Lessons Added to lessons.md
 - ParrelSync clones inherit Inspector settings — must detect and override
 - Runner can be null after failed StartGame — always null-check

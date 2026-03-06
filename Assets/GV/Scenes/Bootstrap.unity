@@ -318,6 +318,7 @@ GameObject:
   - component: {fileID: 1766639441}
   - component: {fileID: 1766639444}
   - component: {fileID: 1766639445}
+  - component: {fileID: 1766639446}
   m_Layer: 0
   m_Name: 'Web3Manager '
   m_TagString: Untagged
@@ -463,6 +464,84 @@ MonoBehaviour:
     energyAmount: 5
     gemsAmount: 0
     coinsAmount: 20
+--- !u!114 &1766639446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1766639440}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1076350b9258ca24f8efc259ffbe01fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.Web3.CharacterNFTManager
+  contractAddress: 0x8405209745b8f1A43D21876120543d20e4a7600C
+  characters:
+  - displayName: Atom Rider 1
+    description: 
+    tokenId: 0
+    rarity: 0
+    shipRosterIndex: 0
+    isDefault: 1
+    isLocked: 0
+    icon: {fileID: 21300000, guid: f114f70e85cc40d47892353f645986fc, type: 3}
+  - displayName: 'Atom Rider '
+    description: 
+    tokenId: 1
+    rarity: 0
+    shipRosterIndex: 0
+    isDefault: 0
+    isLocked: 0
+    icon: {fileID: 21300000, guid: 76794123b40242e4f8f5ac292ac66fe2, type: 3}
+  - displayName: Atom Rider 1
+    description: 
+    tokenId: 2
+    rarity: 0
+    shipRosterIndex: 0
+    isDefault: 1
+    isLocked: 0
+    icon: {fileID: 21300000, guid: 76794123b40242e4f8f5ac292ac66fe2, type: 3}
+  - displayName: Atom Rider 1
+    description: 
+    tokenId: 3
+    rarity: 0
+    shipRosterIndex: 0
+    isDefault: 0
+    isLocked: 0
+    icon: {fileID: 21300000, guid: c655e77b69e241b40b4f7166d3b20981, type: 3}
+  - displayName: Sarathi
+    description: 
+    tokenId: 4
+    rarity: 0
+    shipRosterIndex: 1
+    isDefault: 1
+    isLocked: 0
+    icon: {fileID: 21300000, guid: 1bea3cf1f9faa734e91403707c51caa1, type: 3}
+  - displayName: Sarathi
+    description: 
+    tokenId: 5
+    rarity: 0
+    shipRosterIndex: 1
+    isDefault: 0
+    isLocked: 0
+    icon: {fileID: 21300000, guid: 31925bc2d8ca772439089a87a2944f52, type: 3}
+  - displayName: Sarathi
+    description: 
+    tokenId: 6
+    rarity: 0
+    shipRosterIndex: 1
+    isDefault: 1
+    isLocked: 0
+    icon: {fileID: 21300000, guid: 167bdd4f97bac4548a3119565425768d, type: 3}
+  - displayName: Sarathi
+    description: 
+    tokenId: 7
+    rarity: 0
+    shipRosterIndex: 1
+    isDefault: 0
+    isLocked: 0
+    icon: {fileID: 21300000, guid: c99bd90b317f6cc48b26a1e3a930db27, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
