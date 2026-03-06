@@ -68,10 +68,7 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/MP_Mechanics_4.unity
     guid: 071f74cf8267fb548839791a83e3fdb6
-  - enabled: 1
-    path: Assets/GV/Scenes/Bootstrap.unity
-    guid: 079a67047a4adfb40a9b98ec5b455374
-  - enabled: 1
+  - enabled: 0
     path: Assets/SCK_MainMenu_2.unity
     guid: 005ebaea33d0e8f418fa4d417eabd2e0
   - enabled: 0
@@ -83,6 +80,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/VPS_Tests.unity
     guid: 16c50ba3261298144a7304e9cbb379bd
+  - enabled: 1
+    path: Assets/GV/Scenes/Bootstrap.unity
+    guid: 079a67047a4adfb40a9b98ec5b455374
+  - enabled: 1
+    path: Assets/SCK_MainMenu_3.unity
+    guid: e8d85fb4762bdfb4b981ace4878ad3cc
   - enabled: 1
     path: Assets/Room_Tests_2.unity
     guid: b57204a00299b4e46a69fc9af2fdf5a9

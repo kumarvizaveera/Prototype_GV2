@@ -44,8 +44,8 @@ namespace GV.Web3
         // Which ships the player actually owns (by token ID)
         private Dictionary<int, int> _ownedShipBalances = new Dictionary<int, int>();
 
-        // The ship the player has selected for the next match
-        private ShipDefinition _selectedShip;
+        // Two ship slots: [0] = primary, [1] = secondary (for swap mechanic)
+        private ShipDefinition[] _selectedShips = new ShipDefinition[2];
 
         // Is the manager currently fetching NFT data?
         private bool _isFetching = false;
@@ -58,8 +58,14 @@ namespace GV.Web3
         /// <summary>All configured ships (from the Inspector).</summary>
         public IReadOnlyList<ShipDefinition> AllShips => ships;
 
-        /// <summary>The currently selected ship. Returns the default ship if nothing is selected.</summary>
-        public ShipDefinition SelectedShip => _selectedShip ?? GetDefaultShip();
+        /// <summary>Primary ship (slot 0). Backward compatible — same as GetSelectedShip(0).</summary>
+        public ShipDefinition SelectedShip => _selectedShips[0] ?? GetDefaultShip();
+
+        /// <summary>Secondary ship (slot 1).</summary>
+        public ShipDefinition SelectedSecondaryShip => _selectedShips[1];
+
+        /// <summary>True if both ship slots are filled.</summary>
+        public bool BothSlotsSelected => _selectedShips[0] != null && _selectedShips[1] != null;
 
         /// <summary>Is the manager currently loading NFT data from the blockchain?</summary>
         public bool IsFetching => _isFetching;
@@ -72,8 +78,8 @@ namespace GV.Web3
         /// <summary>Fired when NFT balances have been fetched. Passes the list of owned ships.</summary>
         public event Action<List<ShipDefinition>> OnShipsFetched;
 
-        /// <summary>Fired when the player selects a ship. Passes the selected ship.</summary>
-        public event Action<ShipDefinition> OnShipSelected;
+        /// <summary>Fired when the player confirms both ship slots. Passes the two selected ships.</summary>
+        public event Action<ShipDefinition[]> OnShipsConfirmed;
 
         /// <summary>Fired if something goes wrong during fetch.</summary>
         public event Action<string> OnFetchError;
@@ -92,8 +98,8 @@ namespace GV.Web3
             DontDestroyOnLoad(gameObject);
             Debug.Log("[ShipNFTManager] Initialized.");
 
-            // Auto-select the default ship
-            _selectedShip = GetDefaultShip();
+            // Auto-select the default ship into slot 0
+            _selectedShips[0] = GetDefaultShip();
         }
 
         private void OnEnable()
@@ -157,15 +163,23 @@ namespace GV.Web3
         }
 
         /// <summary>
-        /// Select a ship for the next match.
-        /// Returns false if the player doesn't own that ship.
+        /// Assign a ship to a specific slot (0 = primary, 1 = secondary).
+        /// Returns false if the ship is locked, not owned, or conflicts with the other slot.
+        /// Does NOT fire the confirmed event — call ConfirmShips() after both slots are set.
         /// </summary>
-        public bool SelectShip(ShipDefinition ship)
+        public bool SelectShipForSlot(int slot, ShipDefinition ship)
         {
+            if (slot < 0 || slot > 1)
+            {
+                Debug.LogWarning($"[ShipNFTManager] Invalid slot: {slot}. Must be 0 or 1.");
+                return false;
+            }
+
             if (ship == null)
             {
-                Debug.LogWarning("[ShipNFTManager] Can't select null ship.");
-                return false;
+                // Allow clearing a slot
+                _selectedShips[slot] = null;
+                return true;
             }
 
             if (ship.isLocked)
@@ -180,24 +194,52 @@ namespace GV.Web3
                 return false;
             }
 
-            _selectedShip = ship;
-            Debug.Log($"[ShipNFTManager] Selected ship: {ship.displayName} (mesh index: {ship.meshRootIndex})");
-            OnShipSelected?.Invoke(ship);
+            // Check the other slot — ships must be different types (different meshRootIndex)
+            int otherSlot = slot == 0 ? 1 : 0;
+            if (_selectedShips[otherSlot] != null && _selectedShips[otherSlot].meshRootIndex == ship.meshRootIndex)
+            {
+                Debug.LogWarning($"[ShipNFTManager] Both ships can't have the same type. " +
+                    $"Slot {otherSlot} already has meshRootIndex={ship.meshRootIndex}.");
+                return false;
+            }
+
+            _selectedShips[slot] = ship;
             return true;
         }
 
         /// <summary>
-        /// Select a ship by its token ID.
+        /// Get the ship in a specific slot.
         /// </summary>
-        public bool SelectShipByTokenId(int tokenId)
+        public ShipDefinition GetSelectedShip(int slot)
         {
-            var ship = ships.Find(s => s.tokenId == tokenId);
-            if (ship == null)
+            if (slot < 0 || slot > 1) return null;
+            return _selectedShips[slot];
+        }
+
+        /// <summary>
+        /// Confirm both ship selections and fire the OnShipsConfirmed event.
+        /// Returns false if both slots aren't filled.
+        /// </summary>
+        public bool ConfirmShips()
+        {
+            if (!BothSlotsSelected)
             {
-                Debug.LogWarning($"[ShipNFTManager] No ship found with token ID: {tokenId}");
+                Debug.LogWarning("[ShipNFTManager] Both ship slots must be filled before confirming.");
                 return false;
             }
-            return SelectShip(ship);
+
+            Debug.Log($"[ShipNFTManager] Ships confirmed — Primary: {_selectedShips[0].displayName}, " +
+                $"Secondary: {_selectedShips[1].displayName}");
+            OnShipsConfirmed?.Invoke(_selectedShips);
+            return true;
+        }
+
+        /// <summary>
+        /// Legacy single-ship select (backward compat). Sets slot 0 only.
+        /// </summary>
+        public bool SelectShip(ShipDefinition ship)
+        {
+            return SelectShipForSlot(0, ship);
         }
 
         /// <summary>
@@ -236,7 +278,8 @@ namespace GV.Web3
             Debug.Log("[ShipNFTManager] Wallet disconnected, clearing ship data.");
             _ownedShipBalances.Clear();
             _hasFetchedOnce = false;
-            _selectedShip = GetDefaultShip();
+            _selectedShips[0] = GetDefaultShip();
+            _selectedShips[1] = null;
         }
 
         /// <summary>

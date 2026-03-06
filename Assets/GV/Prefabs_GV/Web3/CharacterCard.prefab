@@ -89,7 +89,7 @@ GameObject:
   - component: {fileID: 5245266717667255523}
   - component: {fileID: 2491741979224436585}
   m_Layer: 5
-  m_Name: CharacterCardUI
+  m_Name: CharacterCard
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -190,6 +190,7 @@ MonoBehaviour:
   lockOverlay: {fileID: 5108021280063338785}
   selectionHighlight: {fileID: 116403521587701080}
   lockReasonText: {fileID: 0}
+  slotBadgeText: {fileID: 0}
   ownedColor: {r: 1, g: 1, b: 1, a: 1}
   lockedColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
 --- !u!1 &1649459072130212055

@@ -6,69 +6,44 @@ using TMPro;
 namespace GV.Web3
 {
     /// <summary>
-    /// The ship selection screen — shows after wallet connect, before entering a match.
+    /// The ship selection screen — shows after wallet connect, before character selection.
     ///
-    /// What this does:
-    /// - Displays all available ships as selectable cards
-    /// - Ships you own are bright and clickable
-    /// - Ships you don't own are greyed out with a "locked" look
-    /// - The default (free) ship is always available
-    /// - When you pick a ship, it tells ShipNFTManager your choice
-    ///
-    /// How to set it up:
-    /// 1. Create a Canvas → Panel for the selection screen
-    /// 2. Inside it, add a container (e.g. HorizontalLayoutGroup) for ship cards
-    /// 3. Create a "ship card" prefab with: name text, rarity text, description text,
-    ///    icon image, a select button, and a lock overlay
-    /// 4. Drag references into the Inspector slots
-    /// 5. The "Confirm" button proceeds to gameplay after selection
-    ///
-    /// This panel hooks into WalletConnectPanel — it appears after wallet connect
-    /// and the "Play" button now goes through ship selection first.
+    /// Click-order selection:
+    /// - 1st click assigns Primary ship (badge shows "Primary" on the card)
+    /// - 2nd click assigns Secondary ship (badge shows "Secondary" on the card)
+    /// - Clicking a ship that's already assigned removes it (and shifts Secondary → Primary if needed)
+    /// - Ships must be different types (different meshRootIndex)
+    /// - Confirm button enables once both are picked
     /// </summary>
     public class ShipSelectionUI : MonoBehaviour
     {
         [Header("Panel")]
-        [Tooltip("The root panel object — shown/hidden.")]
         [SerializeField] private GameObject panel;
 
         [Header("Ship Card Prefab")]
-        [Tooltip("A prefab for each ship card in the grid. Must have ShipCardUI component.")]
         [SerializeField] private GameObject shipCardPrefab;
-
-        [Tooltip("The parent container where ship cards get spawned (e.g. a HorizontalLayoutGroup).")]
         [SerializeField] private Transform cardContainer;
 
         [Header("Info Display")]
-        [Tooltip("Shows the currently selected ship's name.")]
         [SerializeField] private TMP_Text selectedShipNameText;
-
-        [Tooltip("Shows the currently selected ship's description.")]
         [SerializeField] private TMP_Text selectedShipDescText;
-
-        [Tooltip("Shows the currently selected ship's rarity.")]
         [SerializeField] private TMP_Text selectedShipRarityText;
 
         [Header("Buttons")]
-        [Tooltip("Confirms the selection and proceeds to gameplay.")]
         [SerializeField] private Button confirmButton;
 
         [Header("Loading State")]
-        [Tooltip("Shown while NFT data is being loaded from the blockchain.")]
         [SerializeField] private GameObject loadingIndicator;
-
-        [Tooltip("Status text (e.g. 'Loading your ships...').")]
         [SerializeField] private TMP_Text statusText;
 
-        // Track spawned cards so we can clean them up
+        // Track spawned cards
         private List<GameObject> _spawnedCards = new List<GameObject>();
 
-        // Currently highlighted card
-        private ShipDefinition _highlightedShip;
+        // Two-slot state: [0] = Primary, [1] = Secondary
+        private ShipDefinition[] _slotShips = new ShipDefinition[2];
 
         private void Awake()
         {
-            // Start hidden — WalletConnectPanel will call Show(true) after wallet connects
             gameObject.SetActive(false);
         }
 
@@ -84,10 +59,14 @@ namespace GV.Web3
             {
                 confirmButton.onClick.RemoveAllListeners();
                 confirmButton.onClick.AddListener(OnConfirmClicked);
-                confirmButton.interactable = false; // Disabled until a ship is selected
+                confirmButton.interactable = false;
             }
 
-            // If ships were already fetched (e.g. navigating back), populate immediately
+            // Reset slots
+            _slotShips[0] = null;
+            _slotShips[1] = null;
+            UpdateSlotDisplay();
+
             if (ShipNFTManager.Instance != null && ShipNFTManager.Instance.HasFetchedOnce)
             {
                 PopulateShipCards();
@@ -95,7 +74,6 @@ namespace GV.Web3
             }
             else
             {
-                // Show loading state
                 if (loadingIndicator != null) loadingIndicator.SetActive(true);
                 SetStatus("Loading your ships...");
             }
@@ -110,12 +88,40 @@ namespace GV.Web3
             }
         }
 
-        // --- Public Methods ---
-
-        /// <summary>Show or hide the selection panel.</summary>
         public void Show(bool visible = true)
         {
             gameObject.SetActive(visible);
+        }
+
+        // --- Slot Display ---
+
+        private void UpdateSlotDisplay()
+        {
+            // Confirm only when both slots are filled
+            bool bothFilled = _slotShips[0] != null && _slotShips[1] != null;
+            if (confirmButton != null) confirmButton.interactable = bothFilled;
+
+            // Update card slot badges
+            RefreshCardSlotBadges();
+        }
+
+        private void RefreshCardSlotBadges()
+        {
+            foreach (var cardObj in _spawnedCards)
+            {
+                var cardUI = cardObj.GetComponent<ShipCardUI>();
+                if (cardUI == null) continue;
+
+                string badge = "";
+                bool isPrimary = _slotShips[0] != null && cardUI.Ship == _slotShips[0];
+                bool isSecondary = _slotShips[1] != null && cardUI.Ship == _slotShips[1];
+
+                if (isPrimary) badge = "Primary";
+                if (isSecondary) badge = "Secondary";
+
+                cardUI.SetSelected(isPrimary || isSecondary);
+                cardUI.SetSlotBadge(badge);
+            }
         }
 
         // --- Event Handlers ---
@@ -123,7 +129,7 @@ namespace GV.Web3
         private void HandleShipsFetched(List<ShipDefinition> ownedShips)
         {
             if (loadingIndicator != null) loadingIndicator.SetActive(false);
-            SetStatus($"You own {ownedShips.Count} ship(s). Pick one!");
+            SetStatus($"You own {ownedShips.Count} ship(s). Pick two different types!");
             PopulateShipCards();
         }
 
@@ -131,18 +137,13 @@ namespace GV.Web3
         {
             if (loadingIndicator != null) loadingIndicator.SetActive(false);
             SetStatus("Couldn't load ship data. You can still use the default ship.");
-            PopulateShipCards(); // Still show what we can (at least the default)
+            PopulateShipCards();
         }
 
         // --- Card Management ---
 
-        /// <summary>
-        /// Creates a card in the UI for each configured ship.
-        /// Owned ships are selectable, unowned ships are greyed out.
-        /// </summary>
         private void PopulateShipCards()
         {
-            // Clear old cards
             foreach (var card in _spawnedCards)
             {
                 if (card != null) Destroy(card);
@@ -155,12 +156,7 @@ namespace GV.Web3
 
             foreach (var ship in allShips)
             {
-                if (shipCardPrefab == null || cardContainer == null)
-                {
-                    Debug.LogWarning("[ShipSelectionUI] Missing card prefab or container. " +
-                        "Assign them in the Inspector.");
-                    break;
-                }
+                if (shipCardPrefab == null || cardContainer == null) break;
 
                 var cardObj = Instantiate(shipCardPrefab, cardContainer);
                 _spawnedCards.Add(cardObj);
@@ -171,23 +167,11 @@ namespace GV.Web3
                     bool owned = ShipNFTManager.Instance.OwnsShip(ship);
                     cardUI.Setup(ship, owned, ship.isLocked, OnShipCardClicked);
                 }
-                else
-                {
-                    Debug.LogWarning("[ShipSelectionUI] Ship card prefab is missing ShipCardUI component!");
-                }
             }
 
-            // Auto-select the default ship or currently selected ship (only if available)
-            var currentSelection = ShipNFTManager.Instance.SelectedShip;
-            if (currentSelection != null && !currentSelection.isLocked)
-            {
-                HighlightShip(currentSelection);
-            }
+            UpdateSlotDisplay();
         }
 
-        /// <summary>
-        /// Called when the player clicks on a ship card.
-        /// </summary>
         private void OnShipCardClicked(ShipDefinition ship)
         {
             if (ship == null) return;
@@ -204,39 +188,88 @@ namespace GV.Web3
                 return;
             }
 
-            HighlightShip(ship);
-        }
-
-        private void HighlightShip(ShipDefinition ship)
-        {
-            _highlightedShip = ship;
-
-            if (selectedShipNameText != null) selectedShipNameText.text = ship.displayName;
-            if (selectedShipDescText != null) selectedShipDescText.text = ship.description;
-            if (selectedShipRarityText != null) selectedShipRarityText.text = ship.rarity.ToString();
-
-            if (confirmButton != null) confirmButton.interactable = true;
-
-            // Update card visuals to show which is selected
-            foreach (var cardObj in _spawnedCards)
+            // If this ship is already Primary, deselect it and shift Secondary → Primary
+            if (_slotShips[0] == ship)
             {
-                var cardUI = cardObj.GetComponent<ShipCardUI>();
-                if (cardUI != null)
-                {
-                    cardUI.SetSelected(cardUI.Ship == ship);
-                }
+                _slotShips[0] = _slotShips[1]; // Secondary becomes Primary (or null)
+                _slotShips[1] = null;
+                SetStatus(_slotShips[0] != null
+                    ? $"{_slotShips[0].displayName} moved to Primary. Pick a Secondary ship."
+                    : "Ship removed. Pick your Primary ship.");
+                UpdateSlotDisplay();
+                return;
             }
+
+            // If this ship is already Secondary, just remove it
+            if (_slotShips[1] == ship)
+            {
+                _slotShips[1] = null;
+                SetStatus("Secondary ship removed. Pick another.");
+                UpdateSlotDisplay();
+                return;
+            }
+
+            // New ship — assign to first empty slot
+            if (_slotShips[0] == null)
+            {
+                // Assigning Primary
+                _slotShips[0] = ship;
+
+                if (selectedShipNameText != null) selectedShipNameText.text = ship.displayName;
+                if (selectedShipDescText != null) selectedShipDescText.text = ship.description;
+                if (selectedShipRarityText != null) selectedShipRarityText.text = ship.rarity.ToString();
+
+                SetStatus($"Primary: {ship.displayName}. Now pick your Secondary ship.");
+            }
+            else if (_slotShips[1] == null)
+            {
+                // Assigning Secondary — check type conflict
+                if (_slotShips[0].meshRootIndex == ship.meshRootIndex)
+                {
+                    SetStatus("Both ships can't be the same type! Pick a different one.");
+                    return;
+                }
+
+                _slotShips[1] = ship;
+
+                if (selectedShipNameText != null) selectedShipNameText.text = ship.displayName;
+                if (selectedShipDescText != null) selectedShipDescText.text = ship.description;
+                if (selectedShipRarityText != null) selectedShipRarityText.text = ship.rarity.ToString();
+
+                SetStatus("Both ships selected! Press Confirm to continue.");
+            }
+            else
+            {
+                // Both slots full — replace Secondary with this new pick
+                if (_slotShips[0].meshRootIndex == ship.meshRootIndex)
+                {
+                    SetStatus("Both ships can't be the same type! Pick a different one.");
+                    return;
+                }
+
+                _slotShips[1] = ship;
+
+                if (selectedShipNameText != null) selectedShipNameText.text = ship.displayName;
+                if (selectedShipDescText != null) selectedShipDescText.text = ship.description;
+                if (selectedShipRarityText != null) selectedShipRarityText.text = ship.rarity.ToString();
+
+                SetStatus($"Secondary replaced with {ship.displayName}. Press Confirm to continue.");
+            }
+
+            UpdateSlotDisplay();
         }
 
         private void OnConfirmClicked()
         {
-            if (_highlightedShip == null) return;
+            if (_slotShips[0] == null || _slotShips[1] == null) return;
 
-            bool success = ShipNFTManager.Instance.SelectShip(_highlightedShip);
-            if (success)
+            var manager = ShipNFTManager.Instance;
+            bool ok0 = manager.SelectShipForSlot(0, _slotShips[0]);
+            bool ok1 = manager.SelectShipForSlot(1, _slotShips[1]);
+
+            if (ok0 && ok1)
             {
-                Debug.Log($"[ShipSelectionUI] Confirmed ship: {_highlightedShip.displayName}");
-                // Hide the panel — WalletConnectPanel or another script handles loading the next scene
+                manager.ConfirmShips();
                 Show(false);
             }
         }

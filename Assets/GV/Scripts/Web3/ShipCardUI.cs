@@ -32,6 +32,10 @@ namespace GV.Web3
                  "If not assigned, only the lock overlay icon is shown.")]
         [SerializeField] private TMP_Text lockReasonText;
 
+        [Header("Slot Badge (optional)")]
+        [Tooltip("Text showing which slot this ship is assigned to (e.g. '1' or '2'). Hidden when empty.")]
+        [SerializeField] private TMP_Text slotBadgeText;
+
         [Header("Colors")]
         [SerializeField] private Color ownedColor = Color.white;
         [SerializeField] private Color lockedColor = new Color(0.4f, 0.4f, 0.4f, 1f);
@@ -112,6 +116,18 @@ namespace GV.Web3
         public void SetSelected(bool selected)
         {
             if (selectionHighlight != null) selectionHighlight.SetActive(selected);
+        }
+
+        /// <summary>
+        /// Show a slot badge on the card (e.g. "1" or "2"). Empty string hides it.
+        /// </summary>
+        public void SetSlotBadge(string badge)
+        {
+            if (slotBadgeText != null)
+            {
+                slotBadgeText.text = badge;
+                slotBadgeText.gameObject.SetActive(!string.IsNullOrEmpty(badge));
+            }
         }
     }
 }

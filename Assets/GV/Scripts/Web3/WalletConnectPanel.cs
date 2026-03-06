@@ -83,10 +83,10 @@ namespace GV.Web3
             // AFTER the wallet panel hides (ship selection, room connect).
             // Using Start/OnDestroy instead of OnEnable/OnDisable keeps them alive.
             if (ShipNFTManager.Instance != null)
-                ShipNFTManager.Instance.OnShipSelected += HandleShipSelected;
+                ShipNFTManager.Instance.OnShipsConfirmed += HandleShipsConfirmed;
 
             if (CharacterNFTManager.Instance != null)
-                CharacterNFTManager.Instance.OnCharacterSelected += HandleCharacterSelected;
+                CharacterNFTManager.Instance.OnCharactersConfirmed += HandleCharactersConfirmed;
 
             if (Network.NetworkManager.Instance != null)
                 Network.NetworkManager.Instance.OnConnectedEvent += HandleRoomConnected;
@@ -158,10 +158,10 @@ namespace GV.Web3
         private void OnDestroy()
         {
             if (ShipNFTManager.Instance != null)
-                ShipNFTManager.Instance.OnShipSelected -= HandleShipSelected;
+                ShipNFTManager.Instance.OnShipsConfirmed -= HandleShipsConfirmed;
 
             if (CharacterNFTManager.Instance != null)
-                CharacterNFTManager.Instance.OnCharacterSelected -= HandleCharacterSelected;
+                CharacterNFTManager.Instance.OnCharactersConfirmed -= HandleCharactersConfirmed;
 
             if (Network.NetworkManager.Instance != null)
                 Network.NetworkManager.Instance.OnConnectedEvent -= HandleRoomConnected;
@@ -275,78 +275,51 @@ namespace GV.Web3
         }
 
         /// <summary>
-        /// Called when the player confirms a ship in ShipSelectionUI.
-        /// Now we show the Character Selection screen (not room lobby yet).
+        /// Called when the player confirms both ships in ShipSelectionUI.
+        /// Now we show the Character Selection screen.
         /// </summary>
-        private void HandleShipSelected(ShipDefinition ship)
+        private void HandleShipsConfirmed(ShipDefinition[] ships)
         {
-            Debug.Log($"[WalletConnectPanel] HandleShipSelected called — ship: {ship.displayName}");
-            SetStatus($"Ship: {ship.displayName} | Choose your character.");
+            SetStatus($"Ships: {ships[0].displayName} + {ships[1].displayName} | Choose your characters.");
 
-            // Hide ship selection
             if (showAfterConnect != null)
-            {
                 showAfterConnect.SetActive(false);
-            }
 
-            // Show character selection panel (NOT room lobby yet)
             if (characterSelectionPanel != null)
             {
                 characterSelectionPanel.SetActive(true);
-                Debug.Log("[WalletConnectPanel] Showing character selection panel.");
             }
             else
             {
-                // No character panel assigned — skip straight to lobby
-                Debug.LogWarning("[WalletConnectPanel] characterSelectionPanel is NOT assigned in Inspector! " +
-                    "Skipping character selection, going straight to room lobby.");
                 ShowRoomLobby();
             }
         }
 
         /// <summary>
-        /// Called when the player confirms a character in CharacterSelectionUI.
+        /// Called when the player confirms all 4 characters in CharacterSelectionUI.
         /// Now we can show the Room Lobby.
         /// </summary>
-        private void HandleCharacterSelected(CharacterDefinition character)
+        private void HandleCharactersConfirmed(CharacterDefinition[] characters)
         {
-            Debug.Log($"[WalletConnectPanel] Character selected: {character.displayName}");
-            SetStatus($"Character: {character.displayName} | Proceeding to Room Lobby.");
+            SetStatus("Selections complete! Proceeding to Room Lobby.");
 
-            // Hide character selection panel
             if (characterSelectionPanel != null)
-            {
                 characterSelectionPanel.SetActive(false);
-            }
 
             ShowRoomLobby();
         }
 
         /// <summary>
         /// Shows the room lobby panel via NetworkManager.
-        /// Extracted to avoid duplication between HandleShipSelected fallback and HandleCharacterSelected.
         /// </summary>
         private void ShowRoomLobby()
         {
-            Debug.Log($"[WalletConnectPanel] ShowRoomLobby called. roomLobbyPanel={(roomLobbyPanel != null ? "assigned" : "NULL")}, " +
-                $"NetworkManager={(Network.NetworkManager.Instance != null ? "exists" : "NULL")}");
-
             if (roomLobbyPanel != null)
             {
                 if (Network.NetworkManager.Instance != null)
-                {
                     Network.NetworkManager.Instance.ShowLobbyUI();
-                }
                 else
-                {
                     roomLobbyPanel.SetActive(true);
-                }
-                Debug.Log("[WalletConnectPanel] Room lobby panel is now active.");
-            }
-            else
-            {
-                Debug.LogError("[WalletConnectPanel] roomLobbyPanel is NULL! Cannot show room lobby. " +
-                    "Assign the LobbyPanel in the Inspector.");
             }
         }
 

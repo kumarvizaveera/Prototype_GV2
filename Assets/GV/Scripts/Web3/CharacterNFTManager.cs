@@ -45,8 +45,8 @@ namespace GV.Web3
         // Which characters the player actually owns (by token ID)
         private Dictionary<int, int> _ownedCharacterBalances = new Dictionary<int, int>();
 
-        // The character the player has selected for the next match
-        private CharacterDefinition _selectedCharacter;
+        // Four character slots: [0]=ship0-char0, [1]=ship0-char1, [2]=ship1-char0, [3]=ship1-char1
+        private CharacterDefinition[] _selectedCharacters = new CharacterDefinition[4];
 
         // Is the manager currently fetching NFT data?
         private bool _isFetching = false;
@@ -59,8 +59,12 @@ namespace GV.Web3
         /// <summary>All configured characters (from the Inspector).</summary>
         public IReadOnlyList<CharacterDefinition> AllCharacters => characters;
 
-        /// <summary>The currently selected character. Returns the default if nothing is selected.</summary>
-        public CharacterDefinition SelectedCharacter => _selectedCharacter ?? GetDefaultCharacter();
+        /// <summary>Primary character (slot 0). Backward compatible.</summary>
+        public CharacterDefinition SelectedCharacter => _selectedCharacters[0] ?? GetDefaultCharacter();
+
+        /// <summary>True if all 4 character slots are filled.</summary>
+        public bool AllSlotsSelected => _selectedCharacters[0] != null && _selectedCharacters[1] != null
+            && _selectedCharacters[2] != null && _selectedCharacters[3] != null;
 
         /// <summary>Is the manager currently loading NFT data from the blockchain?</summary>
         public bool IsFetching => _isFetching;
@@ -73,8 +77,8 @@ namespace GV.Web3
         /// <summary>Fired when NFT balances have been fetched. Passes the list of owned characters.</summary>
         public event Action<List<CharacterDefinition>> OnCharactersFetched;
 
-        /// <summary>Fired when the player selects a character. Passes the selected character.</summary>
-        public event Action<CharacterDefinition> OnCharacterSelected;
+        /// <summary>Fired when the player confirms all 4 character slots.</summary>
+        public event Action<CharacterDefinition[]> OnCharactersConfirmed;
 
         /// <summary>Fired if something goes wrong during fetch.</summary>
         public event Action<string> OnFetchError;
@@ -93,8 +97,9 @@ namespace GV.Web3
             DontDestroyOnLoad(gameObject);
             Debug.Log("[CharacterNFTManager] Initialized.");
 
-            // Auto-select the default character
-            _selectedCharacter = GetDefaultCharacter();
+            // Auto-select defaults into slot 0 and 2 (one per roster)
+            _selectedCharacters[0] = GetDefaultCharacter(0);
+            _selectedCharacters[2] = GetDefaultCharacter(1);
         }
 
         private void OnEnable()
@@ -191,15 +196,22 @@ namespace GV.Web3
         }
 
         /// <summary>
-        /// Select a character for the next match.
-        /// Returns false if the player doesn't own that character or it's locked.
+        /// Assign a character to a specific slot.
+        /// Slots: [0]=ship0-char0, [1]=ship0-char1, [2]=ship1-char0, [3]=ship1-char1
+        /// Does NOT fire the confirmed event — call ConfirmCharacters() after all slots are set.
         /// </summary>
-        public bool SelectCharacter(CharacterDefinition character)
+        public bool SelectCharacterForSlot(int slot, CharacterDefinition character)
         {
+            if (slot < 0 || slot > 3)
+            {
+                Debug.LogWarning($"[CharacterNFTManager] Invalid slot: {slot}. Must be 0-3.");
+                return false;
+            }
+
             if (character == null)
             {
-                Debug.LogWarning("[CharacterNFTManager] Can't select null character.");
-                return false;
+                _selectedCharacters[slot] = null;
+                return true;
             }
 
             if (character.isLocked)
@@ -214,24 +226,44 @@ namespace GV.Web3
                 return false;
             }
 
-            _selectedCharacter = character;
-            Debug.Log($"[CharacterNFTManager] Selected character: {character.displayName} (roster: {character.shipRosterIndex})");
-            OnCharacterSelected?.Invoke(character);
+            _selectedCharacters[slot] = character;
             return true;
         }
 
         /// <summary>
-        /// Select a character by its token ID.
+        /// Get the character in a specific slot.
         /// </summary>
-        public bool SelectCharacterByTokenId(int tokenId)
+        public CharacterDefinition GetSelectedCharacter(int slot)
         {
-            var character = characters.Find(c => c.tokenId == tokenId);
-            if (character == null)
+            if (slot < 0 || slot > 3) return null;
+            return _selectedCharacters[slot];
+        }
+
+        /// <summary>
+        /// Confirm all 4 character slots and fire the OnCharactersConfirmed event.
+        /// Returns false if not all slots are filled.
+        /// </summary>
+        public bool ConfirmCharacters()
+        {
+            if (!AllSlotsSelected)
             {
-                Debug.LogWarning($"[CharacterNFTManager] No character found with token ID: {tokenId}");
+                Debug.LogWarning("[CharacterNFTManager] All 4 character slots must be filled before confirming.");
                 return false;
             }
-            return SelectCharacter(character);
+
+            Debug.Log($"[CharacterNFTManager] Characters confirmed — " +
+                $"Ship0: {_selectedCharacters[0].displayName} + {_selectedCharacters[1].displayName}, " +
+                $"Ship1: {_selectedCharacters[2].displayName} + {_selectedCharacters[3].displayName}");
+            OnCharactersConfirmed?.Invoke(_selectedCharacters);
+            return true;
+        }
+
+        /// <summary>
+        /// Legacy single-character select (backward compat). Sets slot 0 only.
+        /// </summary>
+        public bool SelectCharacter(CharacterDefinition character)
+        {
+            return SelectCharacterForSlot(0, character);
         }
 
         /// <summary>
@@ -281,10 +313,12 @@ namespace GV.Web3
 
         private void HandleWalletDisconnected()
         {
-            Debug.Log("[CharacterNFTManager] Wallet disconnected, clearing character data.");
             _ownedCharacterBalances.Clear();
             _hasFetchedOnce = false;
-            _selectedCharacter = GetDefaultCharacter();
+            _selectedCharacters[0] = GetDefaultCharacter(0);
+            _selectedCharacters[1] = null;
+            _selectedCharacters[2] = GetDefaultCharacter(1);
+            _selectedCharacters[3] = null;
         }
 
         /// <summary>

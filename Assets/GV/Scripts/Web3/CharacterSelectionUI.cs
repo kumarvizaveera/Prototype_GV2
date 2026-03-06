@@ -6,120 +6,82 @@ using TMPro;
 namespace GV.Web3
 {
     /// <summary>
-    /// The character selection screen — shows after ship selection, before entering a room.
+    /// Character selection screen — shows after ship selection, before room lobby.
     ///
-    /// What this does:
-    /// - Displays characters that belong to the selected ship's roster
-    /// - Characters you own are bright and clickable
-    /// - Characters you don't own are greyed out with a "locked" look
-    /// - The default (free) character is always available
-    /// - When you pick a character, it tells CharacterNFTManager your choice
+    /// All characters from both rosters are displayed in a single container.
+    /// Click-order selection per roster:
+    ///   - 1st click on a roster's character = "Primary" (badge shows "Primary")
+    ///   - 2nd click on a roster's character = "Secondary" (badge shows "Secondary")
+    ///   - Clicking an already-assigned character deselects it (shifts Secondary → Primary)
+    ///   - Player must pick 2 from each roster (4 total) before Confirm is enabled
     ///
-    /// How to set it up:
-    /// 1. Create a Canvas → Panel for the selection screen (clone ShipSelectionUI panel)
-    /// 2. Inside it, add a container (e.g. HorizontalLayoutGroup) for character cards
-    /// 3. Create a "character card" prefab with: name text, rarity text, description text,
-    ///    icon image, a select button, and a lock overlay (clone ShipCardUI prefab)
-    /// 4. Drag references into the Inspector slots
-    /// 5. The "Confirm" button proceeds to the room lobby after selection
-    ///
-    /// Per-ship filtering:
-    /// Only characters whose shipRosterIndex matches the selected ship's meshRootIndex
-    /// are shown. E.g., if the player picked the Spaceship (meshRootIndex=0),
-    /// only Roster A characters appear.
+    /// Slot mapping (matches CharacterNFTManager):
+    ///   [0] = Ship 0 / Roster A - Primary
+    ///   [1] = Ship 0 / Roster A - Secondary
+    ///   [2] = Ship 1 / Roster B - Primary
+    ///   [3] = Ship 1 / Roster B - Secondary
     /// </summary>
     public class CharacterSelectionUI : MonoBehaviour
     {
         [Header("Panel")]
-        [Tooltip("The root panel object — shown/hidden.")]
         [SerializeField] private GameObject panel;
 
         [Header("Character Card Prefab")]
-        [Tooltip("A prefab for each character card in the grid. Must have CharacterCardUI component.")]
         [SerializeField] private GameObject characterCardPrefab;
 
-        [Tooltip("The parent container where character cards get spawned (e.g. a HorizontalLayoutGroup).")]
-        [SerializeField] private Transform cardContainer;
+        [Header("Card Rows")]
+        [Tooltip("Row container for Ship 0 (Spaceship) characters. Use a HorizontalLayoutGroup.")]
+        [SerializeField] private Transform rowShip0;
+
+        [Tooltip("Row container for Ship 1 (Vimana) characters. Use a HorizontalLayoutGroup.")]
+        [SerializeField] private Transform rowShip1;
 
         [Header("Info Display")]
-        [Tooltip("Shows the currently selected character's name.")]
         [SerializeField] private TMP_Text selectedCharNameText;
-
-        [Tooltip("Shows the currently selected character's description.")]
         [SerializeField] private TMP_Text selectedCharDescText;
-
-        [Tooltip("Shows the currently selected character's rarity.")]
         [SerializeField] private TMP_Text selectedCharRarityText;
 
         [Header("Buttons")]
-        [Tooltip("Confirms the selection and proceeds to the room lobby.")]
         [SerializeField] private Button confirmButton;
 
         [Header("Loading State")]
-        [Tooltip("Shown while NFT data is being loaded from the blockchain.")]
         [SerializeField] private GameObject loadingIndicator;
-
-        [Tooltip("Status text (e.g. 'Loading your characters...').")]
         [SerializeField] private TMP_Text statusText;
 
-        // Track spawned cards so we can clean them up
+        // Track all spawned cards
         private List<GameObject> _spawnedCards = new List<GameObject>();
 
-        // Currently highlighted character
-        private CharacterDefinition _highlightedCharacter;
-
-        // NOTE: Unlike ShipSelectionUI, we do NOT call gameObject.SetActive(false) in Awake().
-        // The panel should start disabled in the scene hierarchy (uncheck the checkbox in Inspector).
-        // If we self-hide in Awake(), it fights with WalletConnectPanel trying to SetActive(true),
-        // because Unity runs Awake() on the first activation, immediately undoing the show.
+        // 4 slots: [0]=A-Primary, [1]=A-Secondary, [2]=B-Primary, [3]=B-Secondary
+        private CharacterDefinition[] _slots = new CharacterDefinition[4];
 
         private void OnEnable()
         {
-            Debug.Log("[CharacterSelectionUI] OnEnable called. Checking setup...");
-
-            // --- Diagnostic: log what's assigned and what's missing ---
-            bool hasManager = CharacterNFTManager.Instance != null;
-            Debug.Log($"[CharacterSelectionUI] CharacterNFTManager: {(hasManager ? "FOUND" : "MISSING — add CharacterNFTManager component to a GameObject in the scene!")}");
-            Debug.Log($"[CharacterSelectionUI] characterCardPrefab: {(characterCardPrefab != null ? "assigned" : "MISSING")}");
-            Debug.Log($"[CharacterSelectionUI] cardContainer: {(cardContainer != null ? "assigned" : "MISSING")}");
-            Debug.Log($"[CharacterSelectionUI] confirmButton: {(confirmButton != null ? "assigned" : "MISSING")}");
-            Debug.Log($"[CharacterSelectionUI] statusText: {(statusText != null ? "assigned" : "MISSING")}");
-
-            if (hasManager)
+            if (CharacterNFTManager.Instance != null)
             {
                 CharacterNFTManager.Instance.OnCharactersFetched += HandleCharactersFetched;
                 CharacterNFTManager.Instance.OnFetchError += HandleFetchError;
-
-                int characterCount = CharacterNFTManager.Instance.AllCharacters.Count;
-                Debug.Log($"[CharacterSelectionUI] Total characters configured: {characterCount}");
-
-                if (characterCount == 0)
-                {
-                    Debug.LogWarning("[CharacterSelectionUI] No characters configured in CharacterNFTManager! " +
-                        "Add character definitions in the Inspector.");
-                }
             }
 
             if (confirmButton != null)
             {
                 confirmButton.onClick.RemoveAllListeners();
                 confirmButton.onClick.AddListener(OnConfirmClicked);
-                confirmButton.interactable = false; // Disabled until a character is selected
+                confirmButton.interactable = false;
             }
 
-            // If characters were already fetched (e.g. navigating back), populate immediately
-            if (hasManager && CharacterNFTManager.Instance.HasFetchedOnce)
+            // Reset
+            _slots[0] = null; _slots[1] = null; _slots[2] = null; _slots[3] = null;
+            UpdateSlotDisplay();
+
+            if (CharacterNFTManager.Instance != null && CharacterNFTManager.Instance.HasFetchedOnce)
             {
-                Debug.Log("[CharacterSelectionUI] Characters already fetched, populating cards now.");
-                PopulateCharacterCards();
+                PopulateAllCards();
                 if (loadingIndicator != null) loadingIndicator.SetActive(false);
             }
             else
             {
-                // Show loading state — waiting for CharacterNFTManager to finish fetching
                 if (loadingIndicator != null) loadingIndicator.SetActive(true);
-                SetStatus(hasManager ? "Loading your characters..." : "Character system not ready — add CharacterNFTManager to the scene.");
-                Debug.Log($"[CharacterSelectionUI] Waiting for character data... hasFetched={hasManager && CharacterNFTManager.Instance.HasFetchedOnce}");
+                SetStatus("Loading your characters...");
             }
         }
 
@@ -132,12 +94,42 @@ namespace GV.Web3
             }
         }
 
-        // --- Public Methods ---
-
-        /// <summary>Show or hide the selection panel.</summary>
         public void Show(bool visible = true)
         {
             gameObject.SetActive(visible);
+        }
+
+        // --- Slot Display ---
+
+        private void UpdateSlotDisplay()
+        {
+            bool allFilled = _slots[0] != null && _slots[1] != null && _slots[2] != null && _slots[3] != null;
+            if (confirmButton != null) confirmButton.interactable = allFilled;
+
+            RefreshCardBadges();
+        }
+
+        private void RefreshCardBadges()
+        {
+            foreach (var cardObj in _spawnedCards)
+            {
+                var cardUI = cardObj.GetComponent<CharacterCardUI>();
+                if (cardUI == null) continue;
+
+                // Figure out which roster pair this card belongs to
+                int baseSlot = cardUI.Character.shipRosterIndex == 0 ? 0 : 2;
+
+                string badge = "";
+                bool isPrimary = _slots[baseSlot] != null && cardUI.Character == _slots[baseSlot];
+                bool isSecondary = _slots[baseSlot + 1] != null && cardUI.Character == _slots[baseSlot + 1];
+
+                if (isPrimary && isSecondary) badge = "Primary + Secondary";
+                else if (isPrimary) badge = "Primary";
+                else if (isSecondary) badge = "Secondary";
+
+                cardUI.SetSelected(isPrimary || isSecondary);
+                cardUI.SetSlotBadge(badge);
+            }
         }
 
         // --- Event Handlers ---
@@ -145,33 +137,20 @@ namespace GV.Web3
         private void HandleCharactersFetched(List<CharacterDefinition> ownedCharacters)
         {
             if (loadingIndicator != null) loadingIndicator.SetActive(false);
-
-            // Count owned characters for the current ship roster
-            int rosterIndex = GetCurrentShipRosterIndex();
-            int ownedForRoster = 0;
-            foreach (var c in ownedCharacters)
-            {
-                if (c.shipRosterIndex == rosterIndex) ownedForRoster++;
-            }
-
-            SetStatus($"You own {ownedForRoster} character(s) for this ship. Pick one!");
-            PopulateCharacterCards();
+            SetStatus("Pick 2 characters per ship type (4 total).");
+            PopulateAllCards();
         }
 
         private void HandleFetchError(string error)
         {
             if (loadingIndicator != null) loadingIndicator.SetActive(false);
-            SetStatus("Couldn't load character data. You can still use the default character.");
-            PopulateCharacterCards(); // Still show what we can (at least the default)
+            SetStatus("Couldn't load character data. Default characters available.");
+            PopulateAllCards();
         }
 
-        // --- Card Management ---
+        // --- Card Population ---
 
-        /// <summary>
-        /// Creates a card in the UI for each character that matches the selected ship's roster.
-        /// Owned characters are selectable, unowned characters are greyed out.
-        /// </summary>
-        private void PopulateCharacterCards()
+        private void PopulateAllCards()
         {
             // Clear old cards
             foreach (var card in _spawnedCards)
@@ -180,21 +159,18 @@ namespace GV.Web3
             }
             _spawnedCards.Clear();
 
-            if (CharacterNFTManager.Instance == null) return;
+            if (CharacterNFTManager.Instance == null || characterCardPrefab == null) return;
 
-            int rosterIndex = GetCurrentShipRosterIndex();
-            var rosterCharacters = CharacterNFTManager.Instance.GetCharactersForShip(rosterIndex);
+            // Spawn characters into matching row based on shipRosterIndex
+            var allCharacters = CharacterNFTManager.Instance.AllCharacters;
 
-            foreach (var character in rosterCharacters)
+            foreach (var character in allCharacters)
             {
-                if (characterCardPrefab == null || cardContainer == null)
-                {
-                    Debug.LogWarning("[CharacterSelectionUI] Missing card prefab or container. " +
-                        "Assign them in the Inspector.");
-                    break;
-                }
+                // Pick the correct row for this character's roster
+                Transform targetRow = character.shipRosterIndex == 0 ? rowShip0 : rowShip1;
+                if (targetRow == null) continue;
 
-                var cardObj = Instantiate(characterCardPrefab, cardContainer);
+                var cardObj = Instantiate(characterCardPrefab, targetRow);
                 _spawnedCards.Add(cardObj);
 
                 var cardUI = cardObj.GetComponent<CharacterCardUI>();
@@ -203,32 +179,13 @@ namespace GV.Web3
                     bool owned = CharacterNFTManager.Instance.OwnsCharacter(character);
                     cardUI.Setup(character, owned, character.isLocked, OnCharacterCardClicked);
                 }
-                else
-                {
-                    Debug.LogWarning("[CharacterSelectionUI] Character card prefab is missing CharacterCardUI component!");
-                }
             }
 
-            // Auto-select the default character for this roster or currently selected character
-            var currentSelection = CharacterNFTManager.Instance.SelectedCharacter;
-            if (currentSelection != null && currentSelection.shipRosterIndex == rosterIndex && !currentSelection.isLocked)
-            {
-                HighlightCharacter(currentSelection);
-            }
-            else
-            {
-                // Auto-select the default for this roster
-                var defaultChar = CharacterNFTManager.Instance.GetDefaultCharacter(rosterIndex);
-                if (defaultChar != null)
-                {
-                    HighlightCharacter(defaultChar);
-                }
-            }
+            UpdateSlotDisplay();
         }
 
-        /// <summary>
-        /// Called when the player clicks on a character card.
-        /// </summary>
+        // --- Click-Order Selection ---
+
         private void OnCharacterCardClicked(CharacterDefinition character)
         {
             if (character == null) return;
@@ -245,39 +202,88 @@ namespace GV.Web3
                 return;
             }
 
-            HighlightCharacter(character);
+            // Determine which roster pair this character belongs to
+            // Roster A = slots 0,1 — Roster B = slots 2,3
+            int baseSlot = character.shipRosterIndex == 0 ? 0 : 2;
+            int primarySlot = baseSlot;
+            int secondarySlot = baseSlot + 1;
+            string rosterName = character.shipRosterIndex == 0 ? "Spaceship" : "Vimana";
+
+            // If this character is already Primary in its roster, deselect and shift
+            if (_slots[primarySlot] == character)
+            {
+                _slots[primarySlot] = _slots[secondarySlot]; // Secondary becomes Primary (or null)
+                _slots[secondarySlot] = null;
+                SetStatus(_slots[primarySlot] != null
+                    ? $"{_slots[primarySlot].displayName} moved to Primary ({rosterName}). Pick another."
+                    : $"Character removed. Pick a Primary for {rosterName}.");
+                UpdateSlotDisplay();
+                return;
+            }
+
+            // If this character is already Secondary in its roster, just remove it
+            if (_slots[secondarySlot] == character)
+            {
+                _slots[secondarySlot] = null;
+                SetStatus($"Secondary removed ({rosterName}). Pick another.");
+                UpdateSlotDisplay();
+                return;
+            }
+
+            // New character — assign to first empty slot in this roster
+            if (_slots[primarySlot] == null)
+            {
+                _slots[primarySlot] = character;
+                UpdateInfoDisplay(character);
+                SetStatus($"Primary ({rosterName}): {character.displayName}. Pick a Secondary.");
+            }
+            else if (_slots[secondarySlot] == null)
+            {
+                _slots[secondarySlot] = character;
+                UpdateInfoDisplay(character);
+
+                // Check if all 4 are done
+                if (_slots[0] != null && _slots[1] != null && _slots[2] != null && _slots[3] != null)
+                    SetStatus("All characters selected! Press Confirm to continue.");
+                else
+                    SetStatus($"Secondary ({rosterName}): {character.displayName}. Now pick for the other roster.");
+            }
+            else
+            {
+                // Both slots full in this roster — replace Secondary
+                _slots[secondarySlot] = character;
+                UpdateInfoDisplay(character);
+                SetStatus($"Secondary ({rosterName}) replaced with {character.displayName}.");
+            }
+
+            UpdateSlotDisplay();
         }
 
-        private void HighlightCharacter(CharacterDefinition character)
+        private void UpdateInfoDisplay(CharacterDefinition character)
         {
-            _highlightedCharacter = character;
-
             if (selectedCharNameText != null) selectedCharNameText.text = character.displayName;
             if (selectedCharDescText != null) selectedCharDescText.text = character.description;
             if (selectedCharRarityText != null) selectedCharRarityText.text = character.rarity.ToString();
-
-            if (confirmButton != null) confirmButton.interactable = true;
-
-            // Update card visuals to show which is selected
-            foreach (var cardObj in _spawnedCards)
-            {
-                var cardUI = cardObj.GetComponent<CharacterCardUI>();
-                if (cardUI != null)
-                {
-                    cardUI.SetSelected(cardUI.Character == character);
-                }
-            }
         }
 
         private void OnConfirmClicked()
         {
-            if (_highlightedCharacter == null) return;
+            if (_slots[0] == null || _slots[1] == null || _slots[2] == null || _slots[3] == null) return;
 
-            bool success = CharacterNFTManager.Instance.SelectCharacter(_highlightedCharacter);
-            if (success)
+            var manager = CharacterNFTManager.Instance;
+            bool allOk = true;
+            for (int i = 0; i < 4; i++)
             {
-                Debug.Log($"[CharacterSelectionUI] Confirmed character: {_highlightedCharacter.displayName}");
-                // Hide the panel — WalletConnectPanel handles showing the room lobby
+                if (!manager.SelectCharacterForSlot(i, _slots[i]))
+                {
+                    allOk = false;
+                    break;
+                }
+            }
+
+            if (allOk)
+            {
+                manager.ConfirmCharacters();
                 Show(false);
             }
         }
@@ -285,19 +291,6 @@ namespace GV.Web3
         private void SetStatus(string message)
         {
             if (statusText != null) statusText.text = message;
-        }
-
-        /// <summary>
-        /// Gets the mesh root index of the currently selected ship.
-        /// Used to filter characters to the correct roster.
-        /// </summary>
-        private int GetCurrentShipRosterIndex()
-        {
-            if (ShipNFTManager.Instance != null && ShipNFTManager.Instance.SelectedShip != null)
-            {
-                return ShipNFTManager.Instance.SelectedShip.meshRootIndex;
-            }
-            return 0; // Default to Roster A if no ship selected
         }
     }
 }
