@@ -120,12 +120,24 @@ namespace GV.Web3
         /// <summary>
         /// Check if the player owns a specific ship (by token ID).
         /// The default ship always returns true.
+        /// NOTE: This does NOT check isLocked — use IsShipAvailable() for selection checks.
         /// </summary>
         public bool OwnsShip(ShipDefinition ship)
         {
             if (ship == null) return false;
             if (ship.isDefault) return true; // Default ship is always available
             return _ownedShipBalances.ContainsKey(ship.tokenId) && _ownedShipBalances[ship.tokenId] > 0;
+        }
+
+        /// <summary>
+        /// Check if a ship is available for selection — must be owned AND not locked.
+        /// Use this for UI decisions (card interactability, confirm button, etc.).
+        /// </summary>
+        public bool IsShipAvailable(ShipDefinition ship)
+        {
+            if (ship == null) return false;
+            if (ship.isLocked) return false;
+            return OwnsShip(ship);
         }
 
         /// <summary>
@@ -153,6 +165,12 @@ namespace GV.Web3
             if (ship == null)
             {
                 Debug.LogWarning("[ShipNFTManager] Can't select null ship.");
+                return false;
+            }
+
+            if (ship.isLocked)
+            {
+                Debug.LogWarning($"[ShipNFTManager] Ship is locked: {ship.displayName}");
                 return false;
             }
 
@@ -361,6 +379,10 @@ namespace GV.Web3
         [Tooltip("If true, every player gets this ship for free (no NFT required). " +
                  "You should have exactly one default ship.")]
         public bool isDefault = false;
+
+        [Tooltip("If true, this ship cannot be selected regardless of ownership " +
+                 "(e.g. coming soon, level-gated, temporarily disabled).")]
+        public bool isLocked = false;
 
         [Tooltip("Optional: a sprite/icon for the ship selection UI.")]
         public Sprite icon;

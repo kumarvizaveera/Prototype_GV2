@@ -176,6 +176,7 @@ MonoBehaviour:
   selectButton: {fileID: 6389967351793280616}
   lockOverlay: {fileID: 5108021280063338785}
   selectionHighlight: {fileID: 116403521587701080}
+  lockReasonText: {fileID: 0}
   ownedColor: {r: 1, g: 1, b: 1, a: 1}
   lockedColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
 --- !u!114 &5245266717667255523
@@ -340,7 +341,7 @@ RectTransform:
   m_GameObject: {fileID: 5108021280063338785}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 2, y: 2, z: 2}
+  m_LocalScale: {x: 1.7, y: 1.7, z: 1.7}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 2547036442698824498}

@@ -169,7 +169,7 @@ namespace GV.Web3
                 if (cardUI != null)
                 {
                     bool owned = ShipNFTManager.Instance.OwnsShip(ship);
-                    cardUI.Setup(ship, owned, OnShipCardClicked);
+                    cardUI.Setup(ship, owned, ship.isLocked, OnShipCardClicked);
                 }
                 else
                 {
@@ -177,9 +177,9 @@ namespace GV.Web3
                 }
             }
 
-            // Auto-select the default ship or currently selected ship
+            // Auto-select the default ship or currently selected ship (only if available)
             var currentSelection = ShipNFTManager.Instance.SelectedShip;
-            if (currentSelection != null)
+            if (currentSelection != null && !currentSelection.isLocked)
             {
                 HighlightShip(currentSelection);
             }
@@ -191,6 +191,12 @@ namespace GV.Web3
         private void OnShipCardClicked(ShipDefinition ship)
         {
             if (ship == null) return;
+
+            if (ship.isLocked)
+            {
+                SetStatus($"{ship.displayName} is locked.");
+                return;
+            }
 
             if (!ShipNFTManager.Instance.OwnsShip(ship))
             {
