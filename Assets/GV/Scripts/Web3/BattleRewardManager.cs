@@ -70,7 +70,7 @@ namespace GV.Web3
         [Header("Reward Wallet (PROTOTYPE / TESTNET ONLY)")]
         [Tooltip("Private key of the wallet that has Minter role on the token contract. " +
                  "⚠️ NEVER use this in a production build — move to a backend server instead.")]
-        [SerializeField] private string rewardWalletPrivateKey = "0a441d05d1d856a59dde57ae027db86d41998eaeb96335467021d95ff2b76a32";
+        [SerializeField] private string rewardWalletPrivateKey = ""; // Set via Unity Inspector — NEVER commit a real key
 
         // --- Network Config ---
         [Header("Network")]
