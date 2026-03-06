@@ -390,14 +390,14 @@ MonoBehaviour:
     rarity: 0
     meshRootIndex: 0
     isDefault: 1
-    icon: {fileID: 21300000, guid: 20288f5342c495c41bc71574689ef2bc, type: 3}
+    icon: {fileID: 21300000, guid: 176c64c63056c184ba8c8acacb4372cf, type: 3}
   - displayName: Vimana
     description: 
     tokenId: 1
     rarity: 1
     meshRootIndex: 0
-    isDefault: 0
-    icon: {fileID: 21300000, guid: 20288f5342c495c41bc71574689ef2bc, type: 3}
+    isDefault: 1
+    icon: {fileID: 21300000, guid: 07fd5b51fcdadc241b651e19db752035, type: 3}
   - displayName: Vimana Ship
     description: 
     tokenId: 2
