@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using GV.UI;
 
 namespace GV.Web3
 {
@@ -31,6 +32,10 @@ namespace GV.Web3
 
         [Header("Buttons")]
         [SerializeField] private Button confirmButton;
+
+        [Header("Lore Popup")]
+        [Tooltip("Drag the GameObject with ShipLorePopup. Auto-shows on icon click.")]
+        [SerializeField] private ShipLorePopup lorePopup;
 
         [Header("Loading State")]
         [SerializeField] private GameObject loadingIndicator;
@@ -165,7 +170,7 @@ namespace GV.Web3
                 if (cardUI != null)
                 {
                     bool owned = ShipNFTManager.Instance.OwnsShip(ship);
-                    cardUI.Setup(ship, owned, ship.isLocked, OnShipCardClicked);
+                    cardUI.Setup(ship, owned, ship.isLocked, OnShipCardClicked, OnShipIconClicked);
                 }
             }
 
@@ -272,6 +277,16 @@ namespace GV.Web3
                 manager.ConfirmShips();
                 Show(false);
             }
+        }
+
+        // --- Icon Click → Lore Popup (works for ALL ships, even locked/unowned) ---
+
+        private void OnShipIconClicked(ShipDefinition ship)
+        {
+            if (ship == null) return;
+
+            if (lorePopup != null)
+                lorePopup.ShowShipByName(ship.displayName);
         }
 
         private void SetStatus(string message)

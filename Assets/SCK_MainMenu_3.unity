@@ -650,6 +650,7 @@ MonoBehaviour:
   selectedShipDescText: {fileID: 0}
   selectedShipRarityText: {fileID: 0}
   confirmButton: {fileID: 1408283771}
+  lorePopup: {fileID: 0}
   loadingIndicator: {fileID: 597162301}
   statusText: {fileID: 692049846}
 --- !u!114 &163886862
@@ -3852,8 +3853,8 @@ RectTransform:
   m_GameObject: {fileID: 905813543}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 163886859}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -8225,6 +8226,54 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1761163888}
   m_CullTransparentMesh: 1
+--- !u!1 &1764546942
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1764546944}
+  - component: {fileID: 1764546943}
+  m_Layer: 0
+  m_Name: 'ShipLorePopup '
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1764546943
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1764546942}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 152c0c2a33cfd9c4a8d641fecb7ff80f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.ShipLorePopup
+  loreDatas:
+  - {fileID: 11400000, guid: 29cee199cc368154b99c0a08ef54dc3c, type: 2}
+  - {fileID: 11400000, guid: eabe15ab12765e446842745c235e71b0, type: 2}
+  popupOffset: {x: 500, y: 0}
+--- !u!4 &1764546944
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1764546942}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1180.8406, y: 709.3176, z: 33.95839}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1768345633
 GameObject:
   m_ObjectHideFlags: 0
@@ -9943,3 +9992,4 @@ SceneRoots:
   - {fileID: 616601094}
   - {fileID: 767885481}
   - {fileID: 2112246962}
+  - {fileID: 1764546944}

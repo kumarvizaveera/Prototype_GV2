@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 604b577af8a43c942bd5251f25245dcd, type: 3}
+  m_Name: Spaceship_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.ShipLoreData
+  shipName: Spaceship
+  tagline: Built by human hands. Fueled by split atoms. Aimed at the sky.
+  rarity: Rare
+  shipClass: Nuclear Strike Vessel
+  originLabel: Alliance
+  originName: Earth Countries in Akasya
+  factionLabel: Pilots
+  factionName: Atom Riders
+  powerSystem: Nuclear-P Reactor Array
+  combatRole: Rapid assault strike craft
+  specialAbility: Reactor Overclock - temporarily boosts all weapons output beyond
+    safe operating limits, trading hull integrity for devastating burst damage.
+  backstory: "The Spaceship program began in Aurkana's NEO-TERRAn military labs
+    as a classified weapons platform. The Earth Countries had watched the Kingdoms
+    fly their ancient Vimanas for centuries, untouchable in the upper atmosphere.
+    When QiNEXi engineers in Silkvale cracked Nuclear-P reactor miniaturization,
+    everything changed. The first prototype was crude - a reinforced fuselage
+    strapped to a Fission-class reactor with forward-mounted cannons. It exploded
+    on its third test flight. But the design evolved. Aurkana funded it. Silkvale
+    built it. Inkara's INTARi intelligence network stole Vimana flight data to
+    refine the aerodynamics. Within five years, the Spaceship went from prototype
+    to production. Nine Countries contributed technology: Aurkana's targeting
+    systems, Silkvale's rapid-fire weapons, Inkara's sensor arrays, Elgorn Fall's
+    Fusion reactor variants, Saharai's heat shielding. For the first time in
+    history, humans from the surface could challenge the Kingdoms in their own sky.
+    The Atom Riders are the pilots who fly these machines - engineers, deserters,
+    mercenaries, and outcasts who bet their lives on human-built technology against
+    divine weapons."
+  strengths: "Nuclear-P reactors deliver raw firepower that matches or exceeds
+    Astra-class weapons\nModular weapon hardpoints - pilots can customize loadouts
+    between engagements\nAdvanced targeting computers compensate for pilot
+    inexperience against Kingdom veterans\nField-repairable design; spare parts
+    are manufactured, not excavated from ancient ruins"
+  weaknesses: "Reactor instability under sustained combat - overheating causes
+    cascading system failures\nNo Thara Resonance integration; entirely dependent
+    on mechanical power with no spiritual energy backup\nRelatively fragile
+    airframe compared to Vimana divine-alloy construction\nShort operational range
+    - Nuclear-P fuel cells burn fast during high-output maneuvers"
+  history: "Aurkana's NEO-TERRAn labs begin the classified Skybreaker program\n
+    First prototype destroyed on third test flight; reactor containment failure\n
+    Silkvale's QiNEXi engineers redesign the reactor housing for combat stress\n
+    INTARi operatives steal Vimana aerodynamic data from Ratna Shila's archives\n
+    Nine Countries pool technology into the unified Spaceship production line\n
+    First combat deployment against Garudaja raiders near Garuda Vana's lower peaks\n
+    Atom Riders formed as an independent pilot corps, outside any single Country's
+    military command"

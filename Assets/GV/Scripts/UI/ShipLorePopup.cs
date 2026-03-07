@@ -5,23 +5,20 @@ using TMPro;
 namespace GV.UI
 {
     /// <summary>
-    /// Two-level character lore popup — auto-builds its own UI from code.
+    /// Two-level ship lore popup - auto-builds its own UI from code.
     ///
-    /// Level 1:  Name, tagline, classification, origin, powers + 4 detail buttons
-    /// Level 2:  Detail panel (backstory / strengths / weaknesses / rivals) on button click
+    /// Level 1:  Name, tagline, classification, origin, technical + 4 detail buttons
+    /// Level 2:  Detail panel (backstory / strengths / weaknesses / history) on button click
     ///
     /// How to set it up:
-    /// 1. Add this script to any GameObject in your character selection scene
-    /// 2. That's it! It auto-creates its own Canvas and UI elements
-    /// 3. From your selection screen, call ShowCharacter(loreData) when a character is picked
-    ///
-    /// Matches PostMatchRewardUI visual style (dark panel, gold accents, overlay canvas).
+    /// 1. Add this script to any GameObject in your ship selection scene
+    /// 2. Assign ShipLoreData assets in the Inspector
+    /// 3. From ShipSelectionUI, call ShowShipByName(ship.displayName) on card click
     /// </summary>
-    public class CharacterLorePopup : MonoBehaviour
+    public class ShipLorePopup : MonoBehaviour
     {
-        [Header("Lore Data (assign all characters)")]
-        [Tooltip("Array of CharacterLoreData assets — one per character, in roster order.")]
-        public CharacterLoreData[] loreDatas;
+        [Header("Lore Data (assign all ships)")]
+        public ShipLoreData[] loreDatas;
 
         [Header("Popup Position")]
         [Tooltip("Offset the popup from screen center. Positive X = right, Positive Y = up.")]
@@ -35,11 +32,12 @@ namespace GV.UI
         private TMP_Text _taglineText;
         private TMP_Text _classText;
         private TMP_Text _originText;
-        private TMP_Text _powersText;
+        private TMP_Text _techText;
+        private TMP_Text _abilityText;
         private Button   _btnBackstory;
         private Button   _btnStrengths;
         private Button   _btnWeaknesses;
-        private Button   _btnRivals;
+        private Button   _btnHistory;
 
         // Level 2
         private GameObject _detailPanel;
@@ -50,11 +48,11 @@ namespace GV.UI
         private Image _activeBtnImage;
 
         // Currently displayed data
-        private CharacterLoreData _current;
+        private ShipLoreData _current;
         private bool _uiBuilt = false;
 
         // ════════════════════════════════════════════
-        //  COLORS — matching PostMatchRewardUI style
+        //  COLORS
         // ════════════════════════════════════════════
 
         private static readonly Color COL_OVERLAY      = new Color(0f, 0f, 0f, 0.6f);
@@ -72,7 +70,7 @@ namespace GV.UI
         private static readonly Color COL_CYAN         = new Color(0.4f, 0.85f, 0.95f, 1f);
         private static readonly Color COL_GREEN        = new Color(0.3f, 1f, 0.5f, 1f);
         private static readonly Color COL_RED_SOFT     = new Color(1f, 0.45f, 0.4f, 1f);
-        private static readonly Color COL_PURPLE       = new Color(0.85f, 0.5f, 1f, 1f);
+        private static readonly Color COL_ORANGE       = new Color(1f, 0.75f, 0.3f, 1f);
 
         // ════════════════════════════════════════════
         //  LIFECYCLE
@@ -88,64 +86,43 @@ namespace GV.UI
         //  PUBLIC API
         // ════════════════════════════════════════════
 
-        /// <summary>
-        /// Show the lore popup for a character by index (matches loreDatas array order).
-        /// Call from your character selection card click handler.
-        /// </summary>
-        public void ShowCharacterByIndex(int index)
+        public void ShowShipByName(string shipName)
         {
-            if (loreDatas == null || index < 0 || index >= loreDatas.Length) return;
-            ShowCharacter(loreDatas[index]);
-        }
-
-        /// <summary>
-        /// Show the lore popup by matching character name against loreDatas array.
-        /// Call from CharacterSelectionUI when a card is clicked.
-        /// </summary>
-        public void ShowCharacterByName(string characterName)
-        {
-            if (loreDatas == null || string.IsNullOrEmpty(characterName)) return;
-            string trimmed = characterName.Trim();
+            if (loreDatas == null || string.IsNullOrEmpty(shipName)) return;
+            string trimmed = shipName.Trim();
             foreach (var data in loreDatas)
             {
-                if (data != null && data.characterName.Trim() == trimmed)
+                if (data != null && data.shipName.Trim() == trimmed)
                 {
-                    ShowCharacter(data);
+                    ShowShip(data);
                     return;
                 }
             }
-            Debug.LogWarning($"[CharacterLorePopup] No lore data found for '{characterName}'.");
+            Debug.LogWarning($"[ShipLorePopup] No lore data found for '{shipName}'.");
         }
 
-        /// <summary>
-        /// Show the lore popup for a specific CharacterLoreData asset.
-        /// </summary>
-        public void ShowCharacter(CharacterLoreData data)
+        public void ShowShip(ShipLoreData data)
         {
             if (data == null) return;
             if (!_uiBuilt) BuildUI();
 
             _current = data;
 
-            // Populate Level 1
-            _nameText.text    = data.characterName;
-            _taglineText.text = $"\"{data.tagline}\"";
-            _classText.text   = $"{data.rarity}  ·  {data.role}";
-
             string cyanHex = ColorUtility.ToHtmlStringRGB(COL_CYAN);
-            _originText.text  = $"{data.regionLabel}: <color=#{cyanHex}>{data.regionName}</color>    " +
-                                $"{data.factionLabel}: <color=#{cyanHex}>{data.factionName}</color>";
-            _powersText.text  = $"{data.powerClass}  ·  {data.terrainMastery}  ·  {data.tharaResonance}";
 
-            // Hide detail, clear button highlight, show popup
+            _nameText.text    = data.shipName;
+            _taglineText.text = $"\"{data.tagline}\"";
+            _classText.text   = $"{data.rarity}  ·  {data.shipClass}";
+            _originText.text  = $"{data.originLabel}: <color=#{cyanHex}>{data.originName}</color>    " +
+                                $"{data.factionLabel}: <color=#{cyanHex}>{data.factionName}</color>";
+            _techText.text    = $"{data.powerSystem}  ·  {data.combatRole}";
+            _abilityText.text = $"Special: {data.specialAbility}";
+
             _detailPanel.SetActive(false);
             ClearActiveButton();
             _popupRoot.SetActive(true);
         }
 
-        /// <summary>
-        /// Hide the entire popup.
-        /// </summary>
         public void Hide()
         {
             if (_popupRoot != null) _popupRoot.SetActive(false);
@@ -174,10 +151,10 @@ namespace GV.UI
             ShowDetail("WEAKNESSES", FormatBullets(_current.weaknesses, COL_RED_SOFT), _btnWeaknesses);
         }
 
-        private void OnRivals()
+        private void OnHistory()
         {
             if (_current == null) return;
-            ShowDetail("RIVALS", FormatBullets(_current.rivals, COL_PURPLE), _btnRivals);
+            ShowDetail("HISTORY", FormatBullets(_current.history, COL_ORANGE), _btnHistory);
         }
 
         private void OnBack()
@@ -196,7 +173,6 @@ namespace GV.UI
             _detailBody.text  = body;
             _detailPanel.SetActive(true);
 
-            // Highlight the active button, dim the rest
             ClearActiveButton();
             if (sourceBtn != null)
             {
@@ -214,9 +190,6 @@ namespace GV.UI
             }
         }
 
-        /// <summary>
-        /// Turns newline-separated text into TMP rich-text bullets with color.
-        /// </summary>
         private static string FormatBullets(string raw, Color bulletColor)
         {
             if (string.IsNullOrEmpty(raw)) return "";
@@ -240,8 +213,8 @@ namespace GV.UI
         {
             _uiBuilt = true;
 
-            // ── Canvas (ScreenSpaceOverlay, above reward popup) ──
-            var canvasGO = new GameObject("LorePopupCanvas");
+            // Canvas
+            var canvasGO = new GameObject("ShipLorePopupCanvas");
             canvasGO.transform.SetParent(transform);
             var canvas = canvasGO.AddComponent<Canvas>();
             canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
@@ -253,128 +226,123 @@ namespace GV.UI
 
             _popupRoot = canvasGO;
 
-            // ── Full-screen dark overlay (non-blocking so icon clicks pass through) ──
+            // Dark overlay (non-blocking)
             var overlay = CreatePanel(canvasGO.transform, "Overlay", COL_OVERLAY);
             StretchFull(overlay);
             overlay.GetComponent<Image>().raycastTarget = false;
 
             // ══════════════════════════════════════
-            //  LEVEL 1 — MAIN INFO PANEL
+            //  LEVEL 1 - MAIN INFO PANEL
             // ══════════════════════════════════════
 
-            var panel = CreatePanel(canvasGO.transform, "LorePanel", COL_PANEL_BG);
+            var panel = CreatePanel(canvasGO.transform, "ShipLorePanel", COL_PANEL_BG);
             var panelRect = panel.GetComponent<RectTransform>();
-            CenterRect(panelRect, 640, 580);
+            CenterRect(panelRect, 660, 620);
             panelRect.anchoredPosition = popupOffset;
 
-            // Gold border
             var outline = panel.AddComponent<Outline>();
             outline.effectColor    = COL_GOLD_DIM;
             outline.effectDistance = new Vector2(2, -2);
 
-            // ── Character Name ──
-            _nameText = CreateText(panel.transform, "CharName", "CHARACTER", 30, COL_GOLD,
-                new Vector2(0, 250), new Vector2(580, 45));
+            // Ship Name
+            _nameText = CreateText(panel.transform, "ShipName", "SHIP", 32, COL_GOLD,
+                new Vector2(0, 270), new Vector2(600, 50));
             _nameText.fontStyle = FontStyles.Bold;
 
-            // ── Tagline ──
-            _taglineText = CreateText(panel.transform, "Tagline", "\"...\"", 18, COL_GREY_LIGHT,
-                new Vector2(0, 218), new Vector2(580, 35));
+            // Tagline
+            _taglineText = CreateText(panel.transform, "Tagline", "\"...\"", 17, COL_GREY_LIGHT,
+                new Vector2(0, 238), new Vector2(600, 32));
             _taglineText.fontStyle = FontStyles.Italic;
 
-            // ── Divider 1 ──
-            CreateDivider(panel.transform, "Divider1", 198);
+            // Divider 1
+            CreateDivider(panel.transform, "Divider1", 218);
 
-            // ── Classification: "Epic · Balanced Striker" ──
-            _classText = CreateText(panel.transform, "Classification", "Epic · Balanced Striker", 22, COL_WHITE,
-                new Vector2(0, 170), new Vector2(580, 35));
+            // Classification: "Rare · Nuclear Strike Vessel"
+            _classText = CreateText(panel.transform, "Classification", "Rare · Nuclear Strike Vessel", 22, COL_WHITE,
+                new Vector2(0, 190), new Vector2(600, 35));
             _classText.fontStyle = FontStyles.Bold;
 
-            // ── Origin: "Kingdom: Nandana  Faction: Devas" ──
-            _originText = CreateText(panel.transform, "Origin", "Kingdom: ... | Faction: ...", 19, COL_GREY_LIGHT,
-                new Vector2(0, 138), new Vector2(580, 32));
+            // Origin: "Alliance: Earth Countries   Pilots: Atom Riders"
+            _originText = CreateText(panel.transform, "Origin", "Alliance: ...", 19, COL_GREY_LIGHT,
+                new Vector2(0, 158), new Vector2(600, 32));
             _originText.richText = true;
 
-            // ── Powers ──
-            _powersText = CreateText(panel.transform, "Powers",
-                "Supreme Astra · Dual Terrain · Normal Thara", 16, COL_GREY,
-                new Vector2(0, 108), new Vector2(600, 30));
+            // Technical: "Nuclear-P Reactor Array · Rapid assault strike craft"
+            _techText = CreateText(panel.transform, "Technical", "...", 16, COL_GREY,
+                new Vector2(0, 128), new Vector2(620, 28));
 
-            // ── Divider 2 ──
-            CreateDivider(panel.transform, "Divider2", 86);
+            // Divider 2
+            CreateDivider(panel.transform, "Divider2", 110);
 
-            // ── 4 Detail buttons in a row ──
-            float btnY   = 50f;
-            float btnW   = 110f;
+            // Special Ability
+            _abilityText = CreateText(panel.transform, "Ability", "Special: ...", 15, COL_CYAN,
+                new Vector2(0, 82), new Vector2(600, 44));
+#pragma warning disable CS0618
+            _abilityText.enableWordWrapping = true;
+#pragma warning restore CS0618
+
+            // Divider 3
+            CreateDivider(panel.transform, "Divider3", 56);
+
+            // 4 Detail buttons
+            float btnY   = 20f;
+            float btnW   = 115f;
             float btnH   = 38f;
             float gap    = 8f;
             float totalW = btnW * 4 + gap * 3;
             float startX = -totalW / 2f + btnW / 2f;
 
-            _btnBackstory  = CreateDetailButton(panel.transform, "Backstory",  startX + (btnW + gap) * 0, btnY, btnW, btnH);
-            _btnStrengths  = CreateDetailButton(panel.transform, "Strengths",  startX + (btnW + gap) * 1, btnY, btnW, btnH);
-            _btnWeaknesses = CreateDetailButton(panel.transform, "Weaknesses", startX + (btnW + gap) * 2, btnY, btnW, btnH);
-            _btnRivals     = CreateDetailButton(panel.transform, "Rivals",     startX + (btnW + gap) * 3, btnY, btnW, btnH);
+            _btnBackstory  = CreateDetailButton(panel.transform, "Backstory",   startX + (btnW + gap) * 0, btnY, btnW, btnH);
+            _btnStrengths  = CreateDetailButton(panel.transform, "Strengths",   startX + (btnW + gap) * 1, btnY, btnW, btnH);
+            _btnWeaknesses = CreateDetailButton(panel.transform, "Weaknesses",  startX + (btnW + gap) * 2, btnY, btnW, btnH);
+            _btnHistory    = CreateDetailButton(panel.transform, "History",      startX + (btnW + gap) * 3, btnY, btnW, btnH);
 
             _btnBackstory.onClick.AddListener(OnBackstory);
             _btnStrengths.onClick.AddListener(OnStrengths);
             _btnWeaknesses.onClick.AddListener(OnWeaknesses);
-            _btnRivals.onClick.AddListener(OnRivals);
+            _btnHistory.onClick.AddListener(OnHistory);
 
-            // ── Close button ──
+            // Close button
             var closeBtn = CreateStyledButton(panel.transform, "CLOSE", COL_CLOSE_BG,
-                new Vector2(0, -260), new Vector2(140, 40), 18);
+                new Vector2(0, -280), new Vector2(140, 40), 18);
             closeBtn.onClick.AddListener(Hide);
 
             // ══════════════════════════════════════
-            //  LEVEL 2 — DETAIL PANEL (appears below buttons)
+            //  LEVEL 2 - DETAIL PANEL
             // ══════════════════════════════════════
 
             _detailPanel = CreatePanel(panel.transform, "DetailPanel", COL_DETAIL_BG);
             var dpRect = _detailPanel.GetComponent<RectTransform>();
             dpRect.anchorMin        = new Vector2(0.5f, 0.5f);
             dpRect.anchorMax        = new Vector2(0.5f, 0.5f);
-            dpRect.sizeDelta        = new Vector2(580, 340);
-            dpRect.anchoredPosition = new Vector2(0, -130);
+            dpRect.sizeDelta        = new Vector2(600, 350);
+            dpRect.anchoredPosition = new Vector2(0, -150);
 
-            // Gold border on detail
             var dpOutline = _detailPanel.AddComponent<Outline>();
             dpOutline.effectColor    = COL_GOLD_DIM;
             dpOutline.effectDistance = new Vector2(1, -1);
 
-            // Detail title
             _detailTitle = CreateText(_detailPanel.transform, "DetailTitle", "BACKSTORY", 22, COL_GOLD,
-                new Vector2(0, 145), new Vector2(540, 35));
+                new Vector2(0, 150), new Vector2(560, 35));
             _detailTitle.fontStyle = FontStyles.Bold;
 
-            // Close (✕) button — top-right of detail panel
             var backBtn = CreateStyledButton(_detailPanel.transform, "X", COL_BTN_NORMAL,
-                new Vector2(255, 145), new Vector2(50, 30), 18);
+                new Vector2(265, 150), new Vector2(50, 30), 18);
             backBtn.onClick.AddListener(OnBack);
 
-            // ── Scrollable body ──
-            BuildScrollableBody(_detailPanel.transform);
-
-            // Start hidden
-            _detailPanel.SetActive(false);
-
-            Debug.Log("[CharacterLorePopup] Auto-built two-level lore popup UI.");
-        }
-
-        /// <summary>
-        /// Simple body text inside the detail panel — fixed rect, word wrap, no ScrollRect.
-        /// </summary>
-        private void BuildScrollableBody(Transform parent)
-        {
-            // Body text — fills most of the detail panel below the title
-            _detailBody = CreateText(parent, "DetailBody", "", 16, COL_GREY_LIGHT,
-                new Vector2(0, -20), new Vector2(540, 280));
-            _detailBody.alignment          = TextAlignmentOptions.TopLeft;
+            // Body text
+            _detailBody = CreateText(_detailPanel.transform, "DetailBody", "", 16, COL_GREY_LIGHT,
+                new Vector2(0, -20), new Vector2(560, 290));
+            _detailBody.alignment        = TextAlignmentOptions.TopLeft;
 #pragma warning disable CS0618
             _detailBody.enableWordWrapping = true;
 #pragma warning restore CS0618
             _detailBody.overflowMode       = TextOverflowModes.Ellipsis;
             _detailBody.richText           = true;
+
+            _detailPanel.SetActive(false);
+
+            Debug.Log("[ShipLorePopup] Auto-built two-level ship lore popup UI.");
         }
 
         // ════════════════════════════════════════════
@@ -437,7 +405,7 @@ namespace GV.UI
             var r = div.GetComponent<RectTransform>();
             r.anchorMin        = new Vector2(0.5f, 0.5f);
             r.anchorMax        = new Vector2(0.5f, 0.5f);
-            r.sizeDelta        = new Vector2(560, 1);
+            r.sizeDelta        = new Vector2(580, 1);
             r.anchoredPosition = new Vector2(0, yPos);
         }
 
@@ -469,7 +437,7 @@ namespace GV.UI
         private static Button CreateStyledButton(Transform parent, string label, Color bgColor,
             Vector2 position, Vector2 size, int fontSize)
         {
-            var go = new GameObject("Btn_" + label.Replace("\u2715", "Close"));
+            var go = new GameObject("Btn_" + label);
             go.transform.SetParent(parent, false);
 
             var img = go.AddComponent<Image>();

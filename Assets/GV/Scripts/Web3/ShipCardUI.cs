@@ -47,20 +47,21 @@ namespace GV.Web3
         public bool IsLocked { get; private set; }
 
         private System.Action<ShipDefinition> _onClick;
+        private System.Action<ShipDefinition> _onIconClick;
+        private GameObject _iconClickOverlay;
 
         /// <summary>
         /// Set up the card with ship data.
         /// Called by ShipSelectionUI when populating the grid.
         /// </summary>
-        /// <param name="ship">The ship definition.</param>
-        /// <param name="owned">True if the player owns this ship (NFT balance > 0 or default).</param>
-        /// <param name="locked">True if the ship is locked regardless of ownership.</param>
-        /// <param name="onClick">Callback when the card is clicked.</param>
-        public void Setup(ShipDefinition ship, bool owned, bool locked, System.Action<ShipDefinition> onClick)
+        public void Setup(ShipDefinition ship, bool owned, bool locked,
+            System.Action<ShipDefinition> onClick,
+            System.Action<ShipDefinition> onIconClick = null)
         {
             Ship = ship;
             IsLocked = locked;
             _onClick = onClick;
+            _onIconClick = onIconClick;
 
             bool available = owned && !locked;
 
@@ -77,6 +78,11 @@ namespace GV.Web3
                 else
                 {
                     iconImage.enabled = false;
+                }
+
+                if (_onIconClick != null)
+                {
+                    BuildIconClickOverlay();
                 }
             }
 
@@ -108,6 +114,55 @@ namespace GV.Web3
 
             // Hide selection highlight initially
             if (selectionHighlight != null) selectionHighlight.SetActive(false);
+        }
+
+        private void BuildIconClickOverlay()
+        {
+            if (_iconClickOverlay != null) Destroy(_iconClickOverlay);
+            if (iconImage == null) return;
+
+            _iconClickOverlay = new GameObject("IconClickOverlay");
+            _iconClickOverlay.transform.SetParent(transform, false);
+            _iconClickOverlay.transform.SetAsLastSibling();
+
+            var overlayRect = _iconClickOverlay.AddComponent<RectTransform>();
+            var iconRect = iconImage.rectTransform;
+
+            overlayRect.anchorMin = iconRect.anchorMin;
+            overlayRect.anchorMax = iconRect.anchorMax;
+            overlayRect.pivot = iconRect.pivot;
+            overlayRect.anchoredPosition = iconRect.anchoredPosition;
+            overlayRect.sizeDelta = iconRect.sizeDelta;
+            overlayRect.offsetMin = iconRect.offsetMin;
+            overlayRect.offsetMax = iconRect.offsetMax;
+
+            if (iconImage.transform.parent != transform)
+            {
+                Vector3[] corners = new Vector3[4];
+                iconRect.GetWorldCorners(corners);
+
+                var cardRect = GetComponent<RectTransform>();
+                Vector2 localMin, localMax;
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    cardRect, RectTransformUtility.WorldToScreenPoint(null, corners[0]), null, out localMin);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    cardRect, RectTransformUtility.WorldToScreenPoint(null, corners[2]), null, out localMax);
+
+                overlayRect.anchorMin = new Vector2(0.5f, 0.5f);
+                overlayRect.anchorMax = new Vector2(0.5f, 0.5f);
+                overlayRect.pivot = new Vector2(0.5f, 0.5f);
+                overlayRect.anchoredPosition = (localMin + localMax) * 0.5f;
+                overlayRect.sizeDelta = new Vector2(localMax.x - localMin.x, localMax.y - localMin.y);
+            }
+
+            var img = _iconClickOverlay.AddComponent<Image>();
+            img.color = new Color(0, 0, 0, 0);
+            img.raycastTarget = true;
+
+            var btn = _iconClickOverlay.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.onClick.AddListener(() => _onIconClick?.Invoke(Ship));
+            btn.interactable = true;
         }
 
         /// <summary>

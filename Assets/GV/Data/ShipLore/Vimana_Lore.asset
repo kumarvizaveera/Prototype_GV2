@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 604b577af8a43c942bd5251f25245dcd, type: 3}
+  m_Name: Vimana_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.ShipLoreData
+  shipName: Vimana
+  tagline: Forged before memory. Powered by faith. Older than every kingdom it serves.
+  rarity: Epic
+  shipClass: Ancient Divine Carrier
+  originLabel: Realm
+  originName: Akasa Raajyas
+  factionLabel: Pilots
+  factionName: Sarathi
+  powerSystem: Astra-Powered Thara Core
+  combatRole: Multi-role divine platform
+  specialAbility: "Thara Surge - channels accumulated spiritual energy into a devastating
+    area pulse that disrupts enemy targeting systems and temporarily supercharges
+    all Astra weapons."
+  backstory: "No one built the Vimanas. They were found. Deep beneath the floating
+    peaks of Garuda Vana, inside sealed chambers that predate every kingdom in the
+    Akasa Raajyas, the first Vimanas were discovered during the Age of Excavation.
+    The Devas of Nandana claimed divine right over them. The Yakshas of Ratna Shila
+    insisted they were sacred treasures to be guarded, not flown. The Garudajas simply
+    took them and learned to fly. The truth is that nobody knows who created the Vimanas
+    or why. Their hulls are forged from an alloy that no modern smith can replicate
+    - lighter than bamboo, harder than volcanic diamond. Their power cores run on
+    Thara - the spiritual resonance energy that flows through the Akasa Raajyas like
+    an invisible river. Every kingdom eventually claimed Vimanas of their own. Nandana's
+    royal fleet. Ratna Shila's guardian escorts. Daitya Giri's forge-modified war
+    variants. Garuda Vana's wind-runners. The Sarathi are the pilots chosen by the
+    Vimanas themselves - each vessel bonds with its pilot through Thara Resonance,
+    and a bonded Vimana will not fly for anyone else. The bond is permanent. If the
+    pilot dies, the Vimana goes silent until a new resonance is found, which can take
+    generations."
+  strengths: "Divine-alloy hull absorbs punishment that would shred any manufactured
+    vessel\nThara Core provides near-limitless energy to pilots with strong resonance\nAstra
+    weapon integration - Vimanas amplify the pilot's Astra class by channeling Thara
+    through ancient weapon mounts\nSelf-repairing hull slowly regenerates damage between
+    engagements using ambient Thara energy"
+  weaknesses: "Irreplaceable - if a Vimana is destroyed, it is gone forever; no one
+    can build new ones\nThara dependency means performance drops sharply in low-resonance
+    zones far from the Akasa Raajyas\nAncient systems are unpredictable; critical
+    functions sometimes activate or deactivate without warning\nThe pilot bond means
+    no backup pilots - if the Sarathi is incapacitated, the Vimana is grounded"
+  history: "Discovered beneath Garuda Vana's floating peaks during the Age of Excavation\nNandana's
+    Devas claim divine ownership; the Vimana Wars begin between kingdoms\nYakshas
+    of Ratna Shila seal dozens of Vimanas in protected vaults, refusing to weaponize
+    them\nGarudajas become the first true Vimana pilots, learning flight through instinct
+    and wind\nDaitya Giri's Asura forges modify recovered Vimanas with volcanic-ore
+    weapon mounts\nThe Sarathi tradition is formalized - pilots chosen by Thara bond,
+    not by birth or rank\nAtom Riders appear with Nuclear-P Spaceships, challenging
+    Vimana air supremacy for the first time"
