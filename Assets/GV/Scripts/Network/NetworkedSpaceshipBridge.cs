@@ -334,9 +334,8 @@ namespace GV.Network
 
             // --- NFT → MESH LINK ---
             // Two NFTs map to two meshes: meshRootIndex 0 = A_Spaceship, 1 = B_Vimana.
-            // Prefab defaults to A. If the player selected a B ship, swap immediately.
-            // Network sync (SyncIsAActive / RPC_SendSwapState) propagates to all clients.
-            if (ShipNFTManager.Instance != null)
+            // Only override if the player confirmed ship selection in the UI.
+            if (ShipNFTManager.Instance != null && ShipNFTManager.Instance.HasConfirmedSelection)
             {
                 bool isLocal = Object.HasInputAuthority;
                 if (Runner != null && Object.InputAuthority != PlayerRef.None)

@@ -20512,6 +20512,21 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1965312683237833407}
     m_Modifications:
+    - target: {fileID: 1897333069338838421, guid: a8c5706a7981f6a46b01f6686c962bf0,
+        type: 3}
+      propertyPath: m_Name
+      value: Vyanika
+      objectReference: {fileID: 0}
+    - target: {fileID: 4691129023579472357, guid: a8c5706a7981f6a46b01f6686c962bf0,
+        type: 3}
+      propertyPath: m_text
+      value: Vyanika
+      objectReference: {fileID: 0}
+    - target: {fileID: 6348060195782705300, guid: a8c5706a7981f6a46b01f6686c962bf0,
+        type: 3}
+      propertyPath: m_text
+      value: Aaryaveer
+      objectReference: {fileID: 0}
     - target: {fileID: 6837465939277353984, guid: a8c5706a7981f6a46b01f6686c962bf0,
         type: 3}
       propertyPath: m_LocalPosition.x
@@ -20566,6 +20581,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: Sarathi_All
+      objectReference: {fileID: 0}
+    - target: {fileID: 8511780795291678999, guid: a8c5706a7981f6a46b01f6686c962bf0,
+        type: 3}
+      propertyPath: m_Name
+      value: Aaryaveer
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -21074,6 +21094,21 @@ PrefabInstance:
       propertyPath: m_Name
       value: Atom Rider_All
       objectReference: {fileID: 0}
+    - target: {fileID: 2091464196355731358, guid: ad8560e2c29265c4e8e35cb3dde68fcf,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3952105102669452761, guid: ad8560e2c29265c4e8e35cb3dde68fcf,
+        type: 3}
+      propertyPath: m_text
+      value: Nysera
+      objectReference: {fileID: 0}
+    - target: {fileID: 4275466221880862306, guid: ad8560e2c29265c4e8e35cb3dde68fcf,
+        type: 3}
+      propertyPath: m_Name
+      value: Nysera
+      objectReference: {fileID: 0}
     - target: {fileID: 6836489238148932814, guid: ad8560e2c29265c4e8e35cb3dde68fcf,
         type: 3}
       propertyPath: m_LocalPosition.x
@@ -21123,6 +21158,16 @@ PrefabInstance:
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8380750441442748883, guid: ad8560e2c29265c4e8e35cb3dde68fcf,
+        type: 3}
+      propertyPath: m_text
+      value: Zorvan
+      objectReference: {fileID: 0}
+    - target: {fileID: 8519710176259061792, guid: ad8560e2c29265c4e8e35cb3dde68fcf,
+        type: 3}
+      propertyPath: m_Name
+      value: Zorvan
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
