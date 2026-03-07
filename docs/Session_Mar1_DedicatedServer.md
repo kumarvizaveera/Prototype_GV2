@@ -563,3 +563,240 @@ Fixed scene-placed NetworkObjects (like BattleZoneController) not working after 
 - Surviving players need their own reward trigger — poll for last-standing state
 - EliminationTracker shouldn't gate on NetworkedGameManager if match flow is custom
 - All previous dedicated server lessons (guard patterns, LocalPlayer safety, camera crashes, etc.)
+
+---
+
+## Session 7 — March 7, 2026: Dual Ship Selection, Character Selection UI, Rarity System & NFT Minting
+
+### Overview
+
+Built the full ship + character selection pipeline: overhauled ship selection to a click-order dual-slot system, created the character selection UI with dual-roster layout, implemented the character improvement/rarity system with multiplicative stat stacking, analyzed character sprites, assigned rarity ranks, and minted all 8 characters as ERC-1155 NFTs.
+
+### Feature: Click-Order Dual Ship Selection (ShipSelectionUI.cs)
+
+Overhauled ship selection from single-pick to a two-slot system where players select a Primary and Secondary ship.
+
+**How it works:**
+- 1st click on any ship → assigns as Primary (badge shows "Primary")
+- 2nd click on a different ship → assigns as Secondary (badge shows "Secondary")
+- Clicking an already-assigned ship removes it; if Primary is removed, Secondary shifts up to Primary
+- Ships must have different `meshRootIndex` (type conflict validation — can't pick two of the same type)
+- Only owned and non-locked ships are selectable
+- Confirm button enables only when both slots are filled
+- Info panel shows selected ship's name, description, and rarity
+- Dynamic status messages guide the player through the flow
+
+### Feature: Character Selection UI (CharacterSelectionUI.cs)
+
+New dual-roster character selection screen that appears after ship selection.
+
+**Layout:**
+- Two rows organized by ship type: Row 1 = characters for Ship 0 (Spaceship roster), Row 2 = characters for Ship 1 (Vimana roster)
+- Each character has a `shipRosterIndex` (0 or 1) that determines which row it appears in
+
+**4-slot selection system:**
+- Slot [0] = Ship 0 Primary, Slot [1] = Ship 0 Secondary
+- Slot [2] = Ship 1 Primary, Slot [3] = Ship 1 Secondary
+- Click-order per roster mirrors the ship selection: 1st click = Primary, 2nd = Secondary
+- Confirm button only enables when all 4 slots are filled
+
+**Card UI (CharacterCardUI.cs):**
+- Shows name, rarity color, icon/portrait
+- Lock overlay with "Locked" vs "Not Owned" messaging
+- Selection highlight and slot badges ("Primary", "Secondary")
+- Dim colors for locked/unowned cards
+
+### Feature: Character NFT Manager (CharacterNFTManager.cs)
+
+**CharacterDefinition data structure:**
+- `displayName`, `description`, `tokenId` (ERC-1155), `rarity` (Common/Rare/Epic/Legendary)
+- `shipRosterIndex` (0=Spaceship, 1=Vimana), `isDefault` (free, no NFT required), `isLocked`
+- `icon` (Sprite), `characterStats` (VSX.Engines3D.CharacterData — base stat multipliers)
+
+**Rarity multiplier system:**
+- Common: 1.00x, Rare: 1.06x, Epic: 1.12x, Legendary: 1.18x
+- Accessed via `CharacterRarityHelper.GetMultiplier(rarity)`
+
+**Ownership:** `OwnsCharacter()` checks NFT balance (defaults always return true). `IsCharacterAvailable()` checks ownership AND not locked. `GetCharactersForShip()` filters by `shipRosterIndex`.
+
+### Feature: Character Improvements & Stat Stacking (mint_count_and_improvements.md)
+
+Designed 13 shared stat multipliers across CharacterData and ArtifactData. Each character has a unique stat profile.
+
+**Multiplicative stacking formula:**
+```
+Final Stat = Base × (Character Multiplier × Rarity Multiplier) × Artifact Multiplier × SuperWeapon Multiplier
+```
+
+**8 characters with unique class profiles:**
+1. Aaryaveer — Balanced Striker (all-rounder, beginner-friendly)
+2. Ishvaya — Precision/Control (tactical, accurate)
+3. Vyanika — Mobility/Evasive (fast, slippery)
+4. Roudra — Heavy Burst (aggressive damage)
+5. Zorvan — Missile Hunter (lock-on specialist)
+6. Kaevik — Rapid Assault (high fire rate)
+7. Nysera — Long-Range (sniper feel)
+8. Virexa — Glass Cannon (high-risk, high-reward)
+
+**Mint supply per character:** 12 Common + 5 Rare + 2 Epic + 1 Legendary = 20 NFTs each, 160 total.
+
+### Feature: CreateCharacterDataAssets Editor Script
+
+Created `Assets/GV/Scripts/Editor/CreateCharacterDataAssets.cs` — Unity Editor script that generates 8 CharacterData ScriptableObject assets with the stat profiles from `mint_count_and_improvements.md`. Run from Unity menu to create assets at `Assets/GV/Data/Characters/`.
+
+### Selection Flow (Complete)
+
+```
+Wallet Connect → Ship Selection (2 slots, different types)
+                    → Character Selection (4 slots, 2 per roster)
+                        → Room Lobby (Create/Join)
+                            → Enter Battle → Gameplay
+```
+
+### Files Created/Changed (UI & Selection)
+
+| File | Status | Changes |
+|------|--------|---------|
+| ShipSelectionUI.cs | Modified | Click-order dual-slot system, type conflict validation, slot badges, info panel |
+| CharacterSelectionUI.cs | New | Dual-roster layout, 4-slot selection, per-roster click-order |
+| CharacterNFTManager.cs | New | CharacterDefinition, rarity enum/multiplier, ownership checks, roster filtering |
+| CharacterCardUI.cs | New | Card component with lock overlay, badges, rarity colors, click callbacks |
+| CreateCharacterDataAssets.cs | New | Editor script to generate 8 CharacterData ScriptableObjects |
+| ShipCardUI.cs | Modified | Added slot badge support, lock reason text |
+| mint_count_and_improvements.md | New | Full character stat profiles, rarity tiers, stacking formula, mint supply |
+
+---
+
+### Character Sprite Analysis
+
+Reviewed all 8 character sprites in `Assets/GV/Characters/Sprites/`:
+
+| Character | Visual Traits | Complexity |
+|-----------|--------------|------------|
+| Roudra | Massive gold/bronze armor, Om symbol, glowing energy orbs | Highest |
+| Kaevik | Steampunk circuit-board armor, incredibly detailed textures | Very High |
+| Vyanika | Purple halo, iridescent teal/rose armor, eagle shoulder plates | High |
+| Aaryaveer | Royal crown, gold halo, ornate ceremonial armor | High |
+| Ishvaya | Dark armor with blue circuit lines, deity chest plate | Medium |
+| Zorvan | Blue tactical power armor, battle scars | Medium |
+| Nysera | Sleek grey/orange tactical suit, cybernetic implant | Lower |
+| Virexa | Minimal dark tactical vest, stylish but simple | Lowest |
+
+### Rarity Assignment (Visual + Stat Multipliers Combined)
+
+Combined visual complexity ranking with stat multiplier totals from `mint_count_and_improvements.md`. Characters with lower total multiplier sums (stronger individual stats) and more ornate visuals got higher rarity. Characters with higher sums (more balanced/average stats) and simpler designs got lower rarity.
+
+| Rarity | Character | Total Multiplier Sum | Peak Stat | Visual Match |
+|--------|-----------|---------------------|-----------|--------------|
+| Legendary | Roudra | 13.31 (lowest = strongest) | 1.15 | Most ornate visuals |
+| Legendary | Kaevik | 13.53 | 1.10 | Very detailed steampunk |
+| Epic | Vyanika | 13.46 | 1.10 | Iridescent halo armor |
+| Epic | Aaryaveer | 13.46 | 1.08 | Royal ceremonial |
+| Rare | Ishvaya | 13.60 | 1.10 | Dark circuit armor |
+| Rare | Zorvan | 13.59 | 1.12 | Tactical power armor |
+| Common | Nysera | 13.60 | 1.12 | Clean tactical suit |
+| Common | Virexa | 13.64 (highest = most balanced) | 1.12 | Minimal vest |
+
+### NFT Minting
+
+Minted all 8 characters on contract `0x8405209745b8f1A43D21876120543d20e4a7600C` (MythiX Tests, Avalanche Fuji). Token IDs 0–3 were already used for ships.
+
+**Minting approach:** Attempted thirdweb API (`writeContract`, `sendTransactions`) first — failed with "Chain does not support EIP-7702" because Avalanche Fuji doesn't support the EIP-7702 bundler thirdweb uses for server wallets. Pivoted to browser-based minting through the Thirdweb dashboard UI with the owner wallet.
+
+| Token ID | Character | Rarity | Supply | Class | Attributes |
+|----------|-----------|--------|--------|-------|------------|
+| 4 | Roudra | Legendary | 1 | Heavy Burst | Rarity=Legendary, Class=Heavy Burst |
+| 5 | Kaevik | Legendary | 1 | Rapid Assault | Rarity=Legendary, Class=Rapid Assault |
+| 6 | Vyanika | Epic | 2 | Mobility/Evasive | Rarity=Epic, Class=Mobility Evasive |
+| 7 | Aaryaveer | Epic | 2 | Balanced Striker | Rarity=Epic, Class=Balanced Striker |
+| 8 | Ishvaya | Rare | 5 | Precision/Control | Rarity=Rare, Class=Precision Control |
+| 9 | Zorvan | Rare | 5 | Missile Hunter | Rarity=Rare, Class=Missile Hunter |
+| 10 | Nysera | Common | 12 | Long-Range | Rarity=Common, Class=Long-Range |
+| 11 | Virexa | Common | 12 | Glass Cannon | Rarity=Common, Class=Glass Cannon |
+
+**Total: 40 character NFTs** across 8 token IDs. Combined with 4 ship tokens (IDs 0–3), the contract holds 12 token types total.
+
+Each NFT includes on-chain metadata: Name, Description, and two attributes (Rarity, Class). Sprite images not uploaded (file upload from VM to browser not supported — can be added manually via Thirdweb dashboard).
+
+### On-Chain Verification
+
+Verified via `readContract` batch call:
+- `nextTokenIdToMint()` = 12 (IDs 0–11 exist)
+- All `totalSupply()` values match: 1, 1, 2, 2, 5, 5, 12, 12
+
+### Contract Capabilities Confirmed
+
+- **Edit metadata after mint:** Yes — `setTokenURI(uint256 _tokenId, string _uri)` allows updating name, description, attributes by pointing to a new metadata URI
+- **Increase supply later:** Yes — call `mintTo()` with the same token ID and additional quantity (ERC-1155 allows minting more of existing tokens)
+- **Freeze metadata:** `freezeMetadata()` permanently locks all URIs — don't call until all edits are finalized. `uriFrozen` is currently `false`
+
+### Competition Demo Defaults
+
+For the Build Games competition judge review, default unlocked characters (mirroring the 2 default ships):
+
+| Type | Default Unlocked | Locked |
+|------|-----------------|--------|
+| Ships | Spaceship, Vimana (2) | Vimana Ship, Drone Shooter (2) |
+| Characters | Nysera (Common), Aaryaveer (Epic) (2) | 6 remaining |
+
+Rationale: Nysera is beginner-friendly (Long-Range, Common), Aaryaveer is a balanced all-rounder (Epic) that lets judges feel the rarity multiplier difference. Legendary characters stay locked to create intrigue and showcase the collectible depth.
+
+### Wallet Balance
+
+Owner wallet `0x9824...8D59` topped up to **1.809 AVAX** on Fuji (received 1.8 AVAX from another wallet). Sufficient for hundreds of future transactions.
+
+### Server Wallet Note
+
+Thirdweb server wallet `0x2bBc1C32224a347eaF8d10cAFaF77F3aBCA2551f` (smart wallet: `0x2355169625b332ecB1F86634e4c37170050a03E7`) was granted MINTER_ROLE on the contract but cannot be used for minting due to EIP-7702 incompatibility with Avalanche Fuji. All minting done through the owner wallet via Thirdweb dashboard.
+
+### Key Lessons
+
+- **Thirdweb server wallets use EIP-7702 bundler** — Not supported on all chains. Avalanche Fuji rejects all server wallet transactions with "Chain does not support EIP-7702". Workaround: use the owner wallet directly via dashboard UI.
+- **ERC-1155 allows post-mint supply increases** — Just call `mintTo()` with the same token ID. Unlike ERC-721, token IDs are not unique per unit.
+- **`setTokenURI` updates metadata** — Name, description, and attributes are in the JSON the URI points to. Change the URI to update metadata. But once `freezeMetadata()` is called, it's permanent.
+- **Rarity assignment should combine visual + stats** — Pure visual ranking or pure stat ranking each miss half the picture. Best results come from weighting both: visually impressive characters with strong stat profiles get Legendary, balanced stats with simpler designs get Common.
+
+---
+
+## What's Left
+
+### Completed
+- [x] Test Host mode still works
+- [x] Deploy dedicated server build to VPS
+- [x] Clients connect and play via VPS dedicated server
+- [x] Room code UI — Create Room / Join Room with 4-char codes
+- [x] Scene flow: Bootstrap → Menu → Gameplay with Enter Battle button
+- [x] Deferred player spawning (no ships in menu scene)
+- [x] Ships spawn on spline correctly after Enter Battle
+- [x] UI panel isolation
+- [x] ParrelSync room code flow working end-to-end
+- [x] Camera follows host ship after Enter Battle
+- [x] Client auto-loads gameplay when host starts match
+- [x] Ships spawn at different positions
+- [x] Synced countdown timer (5, 4, 3, 2, 1, GO!)
+- [x] Battle rewards — correct placement for destroyed and surviving players
+- [x] BattleZoneController scene NetworkObject registration
+- [x] Ship lock feature in selection screen
+- [x] Click-order dual ship selection (Primary + Secondary slots)
+- [x] Character selection UI with dual-roster layout (4 slots, 2 per ship)
+- [x] CharacterNFTManager with CharacterDefinition, rarity multipliers, ownership
+- [x] CharacterCardUI with lock overlay, badges, rarity colors
+- [x] Character improvements system — 8 unique stat profiles, multiplicative stacking formula
+- [x] CreateCharacterDataAssets editor script
+- [x] mint_count_and_improvements.md documentation
+- [x] Character sprite analysis and rarity assignment
+- [x] All 8 character NFTs minted on-chain (Token IDs 4–11)
+- [x] On-chain verification of all minted tokens
+- [x] Owner wallet funded (1.809 AVAX)
+
+### Remaining
+- [ ] Update CharacterSelectionUI to set Nysera + Aaryaveer as default unlocked
+- [ ] Wire CharacterDefinition's characterStats and RarityMultiplier into AircraftCharacterManager (bridge NFT selection → gameplay)
+- [ ] Run CreateCharacterDataAssets editor script in Unity
+- [ ] Wire CharacterData assets to CharacterDefinition entries in Inspector
+- [ ] Upload character sprite images to NFT metadata via Thirdweb dashboard
+- [ ] Test position sync between two clients connected to VPS
+- [ ] Rebuild Linux server with latest changes and deploy to VPS
+- [ ] Test with more than 2 clients
+- [ ] Set up systemd auto-restart on VPS
+- [ ] Part B: Scale from 4 to 20-30 players per match

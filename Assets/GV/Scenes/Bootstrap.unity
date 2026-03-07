@@ -481,19 +481,21 @@ MonoBehaviour:
   - displayName: 'Zorvan '
     description: 
     tokenId: 1
-    rarity: 0
+    rarity: 1
     shipRosterIndex: 0
     isDefault: 0
     isLocked: 0
     icon: {fileID: 21300000, guid: f114f70e85cc40d47892353f645986fc, type: 3}
+    characterStats: {fileID: 11400000, guid: 1d49dcd16f212434d9d4986468f00938, type: 2}
   - displayName: Kaevik
     description: 
     tokenId: 0
-    rarity: 0
+    rarity: 3
     shipRosterIndex: 0
     isDefault: 1
     isLocked: 0
     icon: {fileID: 21300000, guid: 68fd7be8ecc89b14eabfd110e8d800df, type: 3}
+    characterStats: {fileID: 11400000, guid: a2ba052fe5418a345bcd9a835909a66c, type: 2}
   - displayName: Nysera
     description: 
     tokenId: 2
@@ -502,6 +504,7 @@ MonoBehaviour:
     isDefault: 1
     isLocked: 0
     icon: {fileID: 21300000, guid: 76794123b40242e4f8f5ac292ac66fe2, type: 3}
+    characterStats: {fileID: 11400000, guid: c17d5b17c6463744f8af1bbd3f4c079b, type: 2}
   - displayName: Virexa
     description: 
     tokenId: 3
@@ -510,38 +513,43 @@ MonoBehaviour:
     isDefault: 0
     isLocked: 0
     icon: {fileID: 21300000, guid: c655e77b69e241b40b4f7166d3b20981, type: 3}
+    characterStats: {fileID: 11400000, guid: c848525e75d53e341a60ecb740ad5a98, type: 2}
   - displayName: Aaryaveer
     description: 
     tokenId: 4
-    rarity: 0
+    rarity: 2
     shipRosterIndex: 1
     isDefault: 1
     isLocked: 0
     icon: {fileID: 21300000, guid: 1bea3cf1f9faa734e91403707c51caa1, type: 3}
+    characterStats: {fileID: 11400000, guid: 182ee57cd21f4d04b9484725184c9e65, type: 2}
   - displayName: Ishvaya
     description: 
     tokenId: 5
-    rarity: 0
+    rarity: 1
     shipRosterIndex: 1
     isDefault: 0
     isLocked: 0
     icon: {fileID: 21300000, guid: c99bd90b317f6cc48b26a1e3a930db27, type: 3}
+    characterStats: {fileID: 11400000, guid: 45ca10861d51a804fb354afc1075315c, type: 2}
   - displayName: Vyanika
     description: 
     tokenId: 6
-    rarity: 0
+    rarity: 2
     shipRosterIndex: 1
     isDefault: 1
     isLocked: 0
     icon: {fileID: 21300000, guid: 167bdd4f97bac4548a3119565425768d, type: 3}
+    characterStats: {fileID: 11400000, guid: a817eda2813fb6c4e9435fe91f476ac5, type: 2}
   - displayName: Roudra
     description: 
     tokenId: 7
-    rarity: 0
+    rarity: 3
     shipRosterIndex: 1
     isDefault: 0
     isLocked: 0
     icon: {fileID: 21300000, guid: 31925bc2d8ca772439089a87a2944f52, type: 3}
+    characterStats: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -8,6 +8,7 @@ using VSX.Controls;
 using VSX.Utilities;
 using VSX.Weapons;
 using VSX.RadarSystem;
+using GV.Web3;
 
 namespace GV.Network
 {
@@ -329,6 +330,43 @@ namespace GV.Network
             {
                 SyncIsAActive = _meshSwap.IsAActive;
                 _prevSyncIsA = _meshSwap.IsAActive;
+            }
+
+            // --- NFT → MESH LINK ---
+            // Two NFTs map to two meshes: meshRootIndex 0 = A_Spaceship, 1 = B_Vimana.
+            // Prefab defaults to A. If the player selected a B ship, swap immediately.
+            // Network sync (SyncIsAActive / RPC_SendSwapState) propagates to all clients.
+            if (ShipNFTManager.Instance != null)
+            {
+                bool isLocal = Object.HasInputAuthority;
+                if (Runner != null && Object.InputAuthority != PlayerRef.None)
+                    isLocal = Object.InputAuthority == Runner.LocalPlayer;
+
+                if (isLocal)
+                {
+                    var selected = ShipNFTManager.Instance.SelectedShip;
+                    if (selected != null)
+                    {
+                        bool wantA = selected.meshRootIndex == 0;
+
+                        if (_meshSwap != null && _meshSwap.IsAActive != wantA)
+                        {
+                            _meshSwap.RequestSetA(wantA);
+                            Debug.Log($"[NetworkedSpaceshipBridge] NFT → mesh: '{selected.displayName}' " +
+                                      $"(meshRootIndex={selected.meshRootIndex}) → {(wantA ? "A_Spaceship" : "B_Vimana")}");
+                        }
+
+                        if (Object.HasStateAuthority)
+                        {
+                            SyncIsAActive = wantA;
+                            _prevSyncIsA = wantA;
+                        }
+                        else
+                        {
+                            RPC_SendSwapState(wantA);
+                        }
+                    }
+                }
             }
 
             if (triggerablesManager == null)

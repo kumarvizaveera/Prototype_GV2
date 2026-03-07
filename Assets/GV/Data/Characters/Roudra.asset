@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 911b5d7d6c4f4bd4182382e86c7de7af, type: 3}
   m_Name: Roudra
   m_EditorClassIdentifier: Assembly-CSharp::VSX.Engines3D.CharacterData
-  characterName: Rudraansh
+  characterName: Roudra
   icon: {fileID: 0}
   speedMultiplier: 0.98
   steeringMultiplier: 0.99

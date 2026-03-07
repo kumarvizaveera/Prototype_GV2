@@ -18980,6 +18980,7 @@ PrefabInstance:
     - {fileID: 311176682875634576, guid: c11c75430698989468fe532c3b045fae, type: 3}
     - {fileID: 4475671161408503807, guid: c11c75430698989468fe532c3b045fae, type: 3}
     - {fileID: 6917379015694906506, guid: c11c75430698989468fe532c3b045fae, type: 3}
+    - {fileID: 6823472898577430842, guid: c11c75430698989468fe532c3b045fae, type: 3}
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 6502653577394538869, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
@@ -19500,6 +19501,7 @@ MonoBehaviour:
   visibleDuration: 3
   fadeDuration: 1
   artifactManager: {fileID: 6295521276865610172}
+  activeRarityMultiplier: 1
 --- !u!114 &3420246686420463674
 MonoBehaviour:
   m_ObjectHideFlags: 0
