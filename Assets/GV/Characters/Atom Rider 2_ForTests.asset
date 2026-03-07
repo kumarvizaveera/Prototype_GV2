@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 911b5d7d6c4f4bd4182382e86c7de7af, type: 3}
-  m_Name: Sarathi 2
+  m_Name: Atom Rider 2_ForTests
   m_EditorClassIdentifier: Assembly-CSharp::VSX.Engines3D.CharacterData
-  characterName: S
+  characterName: AR
   icon: {fileID: 0}
   speedMultiplier: 1.02
   steeringMultiplier: 1.02
@@ -22,7 +22,7 @@ MonoBehaviour:
   projectileSpeedMultiplier: 1.1
   projectileFireRateMultiplier: 1.1
   projectileReloadMultiplier: 1.1
-  missileDamageMultiplier: 3
+  missileDamageMultiplier: 1.1
   missileRangeMultiplier: 1.1
   missileSpeedMultiplier: 1.1
   missileFireRateMultiplier: 1.1

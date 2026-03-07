@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 911b5d7d6c4f4bd4182382e86c7de7af, type: 3}
-  m_Name: Atom Rider 1
+  m_Name: Atom Rider _ForTests
   m_EditorClassIdentifier: Assembly-CSharp::VSX.Engines3D.CharacterData
   characterName: AR
   icon: {fileID: 0}
