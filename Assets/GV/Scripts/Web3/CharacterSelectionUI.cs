@@ -182,7 +182,7 @@ namespace GV.Web3
                 if (cardUI != null)
                 {
                     bool owned = CharacterNFTManager.Instance.OwnsCharacter(character);
-                    cardUI.Setup(character, owned, character.isLocked, OnCharacterCardClicked);
+                    cardUI.Setup(character, owned, character.isLocked, OnCharacterCardClicked, OnCharacterIconClicked);
                 }
             }
 
@@ -264,15 +264,21 @@ namespace GV.Web3
             UpdateSlotDisplay();
         }
 
+        // --- Icon Click → Lore Popup (works for ALL characters, even locked/unowned) ---
+
+        private void OnCharacterIconClicked(CharacterDefinition character)
+        {
+            if (character == null) return;
+
+            if (lorePopup != null)
+                lorePopup.ShowCharacterByName(character.displayName);
+        }
+
         private void UpdateInfoDisplay(CharacterDefinition character)
         {
             if (selectedCharNameText != null) selectedCharNameText.text = character.displayName;
             if (selectedCharDescText != null) selectedCharDescText.text = character.description;
             if (selectedCharRarityText != null) selectedCharRarityText.text = character.rarity.ToString();
-
-            // Show lore popup — matches by character name against loreDatas array
-            if (lorePopup != null)
-                lorePopup.ShowCharacterByName(character.displayName);
         }
 
         private void OnConfirmClicked()

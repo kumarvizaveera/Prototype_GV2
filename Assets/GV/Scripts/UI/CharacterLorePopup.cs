@@ -222,7 +222,7 @@ namespace GV.UI
             {
                 string trimmed = line.Trim();
                 if (string.IsNullOrEmpty(trimmed)) continue;
-                sb.Append($"<color=#{hex}>\u25b8</color>  {trimmed}\n\n");
+                sb.Append($"<color=#{hex}>-</color>  {trimmed}\n\n");
             }
             return sb.ToString().TrimEnd('\n');
         }
@@ -355,64 +355,17 @@ namespace GV.UI
         }
 
         /// <summary>
-        /// Creates the scroll rect + content + body text inside the detail panel.
+        /// Simple body text inside the detail panel — fixed rect, word wrap, no ScrollRect.
         /// </summary>
         private void BuildScrollableBody(Transform parent)
         {
-            // Scroll viewport
-            var scrollGO = new GameObject("DetailScroll");
-            scrollGO.transform.SetParent(parent, false);
-            var scrollRt = scrollGO.AddComponent<RectTransform>();
-            scrollRt.anchorMin        = new Vector2(0.5f, 0.5f);
-            scrollRt.anchorMax        = new Vector2(0.5f, 0.5f);
-            scrollRt.sizeDelta        = new Vector2(460, 165);
-            scrollRt.anchoredPosition = new Vector2(0, -5);
-
-            // Invisible mask image
-            var scrollImg = scrollGO.AddComponent<Image>();
-            scrollImg.color = new Color(0, 0, 0, 0);
-            scrollGO.AddComponent<Mask>().showMaskGraphic = false;
-
-            var scroll = scrollGO.AddComponent<ScrollRect>();
-            scroll.horizontal       = false;
-            scroll.vertical         = true;
-            scroll.movementType     = ScrollRect.MovementType.Elastic;
-            scroll.scrollSensitivity = 30f;
-
-            // Content container (grows with text)
-            var contentGO = new GameObject("Content");
-            contentGO.transform.SetParent(scrollGO.transform, false);
-            var contentRt = contentGO.AddComponent<RectTransform>();
-            contentRt.anchorMin = new Vector2(0, 1);
-            contentRt.anchorMax = new Vector2(1, 1);
-            contentRt.pivot     = new Vector2(0.5f, 1);
-            contentRt.sizeDelta = new Vector2(0, 400);
-
-            scroll.content = contentRt;
-
-            // Auto-resize content to fit text
-            var fitter = contentGO.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            // Body text
-            _detailBody = CreateText(contentGO.transform, "DetailBody", "", 17, COL_GREY_LIGHT,
-                Vector2.zero, new Vector2(440, 0));
+            // Body text — fills most of the detail panel below the title
+            _detailBody = CreateText(parent, "DetailBody", "", 16, COL_GREY_LIGHT,
+                new Vector2(0, -20), new Vector2(460, 170));
             _detailBody.alignment          = TextAlignmentOptions.TopLeft;
             _detailBody.enableWordWrapping = true;
-            _detailBody.overflowMode       = TextOverflowModes.Overflow;
+            _detailBody.overflowMode       = TextOverflowModes.Ellipsis;
             _detailBody.richText           = true;
-
-            // Stretch to fill content
-            var bodyRt = _detailBody.GetComponent<RectTransform>();
-            bodyRt.anchorMin = new Vector2(0, 1);
-            bodyRt.anchorMax = new Vector2(1, 1);
-            bodyRt.pivot     = new Vector2(0.5f, 1);
-            bodyRt.offsetMin = new Vector2(10, 0);
-            bodyRt.offsetMax = new Vector2(-10, 0);
-
-            // Layout element so ContentSizeFitter can measure
-            var layout = _detailBody.gameObject.AddComponent<LayoutElement>();
-            layout.preferredWidth = 440;
         }
 
         // ════════════════════════════════════════════
