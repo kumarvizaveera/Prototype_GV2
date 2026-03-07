@@ -306,6 +306,75 @@ namespace VSX.Engines3D
             RefreshActiveCharacter();
         }
 
+        /// <summary>
+        /// Set the active character for a roster by matching CharacterData reference.
+        /// Called from NetworkedSpaceshipBridge after spawn to link NFT selection to gameplay.
+        /// rosterIndex: 0 = A (Spaceship/Atom Rider), 1 = B (Vimana/Sarathi)
+        /// Also sets the rarity multiplier for stat scaling.
+        /// Returns true if a matching CharacterEntry was found and activated.
+        /// </summary>
+        public bool SetCharacterByData(int rosterIndex, CharacterData data, float rarityMultiplier)
+        {
+            if (data == null) return false;
+
+            List<CharacterEntry> roster = rosterIndex == 0 ? rosterA : rosterB;
+
+            for (int i = 0; i < roster.Count; i++)
+            {
+                if (roster[i].data == data)
+                {
+                    if (rosterIndex == 0)
+                        subIndexA = i;
+                    else
+                        subIndexB = i;
+
+                    activeRarityMultiplier = rarityMultiplier;
+
+                    Debug.Log($"[AircraftCharacterManager] NFT → character: roster{(rosterIndex == 0 ? "A" : "B")}[{i}] " +
+                              $"'{roster[i].name}' (rarity x{rarityMultiplier:F2})");
+
+                    // If this roster is currently active, refresh visuals + stats immediately
+                    if (currentAircraftIndex == rosterIndex)
+                    {
+                        RefreshActiveCharacter();
+                    }
+
+                    return true;
+                }
+            }
+
+            // Fallback: try matching by name
+            string dataName = data.characterName;
+            if (!string.IsNullOrEmpty(dataName))
+            {
+                for (int i = 0; i < roster.Count; i++)
+                {
+                    if (roster[i].name == dataName || (roster[i].data != null && roster[i].data.characterName == dataName))
+                    {
+                        if (rosterIndex == 0)
+                            subIndexA = i;
+                        else
+                            subIndexB = i;
+
+                        activeRarityMultiplier = rarityMultiplier;
+
+                        Debug.Log($"[AircraftCharacterManager] NFT → character (name match): roster{(rosterIndex == 0 ? "A" : "B")}[{i}] " +
+                                  $"'{roster[i].name}' (rarity x{rarityMultiplier:F2})");
+
+                        if (currentAircraftIndex == rosterIndex)
+                        {
+                            RefreshActiveCharacter();
+                        }
+
+                        return true;
+                    }
+                }
+            }
+
+            Debug.LogWarning($"[AircraftCharacterManager] No matching roster entry for CharacterData '{data.characterName}' in roster{(rosterIndex == 0 ? "A" : "B")}");
+            return false;
+        }
+
         [System.Serializable]
         public class SuperWeaponBonuses
         {

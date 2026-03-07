@@ -54,6 +54,9 @@ namespace GV.Web3
         // Has the fetch completed at least once?
         private bool _hasFetchedOnce = false;
 
+        // Has the player explicitly confirmed their character selection via the UI?
+        private bool _hasConfirmedSelection = false;
+
         // --- Public Properties ---
 
         /// <summary>All configured characters (from the Inspector).</summary>
@@ -71,6 +74,9 @@ namespace GV.Web3
 
         /// <summary>Has the NFT data been loaded at least once this session?</summary>
         public bool HasFetchedOnce => _hasFetchedOnce;
+
+        /// <summary>True if the player explicitly confirmed character selection via the UI.</summary>
+        public bool HasConfirmedSelection => _hasConfirmedSelection;
 
         // --- Events ---
 
@@ -251,6 +257,7 @@ namespace GV.Web3
                 return false;
             }
 
+            _hasConfirmedSelection = true;
             Debug.Log($"[CharacterNFTManager] Characters confirmed — " +
                 $"Ship0: {_selectedCharacters[0].displayName} + {_selectedCharacters[1].displayName}, " +
                 $"Ship1: {_selectedCharacters[2].displayName} + {_selectedCharacters[3].displayName}");

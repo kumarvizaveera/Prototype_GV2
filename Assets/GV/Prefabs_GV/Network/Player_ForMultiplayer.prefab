@@ -3157,7 +3157,6 @@ MonoBehaviour:
   - {fileID: 4285658588747489445}
   - {fileID: 1544269806424891214}
   - {fileID: 8275606743065935317}
-  - {fileID: 1301586559464983885}
   - {fileID: 3420246686420463674}
   - {fileID: 8112468108042422247}
   - {fileID: 8545829136287632250}
@@ -19050,10 +19049,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 6499979924966097099, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1301586559464983885}
-    - targetCorrespondingSourceObject: {fileID: 6499979924966097099, guid: c11c75430698989468fe532c3b045fae,
-        type: 3}
-      insertIndex: -1
       addedObject: {fileID: 1023572967602606024}
     - targetCorrespondingSourceObject: {fileID: 6499979924966097099, guid: c11c75430698989468fe532c3b045fae,
         type: 3}
@@ -19302,12 +19297,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 24efe119bf6e96d4c9fc610ec8f95ede, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!54 &5575300662732961545 stripped
-Rigidbody:
-  m_CorrespondingSourceObject: {fileID: 6552748314641624701, guid: c11c75430698989468fe532c3b045fae,
-    type: 3}
-  m_PrefabInstance: {fileID: 1706718805728844148}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &5589366603632611329 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 6502653577394538869, guid: c11c75430698989468fe532c3b045fae,
@@ -19320,61 +19309,6 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 1706718805728844148}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1301586559464983885
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5592321729158715839}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2a5ed3a29572ba4499b0e82805b99148, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PathAutoPilot
-  rb: {fileID: 5575300662732961545}
-  network: {fileID: 0}
-  disableWhileActive: []
-  arriveRadius: 3
-  alignRotationToPath: 1
-  rotationLerp: 6
-  velocityLerp: 4
-  cancelOnAnyInput: 0
-  axisThreshold: 0.15
-  legacyAxesToCheck:
-  - Horizontal
-  - Vertical
-  - Mouse X
-  - Mouse Y
-  inputDelay: 1
-  easeOutSeconds: 1
-  easeOutCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  guideDuringEaseOut: 1
-  statusText: {fileID: 0}
-  uiFormat: Auto Pilot ending in ({0:0.0}) seconds
 --- !u!114 &1023572967602606024
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -19480,21 +19414,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VSX.Engines3D.AircraftCharacterManager
   rosterA:
-  - name: AR 1
-    data: {fileID: 11400000, guid: 2f9018891bef3154fb806d7bc95a6c6b, type: 2}
+  - name: Zorvan
+    data: {fileID: 11400000, guid: 1d49dcd16f212434d9d4986468f00938, type: 2}
     visualRoot: {fileID: 3163227873140000850}
     statsText: {fileID: 3409017456771786232}
-  - name: AR 2
-    data: {fileID: 11400000, guid: c198fa365852f2b409a4a9701e6263ad, type: 2}
+  - name: Nysera
+    data: {fileID: 11400000, guid: c17d5b17c6463744f8af1bbd3f4c079b, type: 2}
     visualRoot: {fileID: 7390297423686374928}
     statsText: {fileID: 6992456338313416044}
   rosterB:
-  - name: S1
-    data: {fileID: 11400000, guid: b2de8be4c0dcbee44bec0d31ba8fc1c9, type: 2}
+  - name: Vyanika
+    data: {fileID: 11400000, guid: a817eda2813fb6c4e9435fe91f476ac5, type: 2}
     visualRoot: {fileID: 6644520531260457158}
     statsText: {fileID: 9183586700496707014}
-  - name: S2
-    data: {fileID: 11400000, guid: 375133c04f5aafe449abb2a5bb991a5b, type: 2}
+  - name: Aaryaveer
+    data: {fileID: 11400000, guid: 182ee57cd21f4d04b9484725184c9e65, type: 2}
     visualRoot: {fileID: 3494038972433235012}
     statsText: {fileID: 3190285036649846680}
   switchCharacterKey: 52

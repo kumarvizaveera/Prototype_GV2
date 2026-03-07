@@ -368,6 +368,38 @@ namespace GV.Network
                 }
             }
 
+            // --- NFT → CHARACTER LINK ---
+            // Maps CharacterNFTManager selections to AircraftCharacterManager rosters.
+            // Slot [0] = rosterA character, Slot [2] = rosterB character.
+            // Sets the active character index + rarity multiplier for stat scaling.
+            if (CharacterNFTManager.Instance != null && CharacterNFTManager.Instance.HasConfirmedSelection)
+            {
+                bool isLocalForChar = Object.HasInputAuthority;
+                if (Runner != null && Object.InputAuthority != PlayerRef.None)
+                    isLocalForChar = Object.InputAuthority == Runner.LocalPlayer;
+
+                if (isLocalForChar)
+                {
+                    var charMgr = GetComponentInChildren<VSX.Engines3D.AircraftCharacterManager>(true);
+                    if (charMgr != null)
+                    {
+                        // Roster A character (slot 0)
+                        var charA = CharacterNFTManager.Instance.GetSelectedCharacter(0);
+                        if (charA != null && charA.characterStats != null)
+                        {
+                            charMgr.SetCharacterByData(0, charA.characterStats, charA.RarityMultiplier);
+                        }
+
+                        // Roster B character (slot 2)
+                        var charB = CharacterNFTManager.Instance.GetSelectedCharacter(2);
+                        if (charB != null && charB.characterStats != null)
+                        {
+                            charMgr.SetCharacterByData(1, charB.characterStats, charB.RarityMultiplier);
+                        }
+                    }
+                }
+            }
+
             if (triggerablesManager == null)
             {
                 triggerablesManager = GetComponentInChildren<VSX.Weapons.TriggerablesManager>();
