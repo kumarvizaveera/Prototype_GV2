@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Nysera_Lore
   m_EditorClassIdentifier: Assembly-CSharp::GV.UI.CharacterLoreData
   characterName: Nysera
-  tagline: "You won\u2019t see me. You\u2019ll see the flash."
+  tagline: "You won't see me. You'll see the flash."
   rarity: Common
   role: Long-Range
   regionLabel: Country
@@ -23,20 +23,20 @@ MonoBehaviour:
   powerClass: Fusion Class Nuclear P
   terrainMastery: Multi Terrain Mastery
   tharaResonance: Advance Thara Resonance
-  backstory: "Raised in Inkara\u2019s INTARi border settlements \u2014 a region caught
+  backstory: "Raised in Inkara's INTARi border settlements - a region caught
     between the old Kingdoms and the new Countries, where information is worth more
     than weapons. Nysera learned to survive by stealing data and selling it before
-    anyone realized it was gone. She sold Ratna Shila\u2019s Yaksha defensive positions
-    to rival kingdoms. She infiltrated Kaevik\u2019s QiNEXi weapons lab and walked
-    out with Antimatter-class schematics. Her cybernetic eye \u2014 a salvaged targeting
-    module reverse-engineered from ancient Vimana tech \u2014 lets her lock targets
+    anyone realized it was gone. She sold Ratna Shila's Yaksha defensive positions
+    to rival kingdoms. She infiltrated Kaevik's QiNEXi weapons lab and walked
+    out with Antimatter-class schematics. Her cybernetic eye - a salvaged targeting
+    module reverse-engineered from ancient Vimana tech - lets her lock targets
     at distances others can barely detect. She partnered with Virexa once. A job in
-    Elgorn Fall went wrong \u2014 Nysera took the data and left Virexa behind."
+    Elgorn Fall went wrong - Nysera took the data and left Virexa behind."
   strengths: "Extreme engagement range; Fusion-class systems tuned for distance strikes\n
-    Advance Thara Resonance \u2014 deep energy reserves for sustained long-range
+    Advance Thara Resonance - deep energy reserves for sustained long-range
     pressure\nInformation warfare; she maps enemy weaknesses before the fight starts"
-  weaknesses: "Fragile in close quarters; if someone closes the gap, she\u2019s finished\n
+  weaknesses: "Fragile in close quarters; if someone closes the gap, she's finished\n
     Cybernetic implants cause chronic pain and need constant maintenance\nNo genuine
     loyalties; allies are temporary, which means support is too"
-  rivals: "Kaevik \u2014 Stole his designs\nIshvaya \u2014 Sold Ratna Shila\u2019s
-    secrets\nVirexa \u2014 Former partner; bitter separation"
+  rivals: "Kaevik - Stole his designs\nIshvaya - Sold Ratna Shila's
+    secrets\nVirexa - Former partner; bitter separation"

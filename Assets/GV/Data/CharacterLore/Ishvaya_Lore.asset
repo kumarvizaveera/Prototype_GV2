@@ -23,15 +23,15 @@ MonoBehaviour:
   powerClass: Celestial Astra Powers
   terrainMastery: Multi Terrain Mastery
   tharaResonance: Advance Thara Resonance
-  backstory: "Sworn guardian of Ratna Shila \u2014 the jeweled fortress-kingdom of
+  backstory: "Sworn guardian of Ratna Shila - the jeweled fortress-kingdom of
     the Yakshas, keepers of sacred treasures hidden since the age of the Vimana builders.
     Ishvaya was raised in the Yaksha warrior tradition: measure twice, strike once,
     waste nothing. Her Celestial Astra may not match the raw power of Supreme-class
     weapons, but her Advance Thara Resonance means she can sustain combat far longer
     than most, wearing opponents down with patient precision. She never wanted the
-    Garuda Trials. She was forced in when Vyanika\u2019s Garudaja raiders began striking
-    Ratna Shila\u2019s outer vaults, and when Nysera \u2014 an Atom Rider intelligence
-    broker from Inkara \u2014 sold Ratna Shila\u2019s defensive layouts to the highest
+    Garuda Trials. She was forced in when Vyanika's Garudaja raiders began striking
+    Ratna Shila's outer vaults, and when Nysera - an Atom Rider intelligence
+    broker from Inkara - sold Ratna Shila's defensive layouts to the highest
     bidder."
   strengths: "Unmatched precision at range; every shot is calculated\nAdvance Thara
     Resonance gives her deep energy reserves for sustained fights\nMulti Terrain Mastery
@@ -39,5 +39,5 @@ MonoBehaviour:
   weaknesses: "Rigid Yaksha honor codes make her predictable to those who study her\n
     Celestial Astra lacks the raw burst of Supreme-class weapons\nClose-range chaos
     exposes her reliance on spacing and control"
-  rivals: "Vyanika \u2014 Garudaja raider hitting her kingdom\u2019s vaults\nNysera
-    \u2014 INTARi data-thief who sold Ratna Shila\u2019s secrets"
+  rivals: "Vyanika - Garudaja raider hitting her kingdom's vaults\nNysera
+    - INTARi data-thief who sold Ratna Shila's secrets"

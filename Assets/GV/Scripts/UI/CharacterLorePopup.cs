@@ -23,6 +23,10 @@ namespace GV.UI
         [Tooltip("Array of CharacterLoreData assets — one per character, in roster order.")]
         public CharacterLoreData[] loreDatas;
 
+        [Header("Popup Position")]
+        [Tooltip("Offset the popup from screen center. Positive X = right, Positive Y = up.")]
+        public Vector2 popupOffset = new Vector2(200, 0);
+
         // --- Auto-built references ---
         private GameObject _popupRoot;
 
@@ -101,9 +105,10 @@ namespace GV.UI
         public void ShowCharacterByName(string characterName)
         {
             if (loreDatas == null || string.IsNullOrEmpty(characterName)) return;
+            string trimmed = characterName.Trim();
             foreach (var data in loreDatas)
             {
-                if (data != null && data.characterName == characterName)
+                if (data != null && data.characterName.Trim() == trimmed)
                 {
                     ShowCharacter(data);
                     return;
@@ -258,7 +263,8 @@ namespace GV.UI
 
             var panel = CreatePanel(canvasGO.transform, "LorePanel", COL_PANEL_BG);
             var panelRect = panel.GetComponent<RectTransform>();
-            CenterRect(panelRect, 560, 420);
+            CenterRect(panelRect, 640, 580);
+            panelRect.anchoredPosition = popupOffset;
 
             // Gold border
             var outline = panel.AddComponent<Outline>();
@@ -267,37 +273,37 @@ namespace GV.UI
 
             // ── Character Name ──
             _nameText = CreateText(panel.transform, "CharName", "CHARACTER", 30, COL_GOLD,
-                new Vector2(0, 170), new Vector2(500, 45));
+                new Vector2(0, 250), new Vector2(580, 45));
             _nameText.fontStyle = FontStyles.Bold;
 
             // ── Tagline ──
             _taglineText = CreateText(panel.transform, "Tagline", "\"...\"", 18, COL_GREY_LIGHT,
-                new Vector2(0, 138), new Vector2(500, 35));
+                new Vector2(0, 218), new Vector2(580, 35));
             _taglineText.fontStyle = FontStyles.Italic;
 
             // ── Divider 1 ──
-            CreateDivider(panel.transform, "Divider1", 118);
+            CreateDivider(panel.transform, "Divider1", 198);
 
             // ── Classification: "Epic · Balanced Striker" ──
             _classText = CreateText(panel.transform, "Classification", "Epic · Balanced Striker", 22, COL_WHITE,
-                new Vector2(0, 90), new Vector2(500, 35));
+                new Vector2(0, 170), new Vector2(580, 35));
             _classText.fontStyle = FontStyles.Bold;
 
             // ── Origin: "Kingdom: Nandana  Faction: Devas" ──
             _originText = CreateText(panel.transform, "Origin", "Kingdom: ... | Faction: ...", 19, COL_GREY_LIGHT,
-                new Vector2(0, 58), new Vector2(500, 32));
+                new Vector2(0, 138), new Vector2(580, 32));
             _originText.richText = true;
 
             // ── Powers ──
             _powersText = CreateText(panel.transform, "Powers",
                 "Supreme Astra · Dual Terrain · Normal Thara", 16, COL_GREY,
-                new Vector2(0, 28), new Vector2(520, 30));
+                new Vector2(0, 108), new Vector2(600, 30));
 
             // ── Divider 2 ──
-            CreateDivider(panel.transform, "Divider2", 6);
+            CreateDivider(panel.transform, "Divider2", 86);
 
             // ── 4 Detail buttons in a row ──
-            float btnY   = -35f;
+            float btnY   = 50f;
             float btnW   = 110f;
             float btnH   = 38f;
             float gap    = 8f;
@@ -316,7 +322,7 @@ namespace GV.UI
 
             // ── Close button ──
             var closeBtn = CreateStyledButton(panel.transform, "CLOSE", COL_CLOSE_BG,
-                new Vector2(0, -170), new Vector2(140, 40), 18);
+                new Vector2(0, -260), new Vector2(140, 40), 18);
             closeBtn.onClick.AddListener(Hide);
 
             // ══════════════════════════════════════
@@ -327,8 +333,8 @@ namespace GV.UI
             var dpRect = _detailPanel.GetComponent<RectTransform>();
             dpRect.anchorMin        = new Vector2(0.5f, 0.5f);
             dpRect.anchorMax        = new Vector2(0.5f, 0.5f);
-            dpRect.sizeDelta        = new Vector2(500, 250);
-            dpRect.anchoredPosition = new Vector2(0, -110);
+            dpRect.sizeDelta        = new Vector2(580, 340);
+            dpRect.anchoredPosition = new Vector2(0, -130);
 
             // Gold border on detail
             var dpOutline = _detailPanel.AddComponent<Outline>();
@@ -337,12 +343,12 @@ namespace GV.UI
 
             // Detail title
             _detailTitle = CreateText(_detailPanel.transform, "DetailTitle", "BACKSTORY", 22, COL_GOLD,
-                new Vector2(0, 100), new Vector2(460, 35));
+                new Vector2(0, 145), new Vector2(540, 35));
             _detailTitle.fontStyle = FontStyles.Bold;
 
             // Close (✕) button — top-right of detail panel
-            var backBtn = CreateStyledButton(_detailPanel.transform, "\u2715", COL_BTN_NORMAL,
-                new Vector2(215, 100), new Vector2(50, 30), 18);
+            var backBtn = CreateStyledButton(_detailPanel.transform, "X", COL_BTN_NORMAL,
+                new Vector2(255, 145), new Vector2(50, 30), 18);
             backBtn.onClick.AddListener(OnBack);
 
             // ── Scrollable body ──
@@ -361,7 +367,7 @@ namespace GV.UI
         {
             // Body text — fills most of the detail panel below the title
             _detailBody = CreateText(parent, "DetailBody", "", 16, COL_GREY_LIGHT,
-                new Vector2(0, -20), new Vector2(460, 170));
+                new Vector2(0, -20), new Vector2(540, 280));
             _detailBody.alignment          = TextAlignmentOptions.TopLeft;
             _detailBody.enableWordWrapping = true;
             _detailBody.overflowMode       = TextOverflowModes.Ellipsis;
@@ -426,7 +432,7 @@ namespace GV.UI
             var r = div.GetComponent<RectTransform>();
             r.anchorMin        = new Vector2(0.5f, 0.5f);
             r.anchorMax        = new Vector2(0.5f, 0.5f);
-            r.sizeDelta        = new Vector2(480, 1);
+            r.sizeDelta        = new Vector2(560, 1);
             r.anchoredPosition = new Vector2(0, yPos);
         }
 

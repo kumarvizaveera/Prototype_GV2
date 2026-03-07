@@ -9885,6 +9885,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: d4e5f6a7b8c9d0e1f2a3b4c5d6a7b802, type: 2}
   - {fileID: 11400000, guid: d4e5f6a7b8c9d0e1f2a3b4c5d6a7b803, type: 2}
   - {fileID: 11400000, guid: d4e5f6a7b8c9d0e1f2a3b4c5d6a7b804, type: 2}
+  popupOffset: {x: 500, y: 0}
 --- !u!4 &2112246962
 Transform:
   m_ObjectHideFlags: 0
