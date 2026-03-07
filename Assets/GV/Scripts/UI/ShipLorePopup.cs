@@ -237,7 +237,7 @@ namespace GV.UI
 
             var panel = CreatePanel(canvasGO.transform, "ShipLorePanel", COL_PANEL_BG);
             var panelRect = panel.GetComponent<RectTransform>();
-            CenterRect(panelRect, 660, 620);
+            CenterRect(panelRect, 760, 720);
             panelRect.anchoredPosition = popupOffset;
 
             var outline = panel.AddComponent<Outline>();
@@ -245,50 +245,50 @@ namespace GV.UI
             outline.effectDistance = new Vector2(2, -2);
 
             // Ship Name
-            _nameText = CreateText(panel.transform, "ShipName", "SHIP", 32, COL_GOLD,
-                new Vector2(0, 270), new Vector2(600, 50));
+            _nameText = CreateText(panel.transform, "ShipName", "SHIP", 34, COL_GOLD,
+                new Vector2(0, 320), new Vector2(700, 50));
             _nameText.fontStyle = FontStyles.Bold;
 
             // Tagline
-            _taglineText = CreateText(panel.transform, "Tagline", "\"...\"", 17, COL_GREY_LIGHT,
-                new Vector2(0, 238), new Vector2(600, 32));
+            _taglineText = CreateText(panel.transform, "Tagline", "\"...\"", 18, COL_GREY_LIGHT,
+                new Vector2(0, 286), new Vector2(700, 32));
             _taglineText.fontStyle = FontStyles.Italic;
 
             // Divider 1
-            CreateDivider(panel.transform, "Divider1", 218);
+            CreateDivider(panel.transform, "Divider1", 264);
 
             // Classification: "Rare · Nuclear Strike Vessel"
-            _classText = CreateText(panel.transform, "Classification", "Rare · Nuclear Strike Vessel", 22, COL_WHITE,
-                new Vector2(0, 190), new Vector2(600, 35));
+            _classText = CreateText(panel.transform, "Classification", "Rare · Nuclear Strike Vessel", 23, COL_WHITE,
+                new Vector2(0, 234), new Vector2(700, 35));
             _classText.fontStyle = FontStyles.Bold;
 
             // Origin: "Alliance: Earth Countries   Pilots: Atom Riders"
-            _originText = CreateText(panel.transform, "Origin", "Alliance: ...", 19, COL_GREY_LIGHT,
-                new Vector2(0, 158), new Vector2(600, 32));
+            _originText = CreateText(panel.transform, "Origin", "Alliance: ...", 20, COL_GREY_LIGHT,
+                new Vector2(0, 200), new Vector2(700, 32));
             _originText.richText = true;
 
             // Technical: "Nuclear-P Reactor Array · Rapid assault strike craft"
-            _techText = CreateText(panel.transform, "Technical", "...", 16, COL_GREY,
-                new Vector2(0, 128), new Vector2(620, 28));
+            _techText = CreateText(panel.transform, "Technical", "...", 17, COL_GREY,
+                new Vector2(0, 168), new Vector2(720, 28));
 
             // Divider 2
-            CreateDivider(panel.transform, "Divider2", 110);
+            CreateDivider(panel.transform, "Divider2", 148);
 
             // Special Ability
-            _abilityText = CreateText(panel.transform, "Ability", "Special: ...", 15, COL_CYAN,
-                new Vector2(0, 82), new Vector2(600, 44));
+            _abilityText = CreateText(panel.transform, "Ability", "Special: ...", 16, COL_CYAN,
+                new Vector2(0, 112), new Vector2(700, 60));
 #pragma warning disable CS0618
             _abilityText.enableWordWrapping = true;
 #pragma warning restore CS0618
 
             // Divider 3
-            CreateDivider(panel.transform, "Divider3", 56);
+            CreateDivider(panel.transform, "Divider3", 76);
 
             // 4 Detail buttons
-            float btnY   = 20f;
-            float btnW   = 115f;
-            float btnH   = 38f;
-            float gap    = 8f;
+            float btnY   = 38f;
+            float btnW   = 130f;
+            float btnH   = 42f;
+            float gap    = 10f;
             float totalW = btnW * 4 + gap * 3;
             float startX = -totalW / 2f + btnW / 2f;
 
@@ -304,7 +304,7 @@ namespace GV.UI
 
             // Close button
             var closeBtn = CreateStyledButton(panel.transform, "CLOSE", COL_CLOSE_BG,
-                new Vector2(0, -280), new Vector2(140, 40), 18);
+                new Vector2(0, -330), new Vector2(150, 42), 18);
             closeBtn.onClick.AddListener(Hide);
 
             // ══════════════════════════════════════
@@ -315,24 +315,24 @@ namespace GV.UI
             var dpRect = _detailPanel.GetComponent<RectTransform>();
             dpRect.anchorMin        = new Vector2(0.5f, 0.5f);
             dpRect.anchorMax        = new Vector2(0.5f, 0.5f);
-            dpRect.sizeDelta        = new Vector2(600, 350);
-            dpRect.anchoredPosition = new Vector2(0, -150);
+            dpRect.sizeDelta        = new Vector2(700, 440);
+            dpRect.anchoredPosition = new Vector2(0, -160);
 
             var dpOutline = _detailPanel.AddComponent<Outline>();
             dpOutline.effectColor    = COL_GOLD_DIM;
             dpOutline.effectDistance = new Vector2(1, -1);
 
-            _detailTitle = CreateText(_detailPanel.transform, "DetailTitle", "BACKSTORY", 22, COL_GOLD,
-                new Vector2(0, 150), new Vector2(560, 35));
+            _detailTitle = CreateText(_detailPanel.transform, "DetailTitle", "BACKSTORY", 24, COL_GOLD,
+                new Vector2(0, 195), new Vector2(660, 38));
             _detailTitle.fontStyle = FontStyles.Bold;
 
             var backBtn = CreateStyledButton(_detailPanel.transform, "X", COL_BTN_NORMAL,
-                new Vector2(265, 150), new Vector2(50, 30), 18);
+                new Vector2(315, 195), new Vector2(50, 30), 18);
             backBtn.onClick.AddListener(OnBack);
 
             // Body text
-            _detailBody = CreateText(_detailPanel.transform, "DetailBody", "", 16, COL_GREY_LIGHT,
-                new Vector2(0, -20), new Vector2(560, 290));
+            _detailBody = CreateText(_detailPanel.transform, "DetailBody", "", 17, COL_GREY_LIGHT,
+                new Vector2(0, -20), new Vector2(660, 380));
             _detailBody.alignment        = TextAlignmentOptions.TopLeft;
 #pragma warning disable CS0618
             _detailBody.enableWordWrapping = true;
@@ -405,7 +405,7 @@ namespace GV.UI
             var r = div.GetComponent<RectTransform>();
             r.anchorMin        = new Vector2(0.5f, 0.5f);
             r.anchorMax        = new Vector2(0.5f, 0.5f);
-            r.sizeDelta        = new Vector2(580, 1);
+            r.sizeDelta        = new Vector2(680, 1);
             r.anchoredPosition = new Vector2(0, yPos);
         }
 

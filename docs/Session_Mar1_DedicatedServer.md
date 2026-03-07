@@ -800,3 +800,136 @@ Thirdweb server wallet `0x2bBc1C32224a347eaF8d10cAFaF77F3aBCA2551f` (smart walle
 - [ ] Test with more than 2 clients
 - [ ] Set up systemd auto-restart on VPS
 - [ ] Part B: Scale from 4 to 20-30 players per match
+
+---
+
+## Session 8 — March 7, 2026: Character & Ship Lore Popup System
+
+### Overview
+
+Built a complete two-level lore popup system for both characters and ships. Clicking any character or ship icon (even locked/unowned) opens a programmatically-built popup with rich lore data. Created ScriptableObject-based lore data for all 8 characters and 4 ships with world-building content tied to the 9 Kingdoms (Sarathi) and 9 Countries (Atom Riders).
+
+### Feature: Character Lore Popup (CharacterLorePopup.cs)
+
+Auto-builds its own UI from code at runtime (no prefab needed). Matches PostMatchRewardUI style with dark panels and gold accents.
+
+**Two-level design:**
+- Level 1: Name, tagline, rarity, role, region/faction, power class, terrain mastery, Thara resonance + 4 detail buttons
+- Level 2: Backstory, Strengths (green bullets), Weaknesses (red bullets), Rivals (orange bullets)
+
+**Key implementation details:**
+- Panel size: 640x580, detail panel: 580x340, body text: 540x280
+- `popupOffset` Inspector field (Vector2) to position popup anywhere on screen
+- Non-blocking dark overlay (`raycastTarget = false`) so clicking another icon switches the popup without closing first
+- `.Trim()` on name comparison to handle trailing whitespace in displayName fields
+
+### Feature: Character Lore Data (CharacterLoreData.cs)
+
+ScriptableObject with fields: characterName, tagline, rarity, role, regionLabel, regionName, factionLabel, factionName, powerClass, terrainMastery, tharaResonance, backstory, strengths, weaknesses, rivals.
+
+**8 character lore assets created** (`Assets/GV/Data/CharacterLore/`):
+
+| Character | Rarity | Region | Faction | Role |
+|-----------|--------|--------|---------|------|
+| Aaryaveer | Epic | Nandana | Devas | Balanced Striker |
+| Ishvaya | Rare | Ratna Shila | Yakshas | Precision/Control |
+| Vyanika | Epic | Garuda Vana | Garudajas | Mobility/Evasive |
+| Roudra | Legendary | Daitya Giri | Asuras | Heavy Burst |
+| Zorvan | Rare | Aurkana | NEO-TERRANs | Missile Hunter |
+| Kaevik | Legendary | Silkvale | QiNEXIs | Rapid Assault |
+| Nysera | Common | Inkara | INTARIs | Long-Range |
+| Virexa | Common | Elgorn Fall | ERGOVANs | Glass Cannon |
+
+### Feature: Icon Click Overlay Pattern (CharacterCardUI.cs, ShipCardUI.cs)
+
+**Problem:** The selectButton covers the entire card, intercepting all clicks. Adding a Button to iconImage directly doesn't work because it renders underneath the selectButton in raycast order.
+
+**Solution:** Created a transparent `IconClickOverlay` GameObject as the LAST child of the card (renders on top of selectButton in raycast order), matching the icon's exact position/size. Works for all cards including locked/unowned.
+
+**Applied to both CharacterCardUI and ShipCardUI** with identical pattern:
+- `BuildIconClickOverlay()` creates transparent Image + Button as last sibling
+- Handles nested icon transforms by converting world corners to local card space
+- Always interactable regardless of lock/ownership state
+
+### Feature: Ship Lore Popup (ShipLorePopup.cs)
+
+Same auto-build pattern as CharacterLorePopup but with ship-specific fields.
+
+**Two-level design:**
+- Level 1: Ship name, tagline, rarity + ship class, origin/faction, power system/combat role, special ability (cyan, word wrap) + 4 detail buttons
+- Level 2: Backstory, Strengths (green), Weaknesses (red), History (orange)
+
+**Sizing:** Panel 760x720, detail panel 700x440, body text 660x380. Buttons 130x42. Inspector `popupOffset` field.
+
+### Feature: Ship Lore Data (ShipLoreData.cs)
+
+ScriptableObject with fields: shipName, tagline, rarity, shipClass, originLabel, originName, factionLabel, factionName, powerSystem, combatRole, specialAbility, backstory, strengths, weaknesses, history.
+
+**4 ship lore assets created** (`Assets/GV/Data/ShipLore/`):
+
+| Ship | Rarity | Class | Origin | Pilots | Special Ability |
+|------|--------|-------|--------|--------|-----------------|
+| Spaceship | Rare | Nuclear Strike Vessel | Earth Countries in Akasya | Atom Riders | Reactor Overclock — burst damage at hull cost |
+| Vimana | Epic | Ancient Divine Carrier | Akasa Raajyas | Sarathi | Thara Surge — area pulse disrupts targeting, supercharges Astra |
+| Vimana Ship | Rare | Hybrid Assault Carrier | Akasa Raajyas + Earth Countries | Sarathi & Atom Riders | Resonance Shift — toggles Thara/Nuclear mode (3s vulnerable transition) |
+| Drone Shooter | Uncommon | Autonomous Strike Drone | Inkara (INTARi Network) | INTARi Remote Corps | Swarm Protocol — splits into 3 sub-drones for 8 seconds |
+
+### Ship Lore World-Building
+
+**Spaceship:** Classified NEO-TERRAn weapons program. 9 Countries pooled technology — Aurkana's targeting, Silkvale's weapons, Inkara's sensors, Elgorn Fall's reactors, Saharai's heat shielding. Atom Riders are independent pilots (engineers, deserters, mercenaries).
+
+**Vimana:** Ancient pre-Kingdom vessels discovered in sealed chambers under Garuda Vana. Divine-alloy hulls, Thara-powered cores. Bond with pilot through Thara Resonance — permanent bond, no backup pilots. If pilot dies, Vimana goes silent for generations.
+
+**Vimana Ship (Hybrid):** Born from a stalemate at the Battle of Garuda Vana's Lower Peaks. Rogue Garudaja + QiNEXi + INTARi coalition stole a dormant Vimana and spliced Nuclear-P reactor housing alongside its Thara Core. First ignition failed (resonance cascade leveled the hangar). Second attempt created the only ship that runs on two hearts.
+
+**Drone Shooter:** Started as INTARi surveillance drones — Atom Riders and ERGOVAns kept shooting them down. INTARi armed them. Mass-produced, expendable, no pilot. Manufactured in 3 days from standard components. Both Kingdoms and Countries tried to ban autonomous weapons — INTARi ignored both.
+
+### Wiring Changes
+
+**CharacterSelectionUI.cs:**
+- Added `[SerializeField] private CharacterLorePopup lorePopup`
+- Updated `PopulateAllCards()` to pass `OnCharacterIconClicked` callback
+- Added `OnCharacterIconClicked(CharacterDefinition character)` handler
+
+**ShipSelectionUI.cs:**
+- Added `[SerializeField] private ShipLorePopup lorePopup`
+- Updated `PopulateShipCards()` to pass `OnShipIconClicked` callback
+- Added `OnShipIconClicked(ShipDefinition ship)` handler with debug logging
+
+### Bugs Fixed This Session
+
+1. **No popup on icon click** — selectButton covers entire card, blocking icon clicks. Fix: transparent overlay as last child sits on top in raycast order.
+2. **Level 2 detail text blank** — ScrollRect/ContentSizeFitter/VerticalLayoutGroup fighting each other, body text had zero height. Fix: replaced with simple fixed-size TMP_Text.
+3. **Unicode box characters** — LiberationSans SDF doesn't support U+25B8 (bullet), U+2715 (X mark), U+2014 (em dash), U+2019 (curly apostrophe). Fix: replaced with ASCII equivalents (`-`, `X`, `-`, `'`) in code and all 8 lore assets.
+4. **Zorvan popup not working** — trailing space in displayName `'Zorvan '`. Fix: `.Trim()` on both sides of name comparison.
+5. **Popup won't switch without closing** — dark overlay blocking clicks to cards underneath. Fix: `overlay.GetComponent<Image>().raycastTarget = false`.
+6. **ShipLoreData "Missing (Mono Script)"** — Asset files created with placeholder GUID that didn't match actual ShipLoreData.cs.meta GUID. Fix: updated asset GUIDs to `604b577af8a43c942bd5251f25245dcd`. Vimana asset required full delete + recreate due to Unity caching the broken reference.
+7. **CS0618 deprecation warning** — `enableWordWrapping` obsolete in TMP. Fix: wrapped with `#pragma warning disable/restore CS0618` (safe approach since `TextWrappingModes` enum may not exist in all TMP versions).
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| CharacterLoreData.cs | ScriptableObject for character lore fields |
+| CharacterLorePopup.cs | Auto-built two-level character popup UI |
+| ShipLoreData.cs | ScriptableObject for ship lore fields |
+| ShipLorePopup.cs | Auto-built two-level ship popup UI |
+| 8x Character Lore .asset files | `Assets/GV/Data/CharacterLore/` |
+| 4x Ship Lore .asset files | `Assets/GV/Data/ShipLore/` |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| CharacterCardUI.cs | Added `_onIconClick` callback, `BuildIconClickOverlay()` method |
+| CharacterSelectionUI.cs | Added lorePopup field, icon click handler |
+| ShipCardUI.cs | Added `_onIconClick` callback, `BuildIconClickOverlay()` method |
+| ShipSelectionUI.cs | Added lorePopup field, icon click handler with debug logging |
+
+### Key Lessons
+
+- **Raycast order follows sibling order** — last child in hierarchy receives raycasts first. Use `SetAsLastSibling()` to put overlays on top.
+- **LiberationSans SDF has limited Unicode** — Stick to ASCII for UI text. No em dashes, curly quotes, triangle bullets, or special X marks.
+- **Unity caches broken ScriptableObject references** — Changing the GUID in an .asset file may not be enough. Sometimes you need to delete both .asset and .meta files and recreate from scratch.
+- **Pragma warning disable is safer than API migration** — When replacing deprecated APIs, the new API might not exist in all versions. Suppressing the warning keeps code compiling everywhere.
+- **Non-blocking overlays enable popup switching** — Setting `raycastTarget = false` on the dark overlay lets clicks pass through to cards underneath, enabling seamless popup switching without close-reopen.

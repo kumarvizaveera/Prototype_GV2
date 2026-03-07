@@ -650,7 +650,7 @@ MonoBehaviour:
   selectedShipDescText: {fileID: 0}
   selectedShipRarityText: {fileID: 0}
   confirmButton: {fileID: 1408283771}
-  lorePopup: {fileID: 0}
+  lorePopup: {fileID: 1764546943}
   loadingIndicator: {fileID: 597162301}
   statusText: {fileID: 692049846}
 --- !u!114 &163886862
@@ -8258,6 +8258,8 @@ MonoBehaviour:
   loreDatas:
   - {fileID: 11400000, guid: 29cee199cc368154b99c0a08ef54dc3c, type: 2}
   - {fileID: 11400000, guid: eabe15ab12765e446842745c235e71b0, type: 2}
+  - {fileID: 11400000, guid: 415c367df38b2194e99a3722d7c17bc2, type: 2}
+  - {fileID: 11400000, guid: 0988407f8b408314fbea15316cead2e9, type: 2}
   popupOffset: {x: 500, y: 0}
 --- !u!4 &1764546944
 Transform:

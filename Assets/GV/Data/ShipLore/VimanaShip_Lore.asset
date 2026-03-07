@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 604b577af8a43c942bd5251f25245dcd, type: 3}
+  m_Name: VimanaShip_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.ShipLoreData
+  shipName: Vimana Ship
+  tagline: Two worlds fused into one hull. Neither side trusts it. Both sides need
+    it.
+  rarity: Rare
+  shipClass: Hybrid Assault Carrier
+  originLabel: Joint Program
+  originName: Akasa Raajyas - Earth Countries
+  factionLabel: Pilots
+  factionName: Sarathi & Atom Riders
+  powerSystem: Dual-Core Thara-Nuclear Reactor
+  combatRole: Adaptive multi-theater strike platform
+  specialAbility: "Resonance Shift - toggles between Thara Mode (divine-alloy shields,
+    Astra weapon boost, self-repair) and Nuclear Mode (reactor overclock, rapid-fire
+    hardpoints, targeting computer override). Switching takes three seconds and leaves
+    the ship vulnerable during transition."
+  backstory: "The Vimana Ship was never supposed to exist. After the Battle of Garuda
+    Vana's Lower Peaks - the first engagement where Atom Rider Spaceships fought Sarathi
+    Vimanas to a standstill - both sides realized something dangerous. Neither could
+    destroy the other. The Kingdoms had divine armor and limitless Thara energy but
+    their ancient weapons lacked the precision of modern targeting systems. The Countries
+    had raw Nuclear-P firepower and modular hardpoints but their manufactured hulls
+    cracked under sustained Astra bombardment. A rogue coalition formed in secret.
+    Garudaja wind-readers who had grown tired of the Devas claiming ownership of every
+    Vimana. QiNEXi engineers from Silkvale who wanted to push reactor technology beyond
+    anything a pure Spaceship could handle. INTARi operatives who saw an opportunity
+    to broker power between both worlds. They stole a dormant Vimana from Ratna Shila's
+    sealed vaults and dragged it to an underground hangar in Elgorn Fall. For two years
+    they cut into divine-alloy hull plating and welded Nuclear-P reactor housing alongside
+    the ancient Thara Core. Half the engineering team died when the first dual-core
+    ignition caused a resonance cascade that leveled the hangar. The second attempt
+    worked. The Vimana Ship flies on two hearts - one ancient, one manufactured. It
+    can switch between power sources mid-flight, adapting to any battlefield. The Kingdoms
+    call it an abomination. The Countries call it a stolen weapon. The pilots who fly
+    it call it the only ship that can survive what is coming."
+  strengths: "Dual-core system allows switching between divine and nuclear power
+    mid-combat\nDivine-alloy hull sections provide Vimana-class protection on critical
+    components\nNuclear-P hardpoints deliver precision firepower that pure Vimanas
+    lack\nAdaptive loadout - can be configured for either Thara-heavy or Nuclear-heavy
+    operations depending on the mission"
+  weaknesses: "Resonance Shift transition leaves the ship defenseless for three
+    seconds\nDual-core synchronization is fragile - heavy damage can knock one core
+    offline permanently\nNeither Sarathi nor Atom Rider maintenance crews fully
+    understand the other half of the ship\nExtremely rare - each one is hand-built
+    from a salvaged Vimana hull, and there are very few dormant Vimanas left"
+  history: "Battle of Garuda Vana's Lower Peaks ends in stalemate between Spaceships
+    and Vimanas\nRogue Garudaja and QiNEXi engineers form a secret coalition in Elgorn
+    Fall\nINTARi operatives steal a dormant Vimana from Ratna Shila's sealed vaults\nFirst
+    dual-core ignition fails catastrophically - resonance cascade destroys the underground
+    hangar\nSecond prototype achieves stable Thara-Nuclear synchronization\nKingdoms
+    of Nandana and Daitya Giri denounce the project as sacrilege against divine
+    vessels\nEarth Countries demand the technology be surrendered to military command\nVimana
+    Ship pilots refuse both sides and operate as an independent faction"

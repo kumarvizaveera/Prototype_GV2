@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 604b577af8a43c942bd5251f25245dcd, type: 3}
+  m_Name: DroneShooter_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.ShipLoreData
+  shipName: Drone Shooter
+  tagline: No pilot. No mercy. No one hears you call for backup.
+  rarity: Uncommon
+  shipClass: Autonomous Strike Drone
+  originLabel: Developed In
+  originName: Inkara - INTARi Intelligence Network
+  factionLabel: Operators
+  factionName: INTARi Remote Corps
+  powerSystem: Compact Fission Cell Array
+  combatRole: Expendable rapid-response hunter
+  specialAbility: "Swarm Protocol - splits into three smaller sub-drones that attack
+    from different angles simultaneously. Each sub-drone carries reduced firepower
+    but independent targeting. Recombines after eight seconds or if any sub-drone is
+    destroyed."
+  backstory: "The Drone Shooter began as an INTARi surveillance platform. Inkara's
+    intelligence network needed eyes everywhere - over Daitya Giri's volcanic forges,
+    above Nandana's royal shipyards, inside the storm corridors around Garuda Vana.
+    The original drones were small, silent, and completely unarmed. Then the Atom Riders
+    started shooting them down. Saharai's desert raiders figured out how to jam their
+    signals. Elgorn Fall's ERGOVAn patrols deployed net launchers that snagged them
+    mid-flight. The INTARi response was predictable - if the drones keep getting destroyed,
+    make them shoot back. The first armed variant was crude. A compact fission cell
+    bolted to a reinforced surveillance frame with a single forward-mounted cannon.
+    It worked better than anyone expected. The drones were fast, cheap, and disposable.
+    Where a Spaceship costs a small fortune in Nuclear-P fuel cells and a Vimana is
+    literally irreplaceable, a Drone Shooter can be manufactured in three days from
+    standard industrial components. Inkara built hundreds. The INTARi Remote Corps
+    operates them from hidden bunkers scattered across all nine Countries. No pilot
+    sits inside. No one risks their life. The drone flies, fights, and if it gets
+    destroyed, another one rolls off the assembly line. The Kingdoms consider them
+    cowardly. The Atom Riders consider them unreliable. The INTARi consider them the
+    future of warfare."
+  strengths: "Mass-produced and expendable - losses are replaceable within days\nNo
+    pilot means no risk to human or Sarathi life\nSmall profile makes it difficult
+    to target compared to full-size vessels\nSwarm Protocol overwhelms single targets
+    with coordinated multi-angle attacks"
+  weaknesses: "Minimal armor - a single clean hit from an Astra weapon or Nuclear-P
+    cannon will destroy it\nCompact fission cells provide limited sustained firepower
+    compared to full reactors\nRemote signal link can be jammed or intercepted by
+    advanced electronic warfare\nNo Thara Resonance and no onboard pilot means zero
+    adaptability to unexpected combat situations"
+  history: "INTARi deploys first unarmed surveillance drones across all nine Countries
+    and Kingdoms\nAtom Riders and ERGOVAn patrols begin systematically destroying
+    surveillance drones\nSaharai desert raiders develop signal jamming technology
+    targeting drone control frequencies\nINTARi engineers in Inkara arm the first
+    combat variant with a compact fission cannon\nMass production begins - Inkara's
+    factories produce hundreds of armed drones\nINTARi Remote Corps established as
+    a dedicated drone warfare division\nFirst Swarm Protocol test destroys a stolen
+    Vimana hull in under twelve seconds\nKingdoms and Countries both attempt to ban
+    autonomous weapons - INTARi ignores both"
