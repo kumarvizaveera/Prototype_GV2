@@ -253,9 +253,10 @@ namespace GV.UI
 
             _popupRoot = canvasGO;
 
-            // ── Full-screen dark overlay ──
+            // ── Full-screen dark overlay (non-blocking so icon clicks pass through) ──
             var overlay = CreatePanel(canvasGO.transform, "Overlay", COL_OVERLAY);
             StretchFull(overlay);
+            overlay.GetComponent<Image>().raycastTarget = false;
 
             // ══════════════════════════════════════
             //  LEVEL 1 — MAIN INFO PANEL
