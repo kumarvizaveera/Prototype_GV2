@@ -278,16 +278,18 @@ namespace VSX.Engines3D
         private void UpdateBonusText(CharacterData data, TMP_Text textComp)
         {
             if (data == null) return;
-            
-            // Format: "+10% Speed | +5% Handling | +5% Boost"
-            int spdBonus = Mathf.RoundToInt((data.speedMultiplier - 1f) * 100f);
-            int strBonus = Mathf.RoundToInt((data.steeringMultiplier - 1f) * 100f);
-            int bstBonus = Mathf.RoundToInt((data.boostMultiplier - 1f) * 100f);
+
+            float rar = activeRarityMultiplier;
+
+            // Show rarity-adjusted bonuses: (multiplier * rarity - 1) * 100
+            int spdBonus = Mathf.RoundToInt((data.speedMultiplier * rar - 1f) * 100f);
+            int strBonus = Mathf.RoundToInt((data.steeringMultiplier * rar - 1f) * 100f);
+            int bstBonus = Mathf.RoundToInt((data.boostMultiplier * rar - 1f) * 100f);
 
             string text = "";
-            if (spdBonus != 0) text += $"+{spdBonus}% Speed\n";
-            if (strBonus != 0) text += $"+{strBonus}% Handling\n";
-            if (bstBonus != 0) text += $"+{bstBonus}% Boost";
+            if (spdBonus != 0) text += $"{(spdBonus > 0 ? "+" : "")}{spdBonus}% Speed\n";
+            if (strBonus != 0) text += $"{(strBonus > 0 ? "+" : "")}{strBonus}% Handling\n";
+            if (bstBonus != 0) text += $"{(bstBonus > 0 ? "+" : "")}{bstBonus}% Boost";
 
             if (string.IsNullOrEmpty(text)) text = "Base Stats";
             textComp.text = text;
@@ -340,11 +342,19 @@ namespace VSX.Engines3D
             RefreshStats();
         }
 
+        /// <summary>
+        /// The rarity multiplier for the currently active character.
+        /// Set from CharacterDefinition.RarityMultiplier when loading from NFT selection.
+        /// Defaults to 1.0 (Common) if not set.
+        /// </summary>
+        [HideInInspector]
+        public float activeRarityMultiplier = 1f;
+
         private void ApplyBonuses(CharacterData data)
         {
             // Logic updated to check the public field FIRST, then fallback to GetComponent
             if (artifactManager == null) artifactManager = GetComponent<AircraftArtifactManager>();
-            
+
             float artSpeed = 1f;
             float artSteer = 1f;
             float artBoost = 1f;
@@ -358,15 +368,18 @@ namespace VSX.Engines3D
                 artBoost = artifactBonuses.boost;
             }
 
-            // Formula: Base * Character * Artifacts * Super Boost
-            fMaxMovement.SetValue(engines, baseMaxMovement * data.speedMultiplier * artSpeed * superSpeedMultiplier);
-            fMaxSteering.SetValue(engines, baseMaxSteering * data.steeringMultiplier * artSteer * superSteeringMultiplier);
-            fMaxBoost.SetValue(engines, baseMaxBoost * data.boostMultiplier * artBoost * superBoostMultiplier);
+            // Rarity layer — applied on top of character base stats
+            float rar = activeRarityMultiplier;
 
-            Debug.Log($"[CharacterManager] Applied {data.characterName} + Artifacts + SuperBoost. " +
-                      $"Multipliers: Spd x{data.speedMultiplier * artSpeed * superSpeedMultiplier:F2}, " +
-                      $"Str x{data.steeringMultiplier * artSteer * superSteeringMultiplier:F2}, " +
-                      $"Bst x{data.boostMultiplier * artBoost * superBoostMultiplier:F2}");
+            // Formula: Base * (Character * Rarity) * Artifacts * Super Boost
+            fMaxMovement.SetValue(engines, baseMaxMovement * (data.speedMultiplier * rar) * artSpeed * superSpeedMultiplier);
+            fMaxSteering.SetValue(engines, baseMaxSteering * (data.steeringMultiplier * rar) * artSteer * superSteeringMultiplier);
+            fMaxBoost.SetValue(engines, baseMaxBoost * (data.boostMultiplier * rar) * artBoost * superBoostMultiplier);
+
+            Debug.Log($"[CharacterManager] Applied {data.characterName} (Rarity x{rar:F2}) + Artifacts + SuperBoost. " +
+                      $"Multipliers: Spd x{data.speedMultiplier * rar * artSpeed * superSpeedMultiplier:F2}, " +
+                      $"Str x{data.steeringMultiplier * rar * artSteer * superSteeringMultiplier:F2}, " +
+                      $"Bst x{data.boostMultiplier * rar * artBoost * superBoostMultiplier:F2}");
 
             ApplyWeaponBonuses(data, artifactBonuses);
         }
@@ -410,12 +423,13 @@ namespace VSX.Engines3D
                     }
                 }
 
-                // Gather Bonuses (Character * Artifact)
-                float charDmg = isMissile ? data.missileDamageMultiplier : data.projectileDamageMultiplier;
-                float charRange = isMissile ? data.missileRangeMultiplier : data.projectileRangeMultiplier;
-                float charSpeed = isMissile ? data.missileSpeedMultiplier : data.projectileSpeedMultiplier;
-                float charFireRate = isMissile ? data.missileFireRateMultiplier : data.projectileFireRateMultiplier;
-                float charReload = isMissile ? data.missileReloadMultiplier : data.projectileReloadMultiplier;
+                // Gather Bonuses (Character * Rarity * Artifact)
+                float rar = activeRarityMultiplier;
+                float charDmg = (isMissile ? data.missileDamageMultiplier : data.projectileDamageMultiplier) * rar;
+                float charRange = (isMissile ? data.missileRangeMultiplier : data.projectileRangeMultiplier) * rar;
+                float charSpeed = (isMissile ? data.missileSpeedMultiplier : data.projectileSpeedMultiplier) * rar;
+                float charFireRate = (isMissile ? data.missileFireRateMultiplier : data.projectileFireRateMultiplier) * rar;
+                float charReload = (isMissile ? data.missileReloadMultiplier : data.projectileReloadMultiplier) * rar;
 
                 float artDmg = 1f, artRange = 1f, artSpeed = 1f, artFireRate = 1f, artReload = 1f;
 

@@ -425,6 +425,10 @@ namespace GV.Web3
     /// - 0 = Spaceship / Roster A
     /// - 1 = Vimana / Roster B
     /// This matches the AircraftCharacterManager's rosterA/rosterB system.
+    ///
+    /// characterStats links to the CharacterData ScriptableObject that holds
+    /// the base stat multipliers for this character. Rarity is applied on top:
+    /// Final Stat = CharacterData.baseMultiplier × RarityMultiplier
     /// </summary>
     [Serializable]
     public class CharacterDefinition
@@ -439,7 +443,8 @@ namespace GV.Web3
         [Tooltip("The NFT token ID on the ERC-1155 contract. Must match what was minted. Ignored for the default character.")]
         public int tokenId = 0;
 
-        [Tooltip("Character rarity tier — purely cosmetic/organizational.")]
+        [Tooltip("Character rarity tier. Affects gameplay via rarity multiplier:\n" +
+                 "Common = 1.00x, Rare = 1.06x, Epic = 1.12x, Legendary = 1.18x")]
         public CharacterRarity rarity = CharacterRarity.Common;
 
         [Tooltip("Which ship roster this character belongs to. 0 = Spaceship/Roster A, 1 = Vimana/Roster B.")]
@@ -455,16 +460,47 @@ namespace GV.Web3
 
         [Tooltip("Optional: a sprite/icon for the character selection UI.")]
         public Sprite icon;
+
+        [Tooltip("Link to the CharacterData ScriptableObject with base stat multipliers. " +
+                 "Rarity multiplier is applied on top of these base values at runtime.")]
+        public VSX.Engines3D.CharacterData characterStats;
+
+        /// <summary>
+        /// Returns the rarity multiplier for this character's rarity tier.
+        /// Applied on top of CharacterData base stats:
+        /// Final = Base × RarityMultiplier
+        /// </summary>
+        public float RarityMultiplier => CharacterRarityHelper.GetMultiplier(rarity);
     }
 
     /// <summary>
-    /// Rarity tiers for characters. Just labels — change or add more anytime.
+    /// Rarity tiers for characters.
+    /// Common = baseline, Rare/Epic/Legendary scale all stats.
     /// </summary>
     public enum CharacterRarity
     {
         Common,
-        Uncommon,
         Rare,
+        Epic,
         Legendary
+    }
+
+    /// <summary>
+    /// Helper to get the gameplay multiplier for each rarity tier.
+    /// These values are applied on top of CharacterData base stats.
+    /// </summary>
+    public static class CharacterRarityHelper
+    {
+        public static float GetMultiplier(CharacterRarity rarity)
+        {
+            switch (rarity)
+            {
+                case CharacterRarity.Common:    return 1.00f;
+                case CharacterRarity.Rare:      return 1.06f;
+                case CharacterRarity.Epic:      return 1.12f;
+                case CharacterRarity.Legendary: return 1.18f;
+                default:                        return 1.00f;
+            }
+        }
     }
 }

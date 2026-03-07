@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 911b5d7d6c4f4bd4182382e86c7de7af, type: 3}
+  m_Name: Nysera
+  m_EditorClassIdentifier: Assembly-CSharp::VSX.Engines3D.CharacterData
+  characterName: Nysera
+  icon: {fileID: 0}
+  speedMultiplier: 1.01
+  steeringMultiplier: 1.04
+  boostMultiplier: 1.02
+  projectileDamageMultiplier: 1.07
+  projectileRangeMultiplier: 1.12
+  projectileSpeedMultiplier: 1.1
+  projectileFireRateMultiplier: 1
+  projectileReloadMultiplier: 1.01
+  missileDamageMultiplier: 1.04
+  missileRangeMultiplier: 1.1
+  missileSpeedMultiplier: 1.08
+  missileFireRateMultiplier: 1
+  missileReloadMultiplier: 1.01

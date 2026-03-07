@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 911b5d7d6c4f4bd4182382e86c7de7af, type: 3}
+  m_Name: Zorvan
+  m_EditorClassIdentifier: Assembly-CSharp::VSX.Engines3D.CharacterData
+  characterName: Zorvan
+  icon: {fileID: 0}
+  speedMultiplier: 1.02
+  steeringMultiplier: 1.01
+  boostMultiplier: 1.03
+  projectileDamageMultiplier: 1.02
+  projectileRangeMultiplier: 1.03
+  projectileSpeedMultiplier: 1.04
+  projectileFireRateMultiplier: 1.02
+  projectileReloadMultiplier: 1.02
+  missileDamageMultiplier: 1.12
+  missileRangeMultiplier: 1.1
+  missileSpeedMultiplier: 1.1
+  missileFireRateMultiplier: 1.04
+  missileReloadMultiplier: 1.04
