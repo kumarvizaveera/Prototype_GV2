@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6, type: 3}
+  m_Name: Nysera_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.CharacterLoreData
+  characterName: Nysera
+  tagline: "You won\u2019t see me. You\u2019ll see the flash."
+  rarity: Common
+  role: Long-Range
+  regionLabel: Country
+  regionName: Inkara
+  factionLabel: Culture
+  factionName: INTARIs
+  powerClass: Fusion Class Nuclear P
+  terrainMastery: Multi Terrain Mastery
+  tharaResonance: Advance Thara Resonance
+  backstory: "Raised in Inkara\u2019s INTARi border settlements \u2014 a region caught
+    between the old Kingdoms and the new Countries, where information is worth more
+    than weapons. Nysera learned to survive by stealing data and selling it before
+    anyone realized it was gone. She sold Ratna Shila\u2019s Yaksha defensive positions
+    to rival kingdoms. She infiltrated Kaevik\u2019s QiNEXi weapons lab and walked
+    out with Antimatter-class schematics. Her cybernetic eye \u2014 a salvaged targeting
+    module reverse-engineered from ancient Vimana tech \u2014 lets her lock targets
+    at distances others can barely detect. She partnered with Virexa once. A job in
+    Elgorn Fall went wrong \u2014 Nysera took the data and left Virexa behind."
+  strengths: "Extreme engagement range; Fusion-class systems tuned for distance strikes\n
+    Advance Thara Resonance \u2014 deep energy reserves for sustained long-range
+    pressure\nInformation warfare; she maps enemy weaknesses before the fight starts"
+  weaknesses: "Fragile in close quarters; if someone closes the gap, she\u2019s finished\n
+    Cybernetic implants cause chronic pain and need constant maintenance\nNo genuine
+    loyalties; allies are temporary, which means support is too"
+  rivals: "Kaevik \u2014 Stole his designs\nIshvaya \u2014 Sold Ratna Shila\u2019s
+    secrets\nVirexa \u2014 Former partner; bitter separation"

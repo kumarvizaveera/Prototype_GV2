@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6, type: 3}
+  m_Name: Kaevik_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.CharacterLoreData
+  characterName: Kaevik
+  tagline: The weapon is the message.
+  rarity: Legendary
+  role: Rapid Assault
+  regionLabel: Country
+  regionName: Silkvale
+  factionLabel: Culture
+  factionName: QiNEXIs
+  powerClass: Antimatter Class Nuclear P
+  terrainMastery: Dual Terrain Mastery
+  tharaResonance: Normal Thara Resonance
+  backstory: "Born in Silkvale, the QiNEXi industrial heartland known for pushing
+    weapons technology beyond what anyone thought possible. Kaevik was Silkvale\u2019s
+    greatest nuclear weapons engineer \u2014 he helped design the Antimatter-class
+    systems that made QiNEXi arms the most sought-after in both the Kingdoms and the
+    Countries. But when he realized Silkvale was covertly supplying Roudra\u2019s
+    Asura forces during the Forge Wars \u2014 profiting from both sides \u2014 he
+    took his designs and left. Now he operates an independent weapons lab in contested
+    airspace, selling rapid-fire Nuclear-P systems to anyone who pays. Aaryaveer
+    suspects Kaevik armed Roudra\u2019s original coup. Nysera from Inkara broke into
+    his lab and stole prototype schematics."
+  strengths: "Overwhelming rate of fire; QiNEXi rapid-cycle guns never stop shooting\n
+    Self-designed auto-repair systems keep his ship operational mid-combat\nAntimatter-class
+    tech \u2014 always one generation ahead of everyone else"
+  weaknesses: "Missile systems still in prototype; unreliable under sustained pressure\n
+    Trusted by no one \u2014 arms dealer reputation makes him a target for every faction\n
+    Overconfidence in his own technology; when it fails, no backup plan"
+  rivals: "Roudra \u2014 Former client turned enemy\nNysera \u2014 Stole his schematics\n
+    Aaryaveer \u2014 Suspects him of fueling the betrayal\nZorvan \u2014 Arms trade
+    rivalry"

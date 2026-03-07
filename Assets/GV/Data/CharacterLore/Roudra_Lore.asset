@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6, type: 3}
+  m_Name: Roudra_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.CharacterLoreData
+  characterName: Roudra
+  tagline: Even the Devas must answer for injustice.
+  rarity: Legendary
+  role: Heavy Burst
+  regionLabel: Kingdom
+  regionName: Daitya Giri
+  factionLabel: Faction
+  factionName: Asuras
+  powerClass: Supreme Astra Powers
+  terrainMastery: Dual Terrain Mastery
+  tharaResonance: Normal Thara Resonance
+  backstory: "Once the most trusted general serving Nandana\u2019s Deva throne, Roudra
+    served Aaryaveer\u2019s father for twenty years before discovering the truth:
+    Nandana\u2019s golden supremacy was built on Daitya Giri\u2019s suffering. The
+    Asura forges fed the Deva empire, Asura miners died in the volcanic depths, and
+    the Deva king called it divine order. Roudra didn\u2019t betray Nandana \u2014
+    he liberated Daitya Giri. He wears the Om symbol on his chest plate as a reminder
+    that divine authority means nothing without justice. Now he commands the volcanic
+    forges, building the most devastating Astra weapons the Akasa Raajyas have ever
+    seen."
+  strengths: "Highest burst damage in the entire roster \u2014 Supreme Astra channeled
+    through Asura forge-weapons\nArmor forged from Daitya Giri volcanic ore; nearly
+    indestructible head-on\nDecades of battlefield experience \u2014 reads formations,
+    not individuals"
+  weaknesses: "Slowest pilot in the Trials; his weapons platform sacrifices all agility
+    for firepower\nNormal Thara Resonance \u2014 devastating but unsustainable in
+    prolonged fights\nOld injuries from the Forge Wars slow his reflexes"
+  rivals: "Aaryaveer \u2014 The prince wants vengeance for his father\nZorvan \u2014
+    NEO-TERRAn who deserted his ranks\nVyanika \u2014 Garudaja raiders threatening
+    his supply lines"

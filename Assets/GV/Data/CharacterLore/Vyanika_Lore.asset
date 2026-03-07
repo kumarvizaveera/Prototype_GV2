@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6, type: 3}
+  m_Name: Vyanika_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.CharacterLoreData
+  characterName: Vyanika
+  tagline: Stop moving and you fall. Stop fighting and your people die.
+  rarity: Epic
+  role: Mobility / Evasive
+  regionLabel: Kingdom
+  regionName: Garuda Vana
+  factionLabel: Faction
+  factionName: Garudajas
+  powerClass: Supreme Astra Powers
+  terrainMastery: Dual Terrain Mastery
+  tharaResonance: Normal Thara Resonance
+  backstory: "Born in Garuda Vana \u2014 the sky-kingdom of the Garudajas, perched
+    on floating peaks above perpetual storms. Life among the Garudajas means constant
+    motion; their territory shifts with the winds, and only the fastest survive. Garuda
+    Vana is dying \u2014 its ancient Vimana stabilizers are failing, and the kingdom
+    needs resources the lowland realms refuse to share. Vyanika leads raids on Ratna
+    Shila\u2019s outer vaults and Nandana\u2019s supply caravans. She knows Ishvaya
+    has sworn to stop her. She knows Aaryaveer wants to annex Garuda Vana\u2019s flight
+    technology. Roudra in Daitya Giri simply wants the Garudajas crushed."
+  strengths: "Fastest pilot in the Akasa Raajyas; untouchable when she has space to
+    move\nSupreme Astra combined with Dual Terrain Mastery \u2014 lethal in the right
+    hands\nControls the tempo of any engagement; she decides when and where fights
+    happen"
+  weaknesses: "Normal Thara Resonance \u2014 she can\u2019t sustain long engagements\n
+    Paper-thin offense despite Supreme Astra class; speed comes at the cost of firepower\n
+    The survival of Garuda Vana rests on her shoulders \u2014 the pressure fractures
+    her focus"
+  rivals: "Ishvaya \u2014 Defends the vaults she raids\nRoudra \u2014 Wants Garuda
+    Vana destroyed\nAaryaveer \u2014 Nandana wants her flight tech"

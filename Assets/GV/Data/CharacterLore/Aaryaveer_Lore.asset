@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6, type: 3}
+  m_Name: Aaryaveer_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.CharacterLoreData
+  characterName: Aaryaveer
+  tagline: The crown of Nandana does not kneel.
+  rarity: Epic
+  role: Balanced Striker
+  regionLabel: Kingdom
+  regionName: Nandana
+  factionLabel: Faction
+  factionName: Devas
+  powerClass: Supreme Astra Powers
+  terrainMastery: Dual Terrain Mastery
+  tharaResonance: Normal Thara Resonance
+  backstory: "Crown prince of Nandana, the highest kingdom of the Devas. His father
+    ruled unchallenged until Roudra \u2014 his most trusted general \u2014 turned the
+    Asura forces of Daitya Giri against him. The king survived but the throne fractured,
+    and the other kingdoms sensed weakness. Aaryaveer enters the Garuda Trials to reunify
+    Nandana\u2019s shattered alliances and prove the Devas still hold supremacy over
+    the Akasa Raajyas. He wields Supreme Astra \u2014 the highest tier of divine weaponry
+    \u2014 but his Thara Resonance is only Normal, meaning he burns through power fast
+    and must fight smart to outlast opponents with deeper reserves."
+  strengths: "Versatile across all combat situations \u2014 no critical gap in his
+    abilities\nSupreme Astra grants access to the most powerful weapon class among
+    Sarathi\nNatural leader; Dual Terrain Mastery lets him fight effectively in any
+    arena"
+  weaknesses: "Normal Thara Resonance \u2014 burns power faster than Yakshas or Manavas
+    pilots\nEmotionally compromised by Roudra\u2019s betrayal; hesitates against former
+    allies\nSpreads his focus too thin trying to master everything rather than specializing"
+  rivals: "Roudra \u2014 Asura warlord who broke his kingdom\nKaevik \u2014 QiNEXi
+    arms dealer suspected of supplying Roudra\u2019s weapons tech"

@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6, type: 3}
+  m_Name: Ishvaya_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.CharacterLoreData
+  characterName: Ishvaya
+  tagline: The vaults of Ratna Shila do not open for thieves.
+  rarity: Rare
+  role: Precision / Control
+  regionLabel: Kingdom
+  regionName: Ratna Shila
+  factionLabel: Faction
+  factionName: Yakshas
+  powerClass: Celestial Astra Powers
+  terrainMastery: Multi Terrain Mastery
+  tharaResonance: Advance Thara Resonance
+  backstory: "Sworn guardian of Ratna Shila \u2014 the jeweled fortress-kingdom of
+    the Yakshas, keepers of sacred treasures hidden since the age of the Vimana builders.
+    Ishvaya was raised in the Yaksha warrior tradition: measure twice, strike once,
+    waste nothing. Her Celestial Astra may not match the raw power of Supreme-class
+    weapons, but her Advance Thara Resonance means she can sustain combat far longer
+    than most, wearing opponents down with patient precision. She never wanted the
+    Garuda Trials. She was forced in when Vyanika\u2019s Garudaja raiders began striking
+    Ratna Shila\u2019s outer vaults, and when Nysera \u2014 an Atom Rider intelligence
+    broker from Inkara \u2014 sold Ratna Shila\u2019s defensive layouts to the highest
+    bidder."
+  strengths: "Unmatched precision at range; every shot is calculated\nAdvance Thara
+    Resonance gives her deep energy reserves for sustained fights\nMulti Terrain Mastery
+    makes her effective across varied battlefields"
+  weaknesses: "Rigid Yaksha honor codes make her predictable to those who study her\n
+    Celestial Astra lacks the raw burst of Supreme-class weapons\nClose-range chaos
+    exposes her reliance on spacing and control"
+  rivals: "Vyanika \u2014 Garudaja raider hitting her kingdom\u2019s vaults\nNysera
+    \u2014 INTARi data-thief who sold Ratna Shila\u2019s secrets"

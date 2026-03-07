@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6, type: 3}
+  m_Name: Virexa_Lore
+  m_EditorClassIdentifier: Assembly-CSharp::GV.UI.CharacterLoreData
+  characterName: Virexa
+  tagline: "I don\u2019t need a faction. I need a target."
+  rarity: Common
+  role: Glass Cannon
+  regionLabel: Country
+  regionName: Elgorn Fall
+  factionLabel: Culture
+  factionName: ERGOVANs
+  powerClass: Fusion Class Nuclear P
+  terrainMastery: Multi Terrain Mastery
+  tharaResonance: Advance Thara Resonance
+  backstory: "Virexa emerged from Elgorn Fall three years ago \u2014 a remote ERGOVAn
+    border region known for producing Fusion-class reactor pilots and nothing else.
+    No family records, no military service file, no academy credentials. She showed
+    up in the underground racing circuits with a stripped-down ship running an overclocked
+    Fusion reactor that hits far above its class. She partnered with Nysera in Inkara
+    for a year, running data-theft operations across the border zones. Then a job
+    went catastrophically wrong \u2014 Nysera took the payload and disappeared, leaving
+    Virexa to face capture alone. She spent six months in detention before escaping.
+    Now she flies solo. Her overclocked Fusion reactor amplifies her weapons far beyond
+    what the frame can safely handle."
+  strengths: "Raw damage output that rivals Legendary-class pilots\nAdvance Thara
+    Resonance \u2014 Fusion reactor gives her stamina to sustain aggressive pushes\n
+    Completely unpredictable; no pattern for opponents to read"
+  weaknesses: "Overclocked reactor means her ship can\u2019t take sustained punishment\n
+    Reckless overcommitment turns winning positions into mutual destruction\nTotal
+    isolation \u2014 no allies, no faction support, no margin for error"
+  rivals: "Nysera \u2014 Former partner who betrayed her\nZorvan \u2014 Stole a contract
+    from him\nVyanika \u2014 Crossed paths in underground circuits"
