@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using GV.UI;
 
 namespace GV.Web3
 {
@@ -43,6 +44,10 @@ namespace GV.Web3
 
         [Header("Buttons")]
         [SerializeField] private Button confirmButton;
+
+        [Header("Lore Popup")]
+        [Tooltip("Drag the GameObject with CharacterLorePopup. Auto-shows on card click.")]
+        [SerializeField] private CharacterLorePopup lorePopup;
 
         [Header("Loading State")]
         [SerializeField] private GameObject loadingIndicator;
@@ -264,6 +269,10 @@ namespace GV.Web3
             if (selectedCharNameText != null) selectedCharNameText.text = character.displayName;
             if (selectedCharDescText != null) selectedCharDescText.text = character.description;
             if (selectedCharRarityText != null) selectedCharRarityText.text = character.rarity.ToString();
+
+            // Show lore popup — matches by character name against loreDatas array
+            if (lorePopup != null)
+                lorePopup.ShowCharacterByName(character.displayName);
         }
 
         private void OnConfirmClicked()
