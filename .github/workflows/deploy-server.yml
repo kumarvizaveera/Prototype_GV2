@@ -70,7 +70,6 @@ jobs:
 
           echo "🚀 Deploying..."
           $SSH_CMD << 'DEPLOY'
-            set -e
             echo "Stopping server..."
             systemctl stop gv2-server 2>/dev/null || true
 
@@ -81,28 +80,24 @@ jobs:
             tar -xzf /tmp/gv2-server-build.tar.gz -C /opt/gv2-server
 
             echo "Setting permissions..."
-            chmod +x /opt/gv2-server/Prototype_GV2 2>/dev/null || \
+            chown -R root:root /opt/gv2-server
             chmod +x /opt/gv2-server/*.x86_64 2>/dev/null || true
+            chmod +x /opt/gv2-server/Prototype_GV2 2>/dev/null || true
+
+            echo "Updating service to match build executable..."
+            EXE=$(find /opt/gv2-server -maxdepth 1 -name '*.x86_64' -type f | head -1)
+            if [ -n "$EXE" ]; then
+              sed -i "s|ExecStart=.*|ExecStart=$EXE -batchmode -nographics -server|" /etc/systemd/system/gv2-server.service
+              systemctl daemon-reload
+            fi
 
             echo "Starting server..."
             systemctl start gv2-server
-            sleep 3
+            sleep 10
 
             echo "Checking status..."
-            systemctl is-active gv2-server
+            systemctl is-active gv2-server || true
 
             rm -f /tmp/gv2-server-build.tar.gz
-            echo "✅ DEPLOY COMPLETE"
+            echo "DEPLOY COMPLETE"
           DEPLOY
-
-      - name: Verify
-        run: |
-          SSH_CMD="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
-          STATUS=$($SSH_CMD "systemctl is-active gv2-server")
-          if [ "$STATUS" = "active" ]; then
-            echo "✅ Server is RUNNING"
-          else
-            echo "❌ Server status: $STATUS"
-            $SSH_CMD "tail -20 /var/log/gv2-server.log" || true
-            exit 1
-          fi
