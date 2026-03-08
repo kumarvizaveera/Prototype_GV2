@@ -244,17 +244,20 @@ namespace VSX.RadarSystem
         // Called when a trackable is destroyed in the scene
         protected virtual void OnTrackableUnregistered(Trackable trackable)
         {
-            if (trackingStates[trackable] != TrackingState.NotTracked)
+            if (trackingStates.ContainsKey(trackable))
             {
-                int index = Targets.IndexOf(trackable);
-                if (index != -1)
+                if (trackingStates[trackable] != TrackingState.NotTracked)
                 {
-                    Targets.RemoveAt(index);
-                    OnStoppedTracking(trackable);
+                    int index = Targets.IndexOf(trackable);
+                    if (index != -1)
+                    {
+                        Targets.RemoveAt(index);
+                        OnStoppedTracking(trackable);
+                    }
                 }
-            }
 
-            trackingStates.Remove(trackable);
+                trackingStates.Remove(trackable);
+            }
         }
 
 
@@ -381,10 +384,16 @@ namespace VSX.RadarSystem
                 return;
             }
 
-            
+
             // Look for targets that weren't being tracked before
             for (int i = 0; i < targets.Count; ++i)
             {
+                // Safety: In networked games, trackables can appear/disappear due to
+                // object pooling or aircraft swapping without going through OnTrackableRegistered.
+                if (!trackingStates.ContainsKey(targets[i]))
+                {
+                    trackingStates[targets[i]] = TrackingState.NotTracked;
+                }
 
                 if (trackingStates[targets[i]] == TrackingState.NotTracked)
                 {
@@ -397,20 +406,28 @@ namespace VSX.RadarSystem
 
             }
 
-            
+
             // Look for targets that aren't being tracked any more
             for(int i = 0; i < TrackableSceneManager.Instance.Trackables.Count; ++i)
             {
-                if (trackingStates[TrackableSceneManager.Instance.Trackables[i]] == TrackingState.WasTracked)
+                Trackable t = TrackableSceneManager.Instance.Trackables[i];
+                // Safety: ensure trackable is in the dictionary before accessing
+                if (!trackingStates.ContainsKey(t))
+                {
+                    trackingStates[t] = TrackingState.NotTracked;
+                    continue; // Skip processing for this frame — it will be picked up next frame
+                }
+
+                if (trackingStates[t] == TrackingState.WasTracked)
                 {
                     // Call the function to do something with the target that isn't being tracked anymore
-                    OnStoppedTracking(TrackableSceneManager.Instance.Trackables[i]);
-                    trackingStates[TrackableSceneManager.Instance.Trackables[i]] = TrackingState.NotTracked;
+                    OnStoppedTracking(t);
+                    trackingStates[t] = TrackingState.NotTracked;
                 }
                 // Push the state of newly tracked trackables into past tense
-                else if (trackingStates[TrackableSceneManager.Instance.Trackables[i]] == TrackingState.Tracked)
+                else if (trackingStates[t] == TrackingState.Tracked)
                 {
-                    trackingStates[TrackableSceneManager.Instance.Trackables[i]] = TrackingState.WasTracked;
+                    trackingStates[t] = TrackingState.WasTracked;
                 }
             }
             

@@ -1000,9 +1000,11 @@ namespace GV.Network
             // In the RoomManager flow, the server is already in the gameplay scene (loaded by Web3Bootstrap),
             // so when a client connects, NetworkSceneManagerDefault forces the client to load the gameplay
             // scene immediately — bypassing the lobby UI and Enter Battle button.
-            // We handle scene loading manually via LOAD/COUNTDOWN raw data commands, so we skip
-            // NetworkSceneManagerDefault for the room-based dedicated server flow.
-            NetworkSceneManagerDefault sceneManager = null;
+            // We handle scene loading manually via LOAD/COUNTDOWN raw data commands, so we use a
+            // NoOpSceneManager that satisfies Fusion's INetworkSceneManager requirement but does nothing.
+            // IMPORTANT: Passing null doesn't work — Fusion internally auto-creates a
+            // NetworkSceneManagerDefault if no INetworkSceneManager is found on the Runner.
+            INetworkSceneManager sceneManager;
             if (!_isRoomManagerControlled && !_connectedToDedicatedServer)
             {
                 sceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>();
@@ -1010,7 +1012,8 @@ namespace GV.Network
             }
             else
             {
-                Debug.Log("[NetworkManager] Skipping NetworkSceneManagerDefault — scene loading handled manually via LOAD commands");
+                sceneManager = gameObject.AddComponent<NoOpSceneManager>();
+                Debug.Log("[NetworkManager] Using NoOpSceneManager — scene loading handled manually via LOAD commands");
             }
 
             StartGameResult result;

@@ -52,6 +52,10 @@ namespace GV.Network
         private AircraftMeshSwapWithFX _meshSwap;
         private bool _meshSwapCached = false;
         private bool _prevSyncIsA = true; // Track changes for proxy application
+        private bool _lastSentSwapIsA = true; // Track what we last sent via RPC to avoid spamming every frame
+        private bool _lastSentSwapInitialized = false; // Whether _lastSentSwapIsA has been set from actual state
+        private float _spawnSwapGraceTimer = 0f; // Grace period after spawn to ignore swap changes (prevents jitter)
+        private const float SWAP_GRACE_PERIOD = 1.0f; // Seconds after spawn to suppress proxy swap detection
 
         // --- RPC-BASED INPUT BYPASS ---
         // Fusion's OnInput/GetInput pipeline silently fails in our setup (GetInput always returns
@@ -337,6 +341,10 @@ namespace GV.Network
                 // Without this, _prevSyncIsA defaults to 'true' while NetworkBool defaults to 'false',
                 // causing Render() to detect a phantom change and trigger a spurious swap on the first frame.
                 _prevSyncIsA = (bool)SyncIsAActive;
+                // Start the grace period to suppress any swap detection during initial state propagation.
+                // SyncIsAActive might not have propagated from the server yet, so we ignore changes
+                // for the first second to let the networked state stabilize.
+                _spawnSwapGraceTimer = SWAP_GRACE_PERIOD;
             }
 
             // --- NFT → MESH LINK ---
@@ -778,7 +786,9 @@ namespace GV.Network
                         }
 
                         // --- AIRCRAFT SWAP SYNC (client → host) ---
-                        // Send the client's local swap state to the host so it can update [Networked] SyncIsAActive.
+                        // Send the client's local swap state to the host ONLY when it changes.
+                        // Previously sent every frame, which caused RPC spam and race conditions
+                        // where client and server fought over SyncIsAActive, causing violent oscillation.
                         if (!_meshSwapCached)
                         {
                             _meshSwap = GetComponentInChildren<AircraftMeshSwapWithFX>(true);
@@ -786,7 +796,13 @@ namespace GV.Network
                         }
                         if (_meshSwap != null)
                         {
-                            RPC_SendSwapState(_meshSwap.IsAActive);
+                            bool currentSwapIsA = _meshSwap.IsAActive;
+                            if (!_lastSentSwapInitialized || currentSwapIsA != _lastSentSwapIsA)
+                            {
+                                RPC_SendSwapState(currentSwapIsA);
+                                _lastSentSwapIsA = currentSwapIsA;
+                                _lastSentSwapInitialized = true;
+                            }
                         }
 
                         // --- AIM POSITION SYNC (client → host) ---
@@ -1559,6 +1575,18 @@ namespace GV.Network
             // and apply it visually via RequestSetA (which triggers mesh toggle + VFX + SFX).
             if (!Object.HasStateAuthority)
             {
+                // Grace period: suppress swap detection for the first second after spawn.
+                // This prevents violent jitter from SyncIsAActive propagation delays
+                // (NetworkBool defaults to false, but server sets it to true — the transition
+                // can arrive across multiple frames, causing phantom toggles).
+                if (_spawnSwapGraceTimer > 0f)
+                {
+                    _spawnSwapGraceTimer -= Time.deltaTime;
+                    // Keep _prevSyncIsA in sync so when grace period ends, we don't detect a stale diff
+                    _prevSyncIsA = (bool)SyncIsAActive;
+                    return;
+                }
+
                 bool syncIsA = (bool)SyncIsAActive;
                 if (syncIsA != _prevSyncIsA)
                 {
