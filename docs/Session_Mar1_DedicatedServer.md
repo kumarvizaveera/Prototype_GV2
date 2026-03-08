@@ -933,3 +933,113 @@ ScriptableObject with fields: shipName, tagline, rarity, shipClass, originLabel,
 - **Unity caches broken ScriptableObject references** — Changing the GUID in an .asset file may not be enough. Sometimes you need to delete both .asset and .meta files and recreate from scratch.
 - **Pragma warning disable is safer than API migration** — When replacing deprecated APIs, the new API might not exist in all versions. Suppressing the warning keeps code compiling everywhere.
 - **Non-blocking overlays enable popup switching** — Setting `raycastTarget = false` on the dark overlay lets clicks pass through to cards underneath, enabling seamless popup switching without close-reopen.
+
+---
+
+## Session 9 — March 8, 2026: RoomManager Architecture & Multi-Room Dedicated Server
+
+### Overview
+
+Replaced the single fixed-session dedicated server with a **multi-room architecture**. The VPS now runs a `RoomManager` that creates rooms on demand — each room is an independent Fusion session with its own NetworkRunner and NetworkManager. Clients create and join rooms via an HTTP API + Fusion sessions. **Host mode has been completely removed** — all multiplayer goes through the VPS dedicated server.
+
+### Architecture
+
+```
+VPS Server Process
+├── RoomManager (singleton, HTTP API on port 7350)
+│   ├── Room "ABCD" → NetworkManager + NetworkRunner (GameMode.Server)
+│   ├── Room "WXYZ" → NetworkManager + NetworkRunner (GameMode.Server)
+│   └── Room "QRST" → NetworkManager + NetworkRunner (GameMode.Server)
+```
+
+**Client flow — Create Room:**
+1. Player clicks "Create Room"
+2. Client sends `POST http://VPS_IP:7350/create`
+3. RoomManager creates a new NetworkManager instance + Fusion session with unique 4-char code
+4. Returns `{"code":"ABCD"}` to client
+5. Client joins Fusion session "ABCD" as `GameMode.Client`
+6. Player shares code with friends
+
+**Client flow — Join Room:**
+1. Player types room code (e.g. "ABCD") and clicks "Join Room"
+2. Client joins Fusion session "ABCD" as `GameMode.Client`
+3. All players see Enter Battle button (dedicated server mode)
+
+**Enter Battle flow (carried over from earlier in this session):**
+1. Any client clicks Enter Battle → sends `START_MATCH` ("STRT") raw data to server
+2. Server receives it → sends `COUNTDOWN` ("CNTD") to all clients
+3. Server runs `DedicatedServerCountdownThenLoad()` coroutine
+4. After countdown, server sends `SCENE_LOAD` ("LOAD") to all clients
+5. Clients load gameplay scene, server spawns players
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `Assets/GV/Scripts/Network/RoomManager.cs` | Multi-room manager for dedicated server. HTTP API (port 7350) for room creation/listing/querying. Creates per-room NetworkManager instances. Auto-cleans empty rooms after timeout. |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| **NetworkManager.cs** | Removed `StartHost()` and all `GameMode.Host` references. `OnCreateRoomClicked()` now calls VPS HTTP API (`POST /create`) via `UnityWebRequest`, parses room code, joins as client. `OnJoinRoomClicked()` always sets `_connectedToDedicatedServer = true`. `ShowConnectedUI()` always shows Enter Battle to all clients. `LoadGameplay()` simplified — only client→server path (no Host branch). Added `StartServerForRoom(code, maxPlayers, callback)` for RoomManager to call per-room. Added `_isRoomManagerControlled` flag to skip singleton enforcement (multiple instances on server). Added `vpsRoomApiUrl` field for VPS HTTP endpoint. Added `using UnityEngine.Networking` for `UnityWebRequest`. Removed `autoHostInBuild` auto-start. |
+| **Web3Bootstrap.cs** | Added `roomManagerPrefab` field. On dedicated server, instantiates RoomManager instead of NetworkManager directly. RoomManager handles all room lifecycle. |
+
+### RoomManager HTTP API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/create` | POST | Creates a new room, returns `{"code":"XXXX"}` |
+| `/rooms` | GET | Lists all active rooms with player counts |
+| `/rooms/{code}` | GET | Gets info for a specific room |
+| `/rooms/{code}` | DELETE | Shuts down a room (admin/debug) |
+| `/health` | GET | Health check — returns status and room count |
+
+### Enter Battle Flow (implemented earlier in this session)
+
+Added raw data command system for dedicated server match start:
+
+| Constant | Key | Magic Bytes | Direction | Purpose |
+|----------|-----|-------------|-----------|---------|
+| `START_MATCH_KEY/MAGIC` | "GVSM" | "STRT" | Client → Server | Client requests match start |
+| `COUNTDOWN_KEY/MAGIC` | "GVCD" | "CNTD" | Server → Client | Server tells clients to start countdown |
+| `SCENE_LOAD_KEY/MAGIC` | "GVSC" | "LOAD" | Server → Client | Server tells clients to load gameplay scene |
+
+Added `DedicatedServerCountdownThenLoad()` coroutine on server side — counts down, sends LOAD, marks `_inGameplayScene = true`, spawns pending players. Server never changes scene (already in gameplay).
+
+### Deployment Changes
+
+- VPS firewall: opened port **7350/tcp** for HTTP room API
+- Systemd service unchanged (still runs single process with `-batchmode -nographics -server`)
+- Unity Player Settings: must set **"Allow downloads over HTTP" → "Always allowed"** (Unity 6 blocks insecure connections by default, needed for `http://VPS_IP:7350` calls)
+
+### Bug Fixes During Deployment (earlier in this session)
+
+1. **NetworkManager never instantiated on dedicated server** — Fusion never started because NetworkManager lives in menu scene, Web3Bootstrap skips menu. Fix: added `networkManagerPrefab` field to Web3Bootstrap, instantiate before loading gameplay.
+2. **Runner destroyed by scene change** — `StartGame` returned Ok but Runner was null due to `SceneManager.LoadScene` destroying it. Fix: added `DontDestroyOnLoad(Runner.gameObject)` after creation.
+3. **Session name casing mismatch** — Server used "GV_Race", client uppercased to "GV_RACE". Fix: changed default to "GV2S" (4 chars, uppercase). Now irrelevant since RoomManager generates unique codes.
+4. **Unity 6 blocks HTTP** — `UnityWebRequest` to `http://` throws `InsecureConnectionNotAllowed`. Fix: Player Settings → Allow downloads over HTTP → Always allowed.
+5. **DontDestroyOnLoad warning** — RoomManager prefab nested under another GameObject. Harmless but should be root-level.
+
+### Unity Inspector Setup Required
+
+1. **Create RoomManager prefab**: Empty GameObject → add RoomManager component → set `networkManagerPrefab` to existing Network Manager prefab → save as prefab in `Assets/GV/Prefabs_GV/Network/`
+2. **Web3Bootstrap Inspector**: Assign RoomManager prefab to `roomManagerPrefab` field
+3. **NetworkManager Inspector**: Set `vpsRoomApiUrl` to `http://187.124.96.178:7350`
+4. **Player Settings**: Allow downloads over HTTP → Always allowed
+
+### Key Lessons
+
+- **Multiple Fusion sessions per process** — Fusion 2 supports multiple NetworkRunners in one process, each hosting a separate session. This enables multi-room dedicated servers without spawning separate processes.
+- **HTTP signaling for room creation** — Clients can't communicate with the server before joining a Fusion session. A lightweight HTTP API bridges this gap for out-of-band room management.
+- **Singleton pattern breaks with multi-instance** — NetworkManager's `Instance` singleton must be bypassed when RoomManager creates per-room instances. Added `_isRoomManagerControlled` flag.
+- **Unity 6 insecure connection policy** — `UnityWebRequest` blocks `http://` by default. Must explicitly allow in Player Settings.
+- **Thread-safe Unity API access** — HTTP requests arrive on background threads but Unity API calls (Instantiate, etc.) must run on the main thread. RoomManager queues actions with `ManualResetEvent` synchronization.
+
+### Remaining Issues / Next Steps
+
+- Test full flow: Create Room → Join Room → Enter Battle → gameplay → ship spawning
+- Verify multiple simultaneous rooms work on VPS
+- Room cleanup after match end (currently auto-cleans empty rooms after 30s timeout)
+- Consider adding room browser UI (GET /rooms endpoint exists but no client UI yet)
+- DontDestroyOnLoad warning for RoomManager prefab (make it root-level)

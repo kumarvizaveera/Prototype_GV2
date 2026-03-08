@@ -39,8 +39,13 @@ namespace GV.Web3
         [SerializeField] private bool autoLoadNextScene = true;
 
         [Header("Dedicated Server")]
-        [Tooltip("NetworkManager prefab to instantiate on dedicated server (since we skip the menu scene where it normally lives).")]
+        [Tooltip("NetworkManager prefab — used by RoomManager to create per-room instances on dedicated server. " +
+                 "Also used by clients in the menu scene.")]
         [SerializeField] private GameObject networkManagerPrefab;
+
+        [Tooltip("RoomManager prefab to instantiate on dedicated server. " +
+                 "Manages multiple rooms, each with its own NetworkManager + Fusion session.")]
+        [SerializeField] private GameObject roomManagerPrefab;
 
         /// <summary>
         /// Checks if this build should run as a dedicated server.
@@ -96,26 +101,27 @@ namespace GV.Web3
                 Debug.Log("[Web3Bootstrap] Web3Manager found and ready.");
             }
 
-            // --- Dedicated Server: skip menu, go straight to gameplay scene ---
-            // The server has no player to click "Enter Battle," so we jump directly
-            // to the gameplay scene. But NetworkManager normally lives in the menu scene,
-            // so we must instantiate it here before loading gameplay.
+            // --- Dedicated Server: instantiate RoomManager, skip menu, load gameplay ---
+            // RoomManager handles creating per-room NetworkManagers on demand via HTTP API.
+            // No single NetworkManager is auto-started — rooms are created when clients request them.
             if (IsDedicatedServer())
             {
-                // Ensure NetworkManager exists — it normally lives in the menu scene
-                // which we're skipping. Instantiate the prefab so it gets DontDestroyOnLoad'd.
-                if (GV.Network.NetworkManager.Instance == null)
+                // Instantiate RoomManager (it will DontDestroyOnLoad itself)
+                if (GV.Network.RoomManager.Instance == null)
                 {
-                    if (networkManagerPrefab != null)
+                    if (roomManagerPrefab != null)
                     {
-                        Debug.Log("[Web3Bootstrap] DEDICATED SERVER — instantiating NetworkManager prefab (skipping menu scene)");
-                        Instantiate(networkManagerPrefab);
+                        Debug.Log("[Web3Bootstrap] DEDICATED SERVER — instantiating RoomManager");
+                        var rmGO = Instantiate(roomManagerPrefab);
+
+                        // Pass the NetworkManager prefab reference to RoomManager
+                        // so it can create per-room instances
+                        // (This is set in the Inspector on the RoomManager prefab)
                     }
                     else
                     {
-                        Debug.LogError("[Web3Bootstrap] DEDICATED SERVER — networkManagerPrefab not assigned! " +
-                            "Drag 'Assets/GV/Prefabs_GV/Network/Network Manager' into the Web3Bootstrap Inspector. " +
-                            "Without this, the server cannot start Fusion networking.");
+                        Debug.LogError("[Web3Bootstrap] DEDICATED SERVER — roomManagerPrefab not assigned! " +
+                            "Create a RoomManager prefab and assign it in the Web3Bootstrap Inspector.");
                     }
                 }
 

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Networking;
 using TMPro;
 using Fusion;
 using Fusion.Sockets;
@@ -72,6 +73,11 @@ namespace GV.Network
         [Tooltip("The gameplay scene to load after creating/joining a room. Leave empty to stay in current scene.")]
         [SerializeField] private string gameplaySceneName = "";
 
+        [Header("Dedicated Server (VPS)")]
+        [Tooltip("URL of the VPS RoomManager HTTP API (e.g. http://187.124.96.178:7350). " +
+                 "Used by clients to create rooms on the dedicated server.")]
+        [SerializeField] private string vpsRoomApiUrl = "http://187.124.96.178:7350";
+
         /// <summary>
         /// Auto = normal game client. If the -server command-line flag or UNITY_SERVER define is detected, runs as dedicated server.
         /// DedicatedServer = forces headless server mode (no camera, no UI, no local player).
@@ -109,20 +115,50 @@ namespace GV.Network
         private bool _inGameplayScene = false;
         private Coroutine _hideClientJoinedCoroutine;
 
+        /// <summary>
+        /// True when this client is connected to a dedicated server (not a player-hosted game).
+        /// Detected by checking if the session was created by a Server (no local player on host side).
+        /// In dedicated server mode, clients get the Enter Battle button instead of waiting.
+        /// </summary>
+        private bool _connectedToDedicatedServer = false;
+
+        /// <summary>
+        /// Prevents double-countdown when client starts countdown locally AND receives
+        /// COUNTDOWN from the server in dedicated server mode.
+        /// </summary>
+        private bool _countdownActive = false;
+
+        /// <summary>
+        /// When true, this NetworkManager instance was created by RoomManager for a specific room.
+        /// It will NOT auto-start in Start() — RoomManager calls StartServerForRoom() instead.
+        /// Also skips singleton enforcement (multiple instances exist, one per room).
+        /// </summary>
+        private bool _isRoomManagerControlled = false;
+
+        /// <summary>
+        /// Callback invoked after StartServerForRoom completes.
+        /// </summary>
+        private Action<bool> _roomStartCallback;
+
         private void Awake()
         {
             Debug.Log($"[NetworkManager] Awake() on instance {GetInstanceID()}, " +
                       $"existing Instance={(Instance != null ? Instance.GetInstanceID().ToString() : "NULL")}, " +
-                      $"scene={gameObject.scene.name}");
+                      $"scene={gameObject.scene.name}, roomManagerControlled={_isRoomManagerControlled}");
 
-            if (Instance != null && Instance != this)
+            // When RoomManager creates per-room instances, skip singleton enforcement.
+            // Multiple NetworkManagers coexist on the server (one per room).
+            if (!_isRoomManagerControlled)
             {
-                Debug.LogWarning($"[NetworkManager] DUPLICATE detected! Destroying {GetInstanceID()}, keeping {Instance.GetInstanceID()}");
-                Destroy(gameObject);
-                return;
+                if (Instance != null && Instance != this)
+                {
+                    Debug.LogWarning($"[NetworkManager] DUPLICATE detected! Destroying {GetInstanceID()}, keeping {Instance.GetInstanceID()}");
+                    Destroy(gameObject);
+                    return;
+                }
+                Instance = this;
             }
 
-            Instance = this;
             DontDestroyOnLoad(gameObject);
             Debug.Log($"[NetworkManager] Instance SET to {GetInstanceID()}, DontDestroyOnLoad applied");
 
@@ -179,10 +215,19 @@ namespace GV.Network
 
         private void Start()
         {
-            // --- DEDICATED SERVER: skip all UI, auto-start as Server ---
+            // --- DEDICATED SERVER (RoomManager-controlled): do nothing here ---
+            // RoomManager will call StartServerForRoom() when a room is created.
+            if (IsDedicatedServer && _isRoomManagerControlled)
+            {
+                Debug.Log("[NetworkManager] Dedicated Server (RoomManager-controlled) — waiting for StartServerForRoom()");
+                return;
+            }
+
+            // --- DEDICATED SERVER (legacy/standalone): auto-start single session ---
+            // Kept as fallback if RoomManager is not used.
             if (IsDedicatedServer)
             {
-                _inGameplayScene = true; // Server is always in gameplay scene
+                _inGameplayScene = true;
                 Debug.Log("[NetworkManager] Dedicated Server mode — skipping UI, auto-starting as Server...");
                 StartServer();
                 return;
@@ -209,11 +254,8 @@ namespace GV.Network
             if (clientJoinedText != null)
                 clientJoinedText.gameObject.SetActive(false);
 
-            if (!Application.isEditor && (autoHostInBuild || autoClientInBuild))
-            {
-                Debug.Log("[NetworkManager] Auto-starting with AutoHostOrClient (Build)...");
-                StartAutoHostOrClient();
-            }
+            // Client waits for player to click Create Room or Join Room.
+            // No auto-start — all games go through the VPS dedicated server.
         }
 
         // ── Room UI helpers ──────────────────────────────────────────
@@ -241,16 +283,8 @@ namespace GV.Network
             if (connectedPanel != null) connectedPanel.SetActive(true);
             if (roomCodeDisplayText != null) roomCodeDisplayText.text = $"Room: {CurrentRoomCode}";
 
-            // Only HOST gets the Enter Battle button — clients wait for the host to start
-            bool isHost = Runner != null && Runner.IsServer;
-            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(isHost);
-
-            // Show waiting message for clients (use clientJoinedText since it's inside connectedPanel)
-            if (!isHost && clientJoinedText != null)
-            {
-                clientJoinedText.text = "Waiting for host to start the match...";
-                clientJoinedText.gameObject.SetActive(true);
-            }
+            // All rooms are on the dedicated server — every client gets Enter Battle
+            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(true);
         }
 
         /// <summary>
@@ -267,9 +301,9 @@ namespace GV.Network
         }
 
         /// <summary>
-        /// Loads the gameplay scene. Called by "Enter Battle" button (HOST only).
-        /// HOST sends a "load scene" command to all clients via raw reliable data,
-        /// waits a few frames for Fusion to transmit it, then loads the scene locally.
+        /// Loads the gameplay scene. Called by "Enter Battle" button.
+        /// Client sends START_MATCH to the dedicated server, which then
+        /// sends countdown/load to all clients. Server is already in gameplay scene.
         /// </summary>
         public void LoadGameplay()
         {
@@ -279,35 +313,34 @@ namespace GV.Network
                 return;
             }
 
-            if (Runner == null || !Runner.IsServer)
+            if (Runner == null)
             {
-                Debug.LogWarning("[NetworkManager] LoadGameplay called but not the server — ignoring.");
+                Debug.LogWarning("[NetworkManager] LoadGameplay called but Runner is null — ignoring.");
                 return;
             }
 
-            // Disable the button so it can't be pressed twice
-            if (enterBattleButton != null) enterBattleButton.interactable = false;
-
-            // Send countdown command to all clients, then start countdown on host too
-            Debug.Log("[NetworkManager] HOST: Sending COUNTDOWN command to all clients...");
-            foreach (var player in Runner.ActivePlayers)
+            // CLIENT sends START_MATCH to dedicated server
+            if (Runner.IsClient && !Runner.IsServer)
             {
-                if (player != Runner.LocalPlayer)
+                Debug.Log("[NetworkManager] CLIENT: Sending START_MATCH to dedicated server...");
+                if (enterBattleButton != null) enterBattleButton.interactable = false;
+                try
                 {
-                    try
-                    {
-                        Runner.SendReliableDataToPlayer(player, COUNTDOWN_KEY, COUNTDOWN_MAGIC);
-                        Debug.Log($"[NetworkManager] Sent COUNTDOWN to player {player.PlayerId}");
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Debug.LogError($"[NetworkManager] Failed to send countdown to player {player.PlayerId}: {ex.Message}");
-                    }
+                    Runner.SendReliableDataToServer(START_MATCH_KEY, START_MATCH_MAGIC);
+                    Debug.Log("[NetworkManager] CLIENT: START_MATCH sent to server");
+                    // Client starts its own countdown — server will also send COUNTDOWN to all clients,
+                    // but starting locally ensures no delay for the button-presser
+                    StartCoroutine(CountdownThenLoad());
                 }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[NetworkManager] Failed to send START_MATCH: {ex.Message}");
+                    if (enterBattleButton != null) enterBattleButton.interactable = true;
+                }
+                return;
             }
 
-            // Start countdown on host side
-            StartCoroutine(CountdownThenLoad());
+            Debug.LogWarning("[NetworkManager] LoadGameplay called but not a client — ignoring.");
         }
 
         /// <summary>
@@ -317,6 +350,10 @@ namespace GV.Network
         /// </summary>
         private IEnumerator CountdownThenLoad()
         {
+            // Guard against double-countdown (client starts locally + receives COUNTDOWN from server)
+            if (_countdownActive) yield break;
+            _countdownActive = true;
+
             // Cancel any "Client has joined" auto-hide so it doesn't hide our countdown
             if (_hideClientJoinedCoroutine != null)
             {
@@ -387,6 +424,50 @@ namespace GV.Network
             UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
         }
 
+        /// <summary>
+        /// Dedicated server version of the countdown + load flow.
+        /// Waits for countdown, then sends LOAD to all clients.
+        /// Server does NOT load a new scene — it's already in the gameplay scene.
+        /// </summary>
+        private IEnumerator DedicatedServerCountdownThenLoad()
+        {
+            // Wait for countdown duration (server doesn't show UI, just waits)
+            Debug.Log($"[NetworkManager] SERVER: Starting {COUNTDOWN_SECONDS}s countdown...");
+            for (int i = COUNTDOWN_SECONDS; i > 0; i--)
+            {
+                Debug.Log($"[NetworkManager] SERVER: Countdown: {i}");
+                yield return new WaitForSeconds(1f);
+            }
+            Debug.Log("[NetworkManager] SERVER: Countdown finished! Sending LOAD to all clients...");
+
+            yield return new WaitForSeconds(0.3f); // Match the "GO!" pause on clients
+
+            // Send LOAD command to all clients
+            foreach (var player in Runner.ActivePlayers)
+            {
+                try
+                {
+                    Runner.SendReliableDataToPlayer(player, SCENE_LOAD_KEY, SCENE_LOAD_MAGIC);
+                    Debug.Log($"[NetworkManager] SERVER: Sent SCENE_LOAD to player {player.PlayerId}");
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[NetworkManager] SERVER: Failed to send SCENE_LOAD to {player.PlayerId}: {ex.Message}");
+                }
+            }
+
+            // Server is already in gameplay scene — just mark ready for spawning
+            _inGameplayScene = true;
+            Debug.Log("[NetworkManager] SERVER: Ready for player spawning (already in gameplay scene)");
+
+            // Spawn any players that are already connected but pending
+            if (_pendingSpawns.Count > 0)
+            {
+                Debug.Log($"[NetworkManager] SERVER: Spawning {_pendingSpawns.Count} pending players...");
+                StartCoroutine(SpawnPendingPlayersNextFrame());
+            }
+        }
+
         // ── Room Code Generation ─────────────────────────────────────
 
         /// <summary>
@@ -410,12 +491,78 @@ namespace GV.Network
         /// </summary>
         public void OnCreateRoomClicked()
         {
-            CurrentRoomCode = GenerateRoomCode();
-            Debug.Log($"[NetworkManager] Creating room with code: {CurrentRoomCode}");
-            if (statusText != null) statusText.text = "Creating room...";
+            Debug.Log("[NetworkManager] Create Room clicked — requesting room from VPS...");
+            if (statusText != null) statusText.text = "Creating room on server...";
             if (createRoomButton != null) createRoomButton.interactable = false;
             if (joinRoomButton != null) joinRoomButton.interactable = false;
-            StartHost();
+            StartCoroutine(CreateRoomOnVPS());
+        }
+
+        /// <summary>
+        /// Sends HTTP POST to the VPS RoomManager to create a new room,
+        /// then joins that room as a client.
+        /// </summary>
+        private IEnumerator CreateRoomOnVPS()
+        {
+            string url = $"{vpsRoomApiUrl.TrimEnd('/')}/create";
+            Debug.Log($"[NetworkManager] POST {url}");
+
+            using (var request = new UnityWebRequest(url, "POST"))
+            {
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.timeout = 10;
+
+                yield return request.SendWebRequest();
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogError($"[NetworkManager] VPS room creation failed: {request.error}");
+                    if (statusText != null) statusText.text = $"Server error: {request.error}";
+                    if (createRoomButton != null) createRoomButton.interactable = true;
+                    if (joinRoomButton != null) joinRoomButton.interactable = true;
+                    yield break;
+                }
+
+                // Parse response: {"code":"ABCD"}
+                string json = request.downloadHandler.text;
+                Debug.Log($"[NetworkManager] VPS response: {json}");
+
+                string code = ParseCodeFromJson(json);
+                if (string.IsNullOrEmpty(code))
+                {
+                    Debug.LogError($"[NetworkManager] Could not parse room code from: {json}");
+                    if (statusText != null) statusText.text = "Failed to create room";
+                    if (createRoomButton != null) createRoomButton.interactable = true;
+                    if (joinRoomButton != null) joinRoomButton.interactable = true;
+                    yield break;
+                }
+
+                // Join the room as a client
+                Debug.Log($"[NetworkManager] Room created on VPS: {code} — joining as client...");
+                CurrentRoomCode = code;
+                _connectedToDedicatedServer = true;
+                if (statusText != null) statusText.text = $"Joining room {code}...";
+                StartClient();
+            }
+        }
+
+        /// <summary>
+        /// Simple JSON parser to extract "code" field from {"code":"XXXX"}.
+        /// Avoids dependency on JsonUtility for this trivial case.
+        /// </summary>
+        private static string ParseCodeFromJson(string json)
+        {
+            // Look for "code":"VALUE"
+            int idx = json.IndexOf("\"code\"");
+            if (idx < 0) return null;
+            int colonIdx = json.IndexOf(':', idx);
+            if (colonIdx < 0) return null;
+            int firstQuote = json.IndexOf('"', colonIdx);
+            if (firstQuote < 0) return null;
+            int secondQuote = json.IndexOf('"', firstQuote + 1);
+            if (secondQuote < 0) return null;
+            return json.Substring(firstQuote + 1, secondQuote - firstQuote - 1);
         }
 
         /// <summary>
@@ -434,8 +581,10 @@ namespace GV.Network
             }
 
             CurrentRoomCode = code;
-            Debug.Log($"[NetworkManager] Joining room with code: {CurrentRoomCode}");
-            if (statusText != null) statusText.text = "Joining room...";
+            // All rooms are on the dedicated server now — always true
+            _connectedToDedicatedServer = true;
+            Debug.Log($"[NetworkManager] Joining room with code: {CurrentRoomCode} (dedicated server)");
+            if (statusText != null) statusText.text = $"Joining room {code}...";
             if (createRoomButton != null) createRoomButton.interactable = false;
             if (joinRoomButton != null) joinRoomButton.interactable = false;
             StartClient();
@@ -456,6 +605,10 @@ namespace GV.Network
         // HOST sends this to tell clients to start the countdown timer
         private static readonly ReliableKey COUNTDOWN_KEY = ReliableKey.FromInts(0x47, 0x56, 0x43, 0x44); // "GVCD"
         private static readonly byte[] COUNTDOWN_MAGIC = { 0x43, 0x4E, 0x54, 0x44 }; // "CNTD"
+
+        // CLIENT sends this to dedicated server to request match start (replaces host clicking Enter Battle)
+        private static readonly ReliableKey START_MATCH_KEY = ReliableKey.FromInts(0x47, 0x56, 0x53, 0x4D); // "GVSM"
+        private static readonly byte[] START_MATCH_MAGIC = { 0x53, 0x54, 0x52, 0x54 }; // "STRT"
 
         private const int COUNTDOWN_SECONDS = 5;
 
@@ -672,16 +825,7 @@ namespace GV.Network
         }
         
         /// <summary>
-        /// Start as Host (Server + Client)
-        /// </summary>
-        public async void StartHost()
-        {
-            Debug.Log("[NetworkManager] Starting as Host...");
-            await StartGame(GameMode.Host);
-        }
-        
-        /// <summary>
-        /// Start as Client and join existing session
+        /// Start as Client and join existing session on the dedicated server.
         /// </summary>
         public async void StartClient()
         {
@@ -698,6 +842,39 @@ namespace GV.Network
         {
             Debug.Log("[NetworkManager] Starting as DEDICATED SERVER...");
             await StartGame(GameMode.Server);
+        }
+
+        /// <summary>
+        /// Called by RoomManager to start this NetworkManager as a server for a specific room.
+        /// Sets up the room code, marks as dedicated server, and starts Fusion in Server mode.
+        /// </summary>
+        /// <param name="roomCode">The 4-character room code for the Fusion session name.</param>
+        /// <param name="maxPlayers">Max players allowed in this room.</param>
+        /// <param name="callback">Called with true on success, false on failure.</param>
+        public async void StartServerForRoom(string roomCode, int maxPlayers, Action<bool> callback)
+        {
+            _isRoomManagerControlled = true;
+            _roomStartCallback = callback;
+            IsDedicatedServer = true;
+            _inGameplayScene = true; // Server is always in gameplay scene
+            CurrentRoomCode = roomCode;
+            this.maxPlayers = maxPlayers;
+
+            Debug.Log($"[NetworkManager] StartServerForRoom: code={roomCode}, maxPlayers={maxPlayers}");
+
+            try
+            {
+                await StartGame(GameMode.Server);
+
+                bool success = Runner != null && Runner.IsRunning;
+                Debug.Log($"[NetworkManager] StartServerForRoom result: success={success}");
+                callback?.Invoke(success);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[NetworkManager] StartServerForRoom exception: {ex}");
+                callback?.Invoke(false);
+            }
         }
 
         /// <summary>
@@ -1342,6 +1519,8 @@ namespace GV.Network
             
             OnDisconnectedEvent?.Invoke(runner, shutdownReason);
             _spawnedPlayers.Clear();
+            _countdownActive = false;
+            _connectedToDedicatedServer = false;
             Runner = null;
         }
 
@@ -1377,8 +1556,44 @@ namespace GV.Network
                           $"sameInstance={Instance == this}");
             }
 
+            // --- START_MATCH COMMAND (exactly 4 bytes: "STRT") ---
+            // Client sends this to dedicated server to request match start
+            if (data.Count == START_MATCH_MAGIC.Length && runner.IsServer && IsDedicatedServer)
+            {
+                byte[] startBytes = new byte[data.Count];
+                System.Buffer.BlockCopy(data.Array, data.Offset, startBytes, 0, data.Count);
+
+                bool isStart = true;
+                for (int i = 0; i < START_MATCH_MAGIC.Length; i++)
+                {
+                    if (startBytes[i] != START_MATCH_MAGIC[i]) { isStart = false; break; }
+                }
+
+                if (isStart)
+                {
+                    Debug.Log($"[NetworkManager] SERVER: Received START_MATCH from player {player.PlayerId}! Starting match...");
+                    // Send COUNTDOWN to ALL clients (including the one that requested it, for sync)
+                    foreach (var p in Runner.ActivePlayers)
+                    {
+                        try
+                        {
+                            Runner.SendReliableDataToPlayer(p, COUNTDOWN_KEY, COUNTDOWN_MAGIC);
+                            Debug.Log($"[NetworkManager] SERVER: Sent COUNTDOWN to player {p.PlayerId}");
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.LogError($"[NetworkManager] SERVER: Failed to send COUNTDOWN to {p.PlayerId}: {ex.Message}");
+                        }
+                    }
+                    // Server starts its own countdown — at the end, sends LOAD to all clients
+                    // Server itself does NOT load a new scene (it's already in gameplay)
+                    StartCoroutine(DedicatedServerCountdownThenLoad());
+                    return;
+                }
+            }
+
             // --- COUNTDOWN COMMAND (exactly 4 bytes: "CNTD") ---
-            // Host sends this to tell clients to start the countdown timer
+            // Host/Server sends this to tell clients to start the countdown timer
             if (data.Count == COUNTDOWN_MAGIC.Length && !runner.IsServer)
             {
                 byte[] countdownBytes = new byte[data.Count];
