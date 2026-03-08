@@ -995,6 +995,24 @@ namespace GV.Network
                       $"AppVersion='{appVersion}', UseNameServer={appSettings.UseNameServer}");
             _lastError = $"Starting... Region: {fixedRegion}"; // Show status in UI
 
+            // --- Scene Manager decision ---
+            // NetworkSceneManagerDefault auto-syncs the client's scene to match the server's scene.
+            // In the RoomManager flow, the server is already in the gameplay scene (loaded by Web3Bootstrap),
+            // so when a client connects, NetworkSceneManagerDefault forces the client to load the gameplay
+            // scene immediately — bypassing the lobby UI and Enter Battle button.
+            // We handle scene loading manually via LOAD/COUNTDOWN raw data commands, so we skip
+            // NetworkSceneManagerDefault for the room-based dedicated server flow.
+            NetworkSceneManagerDefault sceneManager = null;
+            if (!_isRoomManagerControlled && !_connectedToDedicatedServer)
+            {
+                sceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>();
+                Debug.Log("[NetworkManager] Using NetworkSceneManagerDefault (non-room flow)");
+            }
+            else
+            {
+                Debug.Log("[NetworkManager] Skipping NetworkSceneManagerDefault — scene loading handled manually via LOAD commands");
+            }
+
             StartGameResult result;
             try
             {
@@ -1004,7 +1022,7 @@ namespace GV.Network
                     SessionName = sessionName,
                     PlayerCount = maxPlayers,
                     Scene = sceneInfo,
-                    SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>(),
+                    SceneManager = sceneManager,
                     CustomPhotonAppSettings = appSettings
                 });
             }

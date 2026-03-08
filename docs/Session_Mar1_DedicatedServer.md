@@ -1038,8 +1038,41 @@ Added `DedicatedServerCountdownThenLoad()` coroutine on server side — counts d
 
 ### Remaining Issues / Next Steps
 
-- Test full flow: Create Room → Join Room → Enter Battle → gameplay → ship spawning
+- ~~Test full flow: Create Room → Join Room → Enter Battle → gameplay → ship spawning~~ (tested — two bugs found and fixed below)
 - Verify multiple simultaneous rooms work on VPS
 - Room cleanup after match end (currently auto-cleans empty rooms after 30s timeout)
 - Consider adding room browser UI (GET /rooms endpoint exists but no client UI yet)
 - DontDestroyOnLoad warning for RoomManager prefab (make it root-level)
+
+---
+
+## Session 10 — Bug Fixes (March 8, 2026)
+
+### Bug Fix 1: Create Room Immediately Loads Gameplay Scene
+
+**Problem:** After clicking "Create Room", the game skipped the lobby UI (room code, player count, Enter Battle button) and immediately loaded the gameplay scene. The lobby UI appeared for less than a second before being overridden.
+
+**Root Cause:** `NetworkSceneManagerDefault` (Fusion's built-in scene synchronizer) was always added to `StartGameArgs`. The VPS server is already in the gameplay scene (loaded by `Web3Bootstrap`). When a client connects, `NetworkSceneManagerDefault` detects the scene mismatch (client=menu, server=gameplay) and forces the client to load the gameplay scene — bypassing the manual LOAD/COUNTDOWN/START_MATCH command flow.
+
+**Fix (NetworkManager.cs, `StartGame()`):** Conditionally skip `NetworkSceneManagerDefault` when `_isRoomManagerControlled` (server) or `_connectedToDedicatedServer` (client) is true. Scene loading is handled manually via raw data commands, and all spawn/registration logic uses Unity's native `SceneManager.sceneLoaded` callback, so this is safe.
+
+### Bug Fix 2: Violent Aircraft Swap on Gameplay Start
+
+**Problem:** After gameplay starts, aircraft meshes swap violently 2-3 times within less than a second, without any player input.
+
+**Root Cause:** `_prevSyncIsA` (the local tracker for detecting networked swap changes) defaults to `true` but was never initialized on the client (non-state-authority). Meanwhile, `SyncIsAActive` is a `[Networked] NetworkBool` that defaults to `false`. This mismatch caused `Render()` to detect phantom changes:
+
+1. Frame 1: `SyncIsAActive=false` (NetworkBool default) ≠ `_prevSyncIsA=true` → **Swap #1** (spurious A→B)
+2. Server writes `SyncIsAActive=true` (from meshSwap default) → **Swap #2** (B→A)
+3. Client's NFT RPC round-trips, server writes `SyncIsAActive=false` → **Swap #3** (A→B)
+
+Additionally, when the client called `RPC_SendSwapState(wantA)` during NFT→mesh link, it never updated `_prevSyncIsA`, so the round-trip was detected as a "new" change.
+
+**Fix (NetworkedSpaceshipBridge.cs, `Spawned()`):**
+1. Added `else` branch to initialize `_prevSyncIsA = (bool)SyncIsAActive` on non-state-authority (client), preventing the first-frame phantom change detection.
+2. After `RPC_SendSwapState(wantA)` in the NFT→mesh link section, also set `_prevSyncIsA = wantA` so the RPC round-trip doesn't trigger a duplicate swap in `Render()`.
+
+### Files Modified
+
+- `Assets/GV/Scripts/Network/NetworkManager.cs` — Conditional `NetworkSceneManagerDefault` in `StartGame()`
+- `Assets/GV/Scripts/Network/NetworkedSpaceshipBridge.cs` — `_prevSyncIsA` initialization in `Spawned()`

@@ -331,6 +331,13 @@ namespace GV.Network
                 SyncIsAActive = _meshSwap.IsAActive;
                 _prevSyncIsA = _meshSwap.IsAActive;
             }
+            else
+            {
+                // CLIENT: Initialize _prevSyncIsA to match the current networked value.
+                // Without this, _prevSyncIsA defaults to 'true' while NetworkBool defaults to 'false',
+                // causing Render() to detect a phantom change and trigger a spurious swap on the first frame.
+                _prevSyncIsA = (bool)SyncIsAActive;
+            }
 
             // --- NFT → MESH LINK ---
             // Two NFTs map to two meshes: meshRootIndex 0 = A_Spaceship, 1 = B_Vimana.
@@ -363,6 +370,10 @@ namespace GV.Network
                         else
                         {
                             RPC_SendSwapState(wantA);
+                            // Also update _prevSyncIsA so that when the server writes back
+                            // SyncIsAActive via the RPC round-trip, Render() won't detect it
+                            // as a new change and trigger a duplicate swap.
+                            _prevSyncIsA = wantA;
                         }
                     }
                 }
