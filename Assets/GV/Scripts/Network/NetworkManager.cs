@@ -466,16 +466,10 @@ namespace GV.Network
                 }
             }
 
-            // Server is already in gameplay scene — just mark ready for spawning
-            _inGameplayScene = true;
-            Debug.Log("[NetworkManager] SERVER: Ready for player spawning (already in gameplay scene)");
-
-            // Spawn any players that are already connected but pending
-            if (_pendingSpawns.Count > 0)
-            {
-                Debug.Log($"[NetworkManager] SERVER: Spawning {_pendingSpawns.Count} pending players...");
-                StartCoroutine(SpawnPendingPlayersNextFrame());
-            }
+            // _inGameplayScene was already set true in StartServerForRoom.
+            // Ships were already spawned by OnPlayerJoined when clients connected.
+            // This coroutine just handles the countdown + LOAD signaling to clients.
+            Debug.Log("[NetworkManager] SERVER: LOAD sent. Ships already spawned via OnPlayerJoined.");
         }
 
         // ── Room Code Generation ─────────────────────────────────────
@@ -866,12 +860,12 @@ namespace GV.Network
             _isRoomManagerControlled = true;
             _roomStartCallback = callback;
             IsDedicatedServer = true;
-            // DO NOT set _inGameplayScene = true here!
-            // The server IS in the gameplay scene (Web3Bootstrap loaded it), but we want to
-            // DELAY spawning until clients press Enter Battle and send START_MATCH.
-            // DedicatedServerCountdownThenLoad() will set _inGameplayScene = true after
-            // sending LOAD to all clients, and then spawn pending players.
-            _inGameplayScene = false;
+            // Server is already in the gameplay scene (loaded by Web3Bootstrap).
+            // Spawn ships immediately on join. The client won't SEE the ship until
+            // it loads the gameplay scene (after pressing Enter Battle), but Fusion
+            // keeps the networked object alive. Once the client loads the scene,
+            // the ship appears.
+            _inGameplayScene = true;
             CurrentRoomCode = roomCode;
             this.maxPlayers = maxPlayers;
 
