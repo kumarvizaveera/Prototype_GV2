@@ -136,6 +136,15 @@ namespace GV.Network
         private bool _isRoomManagerControlled = false;
 
         /// <summary>
+        /// Persistent flag indicating we're in a room-based flow (Create Room or Join Room).
+        /// Unlike _connectedToDedicatedServer, this is NOT reset in OnShutdown.
+        /// This ensures that if the Runner shuts down and restarts (e.g., reconnect),
+        /// we still use NoOpSceneManager instead of NetworkSceneManagerDefault.
+        /// Only cleared when the user explicitly returns to the main lobby.
+        /// </summary>
+        private bool _roomFlowActive = false;
+
+        /// <summary>
         /// Callback invoked after StartServerForRoom completes.
         /// </summary>
         private Action<bool> _roomStartCallback;
@@ -266,6 +275,9 @@ namespace GV.Network
                       $"lobbyPanel={(lobbyPanel != null ? "assigned" : "NULL")}, " +
                       $"createBtn={(createRoomButton != null ? "assigned" : "NULL")}, " +
                       $"joinBtn={(joinRoomButton != null ? "assigned" : "NULL")}");
+
+            // Clear room flow state when returning to lobby
+            _roomFlowActive = false;
 
             if (lobbyPanel != null) lobbyPanel.SetActive(true);
             if (connectedPanel != null) connectedPanel.SetActive(false);
@@ -546,6 +558,7 @@ namespace GV.Network
                 Debug.Log($"[NetworkManager] Room created on VPS: {code} — joining as client...");
                 CurrentRoomCode = code;
                 _connectedToDedicatedServer = true;
+                _roomFlowActive = true;
                 if (statusText != null) statusText.text = $"Joining room {code}...";
                 StartClient();
             }
@@ -587,6 +600,7 @@ namespace GV.Network
             CurrentRoomCode = code;
             // All rooms are on the dedicated server now — always true
             _connectedToDedicatedServer = true;
+            _roomFlowActive = true;
             Debug.Log($"[NetworkManager] Joining room with code: {CurrentRoomCode} (dedicated server)");
             if (statusText != null) statusText.text = $"Joining room {code}...";
             if (createRoomButton != null) createRoomButton.interactable = false;
@@ -858,6 +872,7 @@ namespace GV.Network
         public async void StartServerForRoom(string roomCode, int maxPlayers, Action<bool> callback)
         {
             _isRoomManagerControlled = true;
+            _roomFlowActive = true;
             _roomStartCallback = callback;
             IsDedicatedServer = true;
             // Server is already in the gameplay scene (loaded by Web3Bootstrap).
@@ -959,11 +974,30 @@ namespace GV.Network
             var sceneInfo = new NetworkSceneInfo();
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             Debug.Log($"[NetworkManager] Active scene: '{scene.name}', buildIndex={scene.buildIndex}, isLoaded={scene.isLoaded}");
-            if (scene.buildIndex < 0)
+
+            // --- CRITICAL FIX: Scene info for room flows ---
+            // In room-based flows, the dedicated SERVER is on the gameplay scene but the CLIENT
+            // is on the menu scene. If the server advertises the gameplay scene, Fusion will
+            // try to sync clients to it (auto-loading the gameplay scene before Enter Battle).
+            // NoOpSceneManager blocks this, but if it gets shutdown/replaced, the sync happens.
+            //
+            // FIX: For room flows, ALWAYS advertise build index 0 (the menu/bootstrap scene).
+            // This way server and client both say "I'm on scene 0" — Fusion sees no mismatch
+            // and never triggers scene sync. The gameplay scene is loaded manually after
+            // the player clicks Enter Battle.
+            if (_roomFlowActive)
             {
-                Debug.LogError("[NetworkManager] WARNING: Scene buildIndex is negative! This scene may not be in Build Settings.");
+                sceneInfo.AddSceneRef(SceneRef.FromIndex(0));
+                Debug.Log($"[NetworkManager] ROOM FLOW: Advertising scene index 0 (menu) instead of active scene '{scene.name}' (buildIndex={scene.buildIndex}) — prevents Fusion auto-sync");
             }
-            sceneInfo.AddSceneRef(SceneRef.FromIndex(scene.buildIndex));
+            else
+            {
+                if (scene.buildIndex < 0)
+                {
+                    Debug.LogError("[NetworkManager] WARNING: Scene buildIndex is negative! This scene may not be in Build Settings.");
+                }
+                sceneInfo.AddSceneRef(SceneRef.FromIndex(scene.buildIndex));
+            }
             
             // Setup AppSettings with fixed region and fallback AppID
             var appSettings = new Fusion.Photon.Realtime.FusionAppSettings();
@@ -1005,24 +1039,34 @@ namespace GV.Network
             _lastError = $"Starting... Region: {fixedRegion}"; // Show status in UI
 
             // --- Scene Manager decision ---
-            // NetworkSceneManagerDefault auto-syncs the client's scene to match the server's scene.
-            // In the RoomManager flow, the server is already in the gameplay scene (loaded by Web3Bootstrap),
-            // so when a client connects, NetworkSceneManagerDefault forces the client to load the gameplay
-            // scene immediately — bypassing the lobby UI and Enter Battle button.
-            // We handle scene loading manually via LOAD/COUNTDOWN raw data commands, so we use a
-            // NoOpSceneManager that satisfies Fusion's INetworkSceneManager requirement but does nothing.
-            // IMPORTANT: Passing null doesn't work — Fusion internally auto-creates a
-            // NetworkSceneManagerDefault if no INetworkSceneManager is found on the Runner.
-            INetworkSceneManager sceneManager;
-            if (!_isRoomManagerControlled && !_connectedToDedicatedServer)
+            // FIRST: Remove ANY existing INetworkSceneManager from the Runner's GameObject.
+            // The Runner prefab or Fusion bootstrap may have pre-attached a NetworkSceneManagerDefault.
+            // If we don't remove it, both ours and the existing one coexist, and Fusion uses the wrong one.
+            var existingSceneManagers = Runner.gameObject.GetComponents<INetworkSceneManager>();
+            foreach (var existing in existingSceneManagers)
             {
-                sceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>();
-                Debug.Log("[NetworkManager] Using NetworkSceneManagerDefault (non-room flow)");
+                Debug.Log($"[NetworkManager] Removing pre-existing {existing.GetType().Name} from Runner GO");
+                Destroy((Component)existing);
+            }
+
+            INetworkSceneManager sceneManager;
+            if (!_isRoomManagerControlled && !_connectedToDedicatedServer && !_roomFlowActive)
+            {
+                sceneManager = Runner.gameObject.AddComponent<NetworkSceneManagerDefault>();
+                Debug.Log("[NetworkManager] Using NetworkSceneManagerDefault on Runner GO (non-room flow)");
             }
             else
             {
-                sceneManager = gameObject.AddComponent<NoOpSceneManager>();
-                Debug.Log("[NetworkManager] Using NoOpSceneManager — scene loading handled manually via LOAD commands");
+                sceneManager = Runner.gameObject.AddComponent<NoOpSceneManager>();
+                Debug.Log($"[NetworkManager] Using NoOpSceneManager on Runner GO ({Runner.gameObject.name}) — scene loading handled manually");
+            }
+
+            // Belt-and-suspenders: also remove from NetworkManager GO in case old code left one there
+            var staleManagers = gameObject.GetComponents<INetworkSceneManager>();
+            foreach (var stale in staleManagers)
+            {
+                Debug.Log($"[NetworkManager] Removing stale {stale.GetType().Name} from NetworkManager GO");
+                Destroy((Component)stale);
             }
 
             StartGameResult result;
@@ -1045,7 +1089,42 @@ namespace GV.Network
                 return;
             }
             Debug.Log($"[NetworkManager] StartGame returned: Ok={result.Ok}, ShutdownReason={result.ShutdownReason}");
-            
+
+            // Post-StartGame cleanup: Fusion's StartGame may have auto-added a NetworkSceneManagerDefault
+            // even though we passed our own. Remove any that aren't ours.
+            if (Runner != null && sceneManager is NoOpSceneManager)
+            {
+                var postManagers = Runner.gameObject.GetComponents<NetworkSceneManagerDefault>();
+                foreach (var pm in postManagers)
+                {
+                    Debug.Log($"[NetworkManager] POST-STARTGAME: Removing auto-added NetworkSceneManagerDefault from Runner");
+                    DestroyImmediate(pm);
+                }
+            }
+
+            // --- DIAGNOSTIC: Dump ALL INetworkSceneManager components on Runner and this GO ---
+            if (Runner != null)
+            {
+                var runnerSMs = Runner.gameObject.GetComponents<INetworkSceneManager>();
+                Debug.Log($"[SCENE-DIAG] Runner GO '{Runner.gameObject.name}' has {runnerSMs.Length} INetworkSceneManager(s):");
+                foreach (var sm in runnerSMs)
+                    Debug.Log($"[SCENE-DIAG]   - {sm.GetType().Name} (instanceID={((Component)sm).GetInstanceID()})");
+
+                var mySMs = gameObject.GetComponents<INetworkSceneManager>();
+                Debug.Log($"[SCENE-DIAG] NetworkManager GO '{gameObject.name}' has {mySMs.Length} INetworkSceneManager(s):");
+                foreach (var sm in mySMs)
+                    Debug.Log($"[SCENE-DIAG]   - {sm.GetType().Name} (instanceID={((Component)sm).GetInstanceID()})");
+
+                // Check ALL GameObjects in scene for NetworkSceneManagerDefault
+                var allDefaults = FindObjectsOfType<NetworkSceneManagerDefault>();
+                Debug.Log($"[SCENE-DIAG] Total NetworkSceneManagerDefault in scene: {allDefaults.Length}");
+                foreach (var d in allDefaults)
+                    Debug.Log($"[SCENE-DIAG]   - on GO '{d.gameObject.name}' (instanceID={d.GetInstanceID()})");
+
+                Debug.Log($"[SCENE-DIAG] Runner.gameObject == this.gameObject? {Runner.gameObject == gameObject}");
+                Debug.Log($"[SCENE-DIAG] _connectedToDedicatedServer={_connectedToDedicatedServer}, _isRoomManagerControlled={_isRoomManagerControlled}, _roomFlowActive={_roomFlowActive}");
+            }
+
             // Belt-and-suspenders: re-register callbacks and re-confirm ProvideInput AFTER StartGame.
             // Some Fusion versions clear callbacks during StartGame. Adding again is safe (Fusion deduplicates).
             // Runner can be null if StartGame failed and triggered a shutdown.
@@ -1112,7 +1191,8 @@ namespace GV.Network
         private void OnUnitySceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
         {
             Debug.Log($"[NetworkManager] Unity sceneLoaded — scene: {scene.name}, " +
-                      $"gameplaySceneName: {gameplaySceneName}, pending: {_pendingSpawns.Count}");
+                      $"gameplaySceneName: {gameplaySceneName}, pending: {_pendingSpawns.Count}, " +
+                      $"STACK TRACE:\n{System.Environment.StackTrace}");
 
             if (!string.IsNullOrEmpty(gameplaySceneName) && scene.name == gameplaySceneName)
             {
@@ -1551,6 +1631,11 @@ namespace GV.Network
             _spawnedPlayers.Clear();
             _countdownActive = false;
             _connectedToDedicatedServer = false;
+            // NOTE: _roomFlowActive is intentionally NOT reset here.
+            // If the Runner shuts down and restarts (unexpected reconnect),
+            // we need to remember we're in a room flow so NoOpSceneManager is used
+            // instead of NetworkSceneManagerDefault. _roomFlowActive is only cleared
+            // when the user explicitly returns to the main lobby (ShowLobbyUI).
             Runner = null;
         }
 

@@ -29,7 +29,7 @@ public class NoOpSceneManager : Fusion.Behaviour, INetworkSceneManager
 
     public void Shutdown()
     {
-        Debug.Log("[NoOpSceneManager] Shutdown.");
+        Debug.LogWarning($"[NoOpSceneManager] Shutdown called! Stack trace:\n{System.Environment.StackTrace}");
         _runner = null;
     }
 
@@ -40,7 +40,10 @@ public class NoOpSceneManager : Fusion.Behaviour, INetworkSceneManager
     /// </summary>
     public bool OnSceneInfoChanged(NetworkSceneInfo sceneInfo, NetworkSceneInfoChangeSource changeSource)
     {
-        Debug.Log($"[NoOpSceneManager] OnSceneInfoChanged called (source={changeSource}) — IGNORING (manual scene control).");
+        string sceneRefs = "";
+        for (int i = 0; i < sceneInfo.SceneCount; i++)
+            sceneRefs += $" [{i}]=idx{sceneInfo.GetSceneRef(i).AsIndex}";
+        Debug.Log($"[NoOpSceneManager] OnSceneInfoChanged (source={changeSource}, sceneCount={sceneInfo.SceneCount}{sceneRefs}) — IGNORING (manual scene control).");
         return true; // "I'll handle it" — but we intentionally do nothing
     }
 
