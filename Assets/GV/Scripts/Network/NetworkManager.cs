@@ -145,6 +145,15 @@ namespace GV.Network
         private bool _roomFlowActive = false;
 
         /// <summary>
+        /// Set to true ONLY when OUR code intentionally loads the gameplay scene
+        /// (after Enter Battle countdown). This prevents OnUnitySceneLoaded from
+        /// treating Fusion's auto-synced scene loads as intentional gameplay starts.
+        /// Without this guard, Fusion's scene sync loads Room_Tests_2 behind the UI,
+        /// OnUnitySceneLoaded sets _inGameplayScene=true, and ships spawn prematurely.
+        /// </summary>
+        private bool _manualSceneLoadRequested = false;
+
+        /// <summary>
         /// Callback invoked after StartServerForRoom completes.
         /// </summary>
         private Action<bool> _roomStartCallback;
@@ -406,6 +415,7 @@ namespace GV.Network
             else if (Runner != null && Runner.IsClient && _connectedToDedicatedServer)
             {
                 Debug.Log($"[NetworkManager] CLIENT: Countdown done, loading gameplay scene: {gameplaySceneName}");
+                _manualSceneLoadRequested = true;
                 HideAllMenuUI();
                 UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
             }
@@ -442,6 +452,7 @@ namespace GV.Network
                 yield return null;
 
             Debug.Log($"[NetworkManager] HOST: Now loading gameplay scene: {gameplaySceneName}");
+            _manualSceneLoadRequested = true;
             HideAllMenuUI();
             UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
         }
@@ -975,29 +986,11 @@ namespace GV.Network
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             Debug.Log($"[NetworkManager] Active scene: '{scene.name}', buildIndex={scene.buildIndex}, isLoaded={scene.isLoaded}");
 
-            // --- CRITICAL FIX: Scene info for room flows ---
-            // In room-based flows, the dedicated SERVER is on the gameplay scene but the CLIENT
-            // is on the menu scene. If the server advertises the gameplay scene, Fusion will
-            // try to sync clients to it (auto-loading the gameplay scene before Enter Battle).
-            // NoOpSceneManager blocks this, but if it gets shutdown/replaced, the sync happens.
-            //
-            // FIX: For room flows, ALWAYS advertise build index 0 (the menu/bootstrap scene).
-            // This way server and client both say "I'm on scene 0" — Fusion sees no mismatch
-            // and never triggers scene sync. The gameplay scene is loaded manually after
-            // the player clicks Enter Battle.
-            if (_roomFlowActive)
+            if (scene.buildIndex < 0)
             {
-                sceneInfo.AddSceneRef(SceneRef.FromIndex(0));
-                Debug.Log($"[NetworkManager] ROOM FLOW: Advertising scene index 0 (menu) instead of active scene '{scene.name}' (buildIndex={scene.buildIndex}) — prevents Fusion auto-sync");
+                Debug.LogError("[NetworkManager] WARNING: Scene buildIndex is negative! This scene may not be in Build Settings.");
             }
-            else
-            {
-                if (scene.buildIndex < 0)
-                {
-                    Debug.LogError("[NetworkManager] WARNING: Scene buildIndex is negative! This scene may not be in Build Settings.");
-                }
-                sceneInfo.AddSceneRef(SceneRef.FromIndex(scene.buildIndex));
-            }
+            sceneInfo.AddSceneRef(SceneRef.FromIndex(scene.buildIndex));
             
             // Setup AppSettings with fixed region and fallback AppID
             var appSettings = new Fusion.Photon.Realtime.FusionAppSettings();
@@ -1196,7 +1189,21 @@ namespace GV.Network
 
             if (!string.IsNullOrEmpty(gameplaySceneName) && scene.name == gameplaySceneName)
             {
+                // CRITICAL GUARD: Only treat this as an intentional gameplay start if WE
+                // requested the scene load (via Enter Battle flow). Fusion's auto scene sync
+                // may load the gameplay scene behind the UI before the player clicks Enter Battle.
+                // Without this guard, _inGameplayScene gets set true prematurely and ships spawn
+                // before the player is ready.
+                if (!_manualSceneLoadRequested)
+                {
+                    Debug.LogWarning($"[NetworkManager] Unity loaded gameplay scene '{scene.name}' but _manualSceneLoadRequested=false — " +
+                                     "this was Fusion auto-sync, NOT our Enter Battle flow. IGNORING spawn/setup.");
+                    return;
+                }
+
+                Debug.Log($"[NetworkManager] Gameplay scene '{scene.name}' loaded via manual request — activating gameplay.");
                 _inGameplayScene = true;
+                _manualSceneLoadRequested = false; // Reset for next time
 
                 // Auto-find the spawn spline in the newly loaded gameplay scene
                 TryFindSpawnSpline();
@@ -1631,6 +1638,7 @@ namespace GV.Network
             _spawnedPlayers.Clear();
             _countdownActive = false;
             _connectedToDedicatedServer = false;
+            _manualSceneLoadRequested = false;
             // NOTE: _roomFlowActive is intentionally NOT reset here.
             // If the Runner shuts down and restarts (unexpected reconnect),
             // we need to remember we're in a room flow so NoOpSceneManager is used
@@ -1744,6 +1752,7 @@ namespace GV.Network
                 if (isLoadCommand)
                 {
                     Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD command from host! Loading {gameplaySceneName}...");
+                    _manualSceneLoadRequested = true;
                     HideAllMenuUI();
                     UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
                     return; // Don't process as input data
@@ -1794,11 +1803,20 @@ namespace GV.Network
         public void OnSceneLoadDone(NetworkRunner runner)
         {
             var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            Debug.Log($"[NetworkManager] OnSceneLoadDone — scene: {activeScene}, pending spawns: {_pendingSpawns.Count}");
+            Debug.Log($"[NetworkManager] OnSceneLoadDone — scene: {activeScene}, pending spawns: {_pendingSpawns.Count}, manualLoad={_manualSceneLoadRequested}");
 
             // Check if we've arrived in the gameplay scene
             if (!string.IsNullOrEmpty(gameplaySceneName) && activeScene == gameplaySceneName)
             {
+                // Same guard as OnUnitySceneLoaded: only activate gameplay if WE requested the load.
+                // Fusion's auto scene sync may trigger OnSceneLoadDone before Enter Battle is clicked.
+                if (!_manualSceneLoadRequested && !IsDedicatedServer)
+                {
+                    Debug.LogWarning($"[NetworkManager] OnSceneLoadDone for gameplay scene but _manualSceneLoadRequested=false — " +
+                                     "Fusion auto-sync, NOT our Enter Battle flow. IGNORING spawn/setup.");
+                    return;
+                }
+
                 _inGameplayScene = true;
 
                 // Auto-find the spawn spline in the newly loaded gameplay scene

@@ -40,10 +40,7 @@ public class NoOpSceneManager : Fusion.Behaviour, INetworkSceneManager
     /// </summary>
     public bool OnSceneInfoChanged(NetworkSceneInfo sceneInfo, NetworkSceneInfoChangeSource changeSource)
     {
-        string sceneRefs = "";
-        for (int i = 0; i < sceneInfo.SceneCount; i++)
-            sceneRefs += $" [{i}]=idx{sceneInfo.GetSceneRef(i).AsIndex}";
-        Debug.Log($"[NoOpSceneManager] OnSceneInfoChanged (source={changeSource}, sceneCount={sceneInfo.SceneCount}{sceneRefs}) — IGNORING (manual scene control).");
+        Debug.Log($"[NoOpSceneManager] OnSceneInfoChanged (source={changeSource}, sceneCount={sceneInfo.SceneCount}) — IGNORING (manual scene control).");
         return true; // "I'll handle it" — but we intentionally do nothing
     }
 
