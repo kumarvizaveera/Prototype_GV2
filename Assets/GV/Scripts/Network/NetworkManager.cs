@@ -382,12 +382,22 @@ namespace GV.Network
             // Small pause to show "GO!"
             yield return new WaitForSeconds(0.3f);
 
-            // HOST: send LOAD command to clients and then load the scene
-            if (Runner != null && Runner.IsServer)
+            // HOST (non-dedicated): send LOAD command to clients and then load the scene
+            if (Runner != null && Runner.IsServer && !IsDedicatedServer)
             {
                 StartCoroutine(LoadGameplayWithClientSync());
             }
-            // CLIENT: just wait — the LOAD command from host will trigger scene load via OnReliableDataReceived
+            // CLIENT connected to dedicated server: load the scene directly.
+            // We already ran the countdown locally, no need to wait for a separate LOAD command.
+            // The server's DedicatedServerCountdownThenLoad will set _inGameplayScene=true and
+            // spawn pending players on its side around the same time.
+            else if (Runner != null && Runner.IsClient && _connectedToDedicatedServer)
+            {
+                Debug.Log($"[NetworkManager] CLIENT: Countdown done, loading gameplay scene: {gameplaySceneName}");
+                HideAllMenuUI();
+                UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+            }
+            // CLIENT (non-dedicated host-client): wait for LOAD command from host via OnReliableDataReceived
         }
 
         /// <summary>
@@ -856,7 +866,12 @@ namespace GV.Network
             _isRoomManagerControlled = true;
             _roomStartCallback = callback;
             IsDedicatedServer = true;
-            _inGameplayScene = true; // Server is always in gameplay scene
+            // DO NOT set _inGameplayScene = true here!
+            // The server IS in the gameplay scene (Web3Bootstrap loaded it), but we want to
+            // DELAY spawning until clients press Enter Battle and send START_MATCH.
+            // DedicatedServerCountdownThenLoad() will set _inGameplayScene = true after
+            // sending LOAD to all clients, and then spawn pending players.
+            _inGameplayScene = false;
             CurrentRoomCode = roomCode;
             this.maxPlayers = maxPlayers;
 
