@@ -12,6 +12,7 @@
   "dependencies": {
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity",
     "com.reown.appkit.unity": "1.5.2",
+    "com.tripo3d.unitybridge": "file:C:/Users/Veera/Desktop/Others/Tripo3d_Unity_Bridge",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.2d.tilemap": "1.0.0",
     "com.unity.ai.navigation": "2.0.9",
