@@ -38,6 +38,10 @@ namespace GV.Web3
         [Tooltip("If true, loads the next scene automatically. If false, waits for manual trigger.")]
         [SerializeField] private bool autoLoadNextScene = true;
 
+        [Header("Dedicated Server")]
+        [Tooltip("NetworkManager prefab to instantiate on dedicated server (since we skip the menu scene where it normally lives).")]
+        [SerializeField] private GameObject networkManagerPrefab;
+
         /// <summary>
         /// Checks if this build should run as a dedicated server.
         /// Same logic as ServerBootstrap and NetworkManager.
@@ -94,9 +98,27 @@ namespace GV.Web3
 
             // --- Dedicated Server: skip menu, go straight to gameplay scene ---
             // The server has no player to click "Enter Battle," so we jump directly
-            // to the scene that has NetworkManager (which auto-starts as Server).
+            // to the gameplay scene. But NetworkManager normally lives in the menu scene,
+            // so we must instantiate it here before loading gameplay.
             if (IsDedicatedServer())
             {
+                // Ensure NetworkManager exists — it normally lives in the menu scene
+                // which we're skipping. Instantiate the prefab so it gets DontDestroyOnLoad'd.
+                if (GV.Network.NetworkManager.Instance == null)
+                {
+                    if (networkManagerPrefab != null)
+                    {
+                        Debug.Log("[Web3Bootstrap] DEDICATED SERVER — instantiating NetworkManager prefab (skipping menu scene)");
+                        Instantiate(networkManagerPrefab);
+                    }
+                    else
+                    {
+                        Debug.LogError("[Web3Bootstrap] DEDICATED SERVER — networkManagerPrefab not assigned! " +
+                            "Drag 'Assets/GV/Prefabs_GV/Network/Network Manager' into the Web3Bootstrap Inspector. " +
+                            "Without this, the server cannot start Fusion networking.");
+                    }
+                }
+
                 string serverScene = !string.IsNullOrEmpty(gameplaySceneName) ? gameplaySceneName : nextSceneName;
                 Debug.Log($"[Web3Bootstrap] DEDICATED SERVER — skipping menu, loading gameplay scene: {serverScene}");
                 SceneManager.LoadScene(serverScene);

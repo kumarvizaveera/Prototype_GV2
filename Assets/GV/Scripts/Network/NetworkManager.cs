@@ -740,6 +740,11 @@ namespace GV.Network
                     var runnerGO = new GameObject("NetworkRunner");
                     Runner = runnerGO.AddComponent<NetworkRunner>();
                 }
+                // Protect Runner from scene changes — especially on dedicated server where
+                // Web3Bootstrap loads the gameplay scene (destroying Bootstrap scene objects)
+                // while StartGame is still connecting asynchronously.
+                DontDestroyOnLoad(Runner.gameObject);
+                Debug.Log("[NetworkManager] Runner created with DontDestroyOnLoad");
             }
             
             // Dedicated server has no local player, so no input to provide.
@@ -803,8 +808,9 @@ namespace GV.Network
             appSettings.FixedRegion = fixedRegion;
             appSettings.UseNameServer = true;
             
-            // Use room code as session name. Dedicated server and AutoHostOrClient fall back to "GV_Race".
-            string sessionName = !string.IsNullOrEmpty(CurrentRoomCode) ? CurrentRoomCode : "GV_Race";
+            // Use room code as session name. Dedicated server and AutoHostOrClient fall back to "GV2S".
+            // Must be uppercase and exactly 4 chars — room code UI only accepts 4-char codes.
+            string sessionName = !string.IsNullOrEmpty(CurrentRoomCode) ? CurrentRoomCode : "GV2S";
 
             Debug.Log($"[NetworkManager] Starting game. Mode={mode}, Region={fixedRegion}, " +
                       $"Session={sessionName}, MaxPlayers={maxPlayers}, " +

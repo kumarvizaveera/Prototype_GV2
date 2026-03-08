@@ -1,0 +1,21 @@
+[Unit]
+Description=GV2 Dedicated Game Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/gv2-server
+ExecStart=/opt/gv2-server/L_Tests_10 -batchmode -nographics -server
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/var/log/gv2-server.log
+StandardError=append:/var/log/gv2-server-error.log
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
