@@ -475,7 +475,32 @@ namespace GV.Network
 
             yield return new WaitForSeconds(0.3f); // Match the "GO!" pause on clients
 
-            // Send LOAD command to all clients
+            // NOW activate gameplay and spawn all queued players.
+            // This is the moment the match actually starts on the server.
+            _inGameplayScene = true;
+            Debug.Log($"[NetworkManager] SERVER: _inGameplayScene=true, pending spawns: {_pendingSpawns.Count}");
+
+            // Find the spawn spline in the gameplay scene (server is already in it)
+            TryFindSpawnSpline();
+
+            // Spawn all players that were queued during OnPlayerJoined
+            var playersToSpawn = new List<PlayerRef>(_pendingSpawns);
+            _pendingSpawns.Clear();
+
+            // Also catch any active players not in the queue (edge case: joined between queue and now)
+            foreach (var p in Runner.ActivePlayers)
+            {
+                if (!_spawnedPlayers.ContainsKey(p) && !playersToSpawn.Contains(p))
+                    playersToSpawn.Add(p);
+            }
+
+            Debug.Log($"[NetworkManager] SERVER: Spawning {playersToSpawn.Count} players now.");
+            foreach (var p in playersToSpawn)
+            {
+                SpawnPlayer(Runner, p, _spawnedPlayers.Count);
+            }
+
+            // Send LOAD command to all clients so they load the gameplay scene
             foreach (var player in Runner.ActivePlayers)
             {
                 try
@@ -489,10 +514,7 @@ namespace GV.Network
                 }
             }
 
-            // _inGameplayScene was already set true in StartServerForRoom.
-            // Ships were already spawned by OnPlayerJoined when clients connected.
-            // This coroutine just handles the countdown + LOAD signaling to clients.
-            Debug.Log("[NetworkManager] SERVER: LOAD sent. Ships already spawned via OnPlayerJoined.");
+            Debug.Log("[NetworkManager] SERVER: Match started — players spawned and LOAD sent to clients.");
         }
 
         // ── Room Code Generation ─────────────────────────────────────
@@ -886,12 +908,11 @@ namespace GV.Network
             _roomFlowActive = true;
             _roomStartCallback = callback;
             IsDedicatedServer = true;
-            // Server is already in the gameplay scene (loaded by Web3Bootstrap).
-            // Spawn ships immediately on join. The client won't SEE the ship until
-            // it loads the gameplay scene (after pressing Enter Battle), but Fusion
-            // keeps the networked object alive. Once the client loads the scene,
-            // the ship appears.
-            _inGameplayScene = true;
+            // Do NOT spawn ships yet — wait until client clicks Enter Battle
+            // and sends START_MATCH. If we spawn immediately, Fusion replicates
+            // the ship objects to the client before they're ready, and the player
+            // can fire/hear sounds while still on the lobby UI.
+            _inGameplayScene = false;
             CurrentRoomCode = roomCode;
             this.maxPlayers = maxPlayers;
 
@@ -1808,12 +1829,15 @@ namespace GV.Network
             // Check if we've arrived in the gameplay scene
             if (!string.IsNullOrEmpty(gameplaySceneName) && activeScene == gameplaySceneName)
             {
-                // Same guard as OnUnitySceneLoaded: only activate gameplay if WE requested the load.
-                // Fusion's auto scene sync may trigger OnSceneLoadDone before Enter Battle is clicked.
-                if (!_manualSceneLoadRequested && !IsDedicatedServer)
+                // Guard: only activate gameplay if WE requested the load OR if the server
+                // has already activated gameplay via DedicatedServerCountdownThenLoad.
+                // Without this, Fusion's OnSceneLoadDone fires at startup on the server
+                // (already in gameplay scene) and would set _inGameplayScene=true + spawn ships
+                // before any client has clicked Enter Battle.
+                if (!_manualSceneLoadRequested && !_inGameplayScene)
                 {
-                    Debug.LogWarning($"[NetworkManager] OnSceneLoadDone for gameplay scene but _manualSceneLoadRequested=false — " +
-                                     "Fusion auto-sync, NOT our Enter Battle flow. IGNORING spawn/setup.");
+                    Debug.LogWarning($"[NetworkManager] OnSceneLoadDone for gameplay scene but _manualSceneLoadRequested=false " +
+                                     $"and _inGameplayScene=false — IGNORING spawn/setup (waiting for Enter Battle).");
                     return;
                 }
 

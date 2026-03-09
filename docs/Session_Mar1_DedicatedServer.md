@@ -1076,3 +1076,75 @@ Additionally, when the client called `RPC_SendSwapState(wantA)` during NFT→mes
 
 - `Assets/GV/Scripts/Network/NetworkManager.cs` — Conditional `NetworkSceneManagerDefault` in `StartGame()`
 - `Assets/GV/Scripts/Network/NetworkedSpaceshipBridge.cs` — `_prevSyncIsA` initialization in `Spawned()`
+
+---
+
+## Session — March 8, 2026: Scene Loading & Ship Spawn Timing Fix
+
+### Bug: Gameplay Scene Loads Before Pressing Enter Battle
+
+**Symptom:** After clicking Create Room, the gameplay scene (`Room_Tests_2`) loads immediately and ships spawn — the player can fire and hear sounds while still on the lobby UI. Gameplay should only start after clicking Enter Battle.
+
+### Investigation & Failed Approaches
+
+**Approach 1: NoOpSceneManager (INetworkSceneManager)**
+Created `NoOpSceneManager.cs` — a custom `INetworkSceneManager` that returns `true` from `OnSceneInfoChanged` (telling Fusion "I'll handle it") but does nothing, preventing Fusion from auto-syncing scenes.
+
+- Confirmed via debug logs: NoOpSceneManager IS correctly installed on the Runner GO, IS receiving `OnSceneInfoChanged(source=Remote)` calls, and IS returning true
+- **Problem:** Fusion internally shuts down our NoOpSceneManager after a short time. After shutdown, Fusion loads the gameplay scene anyway. The `[NoOpSceneManager] Shutdown called!` log confirmed this.
+- Added the NoOpSceneManager to `Runner.gameObject` (not `this.gameObject`) since the Runner lives on a separate `new GameObject("NetworkRunner")` — confirmed by `Runner.gameObject == this.gameObject? False`
+- Added post-StartGame cleanup to remove any auto-added `NetworkSceneManagerDefault`
+- None of this prevented Fusion from eventually loading the scene
+
+**Approach 2: Fake Scene Index**
+Tried having the server advertise build index 0 (pretending to be on the menu scene) in `StartGameArgs.Scene` to eliminate the scene mismatch between server and client.
+
+- **Problem:** The menu scene (`SCK_MainMenu_3`) is at buildIndex=1, not 0. More importantly, Fusion overrides `StartGameArgs.Scene` with the server's actual scene info internally. `OnSceneInfoChanged(source=Remote)` still fired with the server's real gameplay scene.
+
+**Approach 3: Guard OnUnitySceneLoaded with `_manualSceneLoadRequested` flag**
+Added a flag that's only set to `true` right before our intentional `SceneManager.LoadScene()` calls (after Enter Battle countdown). Both `OnUnitySceneLoaded` and `OnSceneLoadDone` check this flag.
+
+- **Problem:** This correctly guarded the CLIENT from setting `_inGameplayScene = true`, but the ships were being spawned on the SERVER (which has `_inGameplayScene = true` set in `StartServerForRoom`). Fusion replicates networked ship objects from server to client regardless of client-side flags.
+
+### Root Cause
+
+The dedicated server set `_inGameplayScene = true` immediately in `StartServerForRoom()`, causing `OnPlayerJoined()` to call `SpawnPlayer()` the instant a client connects. Fusion then replicates the networked ship objects to the client. No amount of client-side guarding could prevent this — the ships came from the server.
+
+Additionally, `OnSceneLoadDone` had a `!IsDedicatedServer` bypass in its guard, meaning the dedicated server's initial `OnSceneLoadDone` (when already in the gameplay scene) would also set `_inGameplayScene = true` and trigger spawning.
+
+### Fix Applied
+
+**NetworkManager.cs:**
+
+1. **`StartServerForRoom()`**: Changed `_inGameplayScene = true` → `_inGameplayScene = false`. Players who join are now queued in `_pendingSpawns` instead of spawned immediately.
+
+2. **`DedicatedServerCountdownThenLoad()`**: After the countdown finishes (triggered by START_MATCH from client), the server now:
+   - Sets `_inGameplayScene = true`
+   - Calls `TryFindSpawnSpline()`
+   - Spawns ALL queued players from `_pendingSpawns` plus any active players without ships
+   - THEN sends LOAD command to clients
+
+3. **`OnSceneLoadDone()` guard**: Changed from `!IsDedicatedServer` bypass to `!_inGameplayScene` check. The server's initial `OnSceneLoadDone` is now blocked because `_inGameplayScene` starts as false.
+
+4. **`OnUnitySceneLoaded()` guard**: Added `_manualSceneLoadRequested` check — if Fusion auto-loads the gameplay scene on the client, the handler returns without activating gameplay.
+
+5. **`_roomFlowActive` flag**: Persists through `OnShutdown` (unlike `_connectedToDedicatedServer` which gets reset). Ensures NoOpSceneManager is always used for room flows even after unexpected Runner shutdown/restart.
+
+6. **`_manualSceneLoadRequested` flag**: Set to `true` only before intentional `SceneManager.LoadScene()` calls (3 locations: client countdown→load, host load, client LOAD command from host). Reset after processing or on shutdown.
+
+**NoOpSceneManager.cs:**
+- `Shutdown()` now logs full stack trace via `System.Environment.StackTrace`
+- `OnSceneInfoChanged()` now logs `sceneCount` for better diagnostics
+
+### Current Status
+
+- Gameplay scene no longer loads before pressing Enter Battle ✓
+- **Ship spawning after Enter Battle not yet working** — ships are queued on the server but the spawn timing after START_MATCH needs debugging (to be fixed in next session)
+- Aircraft swap bug fix from previous session still working ✓
+- KeyNotFoundException fix in Tracker.cs still working ✓
+
+### Files Modified
+
+- `Assets/GV/Scripts/Network/NetworkManager.cs` — Delayed ship spawning, scene load guards, `_roomFlowActive` + `_manualSceneLoadRequested` flags
+- `Assets/GV/Scripts/Network/NoOpSceneManager.cs` — Shutdown stack trace logging, improved OnSceneInfoChanged logging
+- `Assets/GV/Scripts/Network/NetworkedSpaceshipBridge.cs` — Per-frame RPC spam fix + grace period (from earlier in session)
