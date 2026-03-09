@@ -603,6 +603,7 @@ namespace GV.Network
             target._matchStartTriggered = true;
             target._matchStartTime = Time.time;
             target._matchCountdownSentLoad = false;
+            target._serverSendingCountdown = true;
 
             Debug.Log($"[SPAWN-DEBUG] SERVER: TriggerMatchStart — sending COUNTDOWN, will spawn after 0.5s (client handles its own {COUNTDOWN_SECONDS}s countdown)");
 
@@ -634,10 +635,53 @@ namespace GV.Network
         /// </summary>
         private void UpdateMatchStartCountdown()
         {
-            if (!_matchStartTriggered || _matchCountdownSentLoad) return;
             if (!IsDedicatedServer) return;
 
+            // --- REPEATED SCENE_LOAD SIGNAL (runs after spawn, for 5 seconds) ---
+            if (_serverSendingSceneLoad && Runner != null)
+            {
+                if (Time.time - _sceneLoadSignalStartTime > 5f)
+                {
+                    _serverSendingSceneLoad = false;
+                    Debug.Log("[SPAWN-DEBUG] SERVER: Stopped sending SCENE_LOAD signals (5s buffer expired).");
+                }
+                else
+                {
+                    var sceneLoadData = new PlayerInputData();
+                    sceneLoadData.magicNumber = SCENE_LOAD_SIGNAL_MAGIC;
+                    byte[] sceneLoadBytes = SerializeInput(sceneLoadData);
+                    foreach (var p in Runner.ActivePlayers)
+                    {
+                        try
+                        {
+                            Runner.SendReliableDataToPlayer(p, INPUT_DATA_KEY, sceneLoadBytes);
+                        }
+                        catch (System.Exception) { /* best-effort */ }
+                    }
+                }
+            }
+
+            if (!_matchStartTriggered || _matchCountdownSentLoad) return;
+
             float elapsed = Time.time - _matchStartTime;
+
+            // --- REPEATED COUNTDOWN SIGNAL (piggyback on proven INPUT_DATA_KEY channel) ---
+            // Fusion silently drops 4-byte messages on custom ReliableKeys, so we also
+            // send 37-byte packets with COUNTDOWN_SIGNAL_MAGIC every frame to ensure delivery.
+            if (_serverSendingCountdown && Runner != null)
+            {
+                var countdownData = new PlayerInputData();
+                countdownData.magicNumber = COUNTDOWN_SIGNAL_MAGIC;
+                byte[] countdownBytes = SerializeInput(countdownData);
+                foreach (var p in Runner.ActivePlayers)
+                {
+                    try
+                    {
+                        Runner.SendReliableDataToPlayer(p, INPUT_DATA_KEY, countdownBytes);
+                    }
+                    catch (System.Exception) { /* best-effort */ }
+                }
+            }
 
             // Server spawns quickly — the CLIENT handles its own 5s countdown locally.
             // Server just needs a tiny buffer to let the Fusion session stabilize.
@@ -685,7 +729,12 @@ namespace GV.Network
                 Debug.Log($"[SPAWN-DEBUG] SERVER: SpawnPlayer returned for {p.PlayerId}, _spawnedPlayers now has {_spawnedPlayers.Count} entries");
             }
 
-            // Send LOAD to all clients
+            // Switch from COUNTDOWN to SCENE_LOAD signals
+            _serverSendingCountdown = false;
+            _serverSendingSceneLoad = true;
+            _sceneLoadSignalStartTime = Time.time;
+
+            // Send LOAD to all clients (legacy 4-byte channel — kept as fallback)
             if (Runner != null)
             {
                 foreach (var player in Runner.ActivePlayers)
@@ -940,6 +989,40 @@ namespace GV.Network
 
         private const int COUNTDOWN_SECONDS = 3;
 
+        /// <summary>
+        /// Button bit used to embed START_MATCH in regular 37-byte input data.
+        /// This is the most reliable delivery method — it piggybacks on the proven
+        /// INPUT_DATA_KEY channel that Fusion always delivers, avoiding the separate
+        /// ReliableKey channels that Fusion sometimes silently drops.
+        /// </summary>
+        private const int START_MATCH_BUTTON_BIT = 31;
+
+        /// <summary>
+        /// Reserved magic numbers for server→client match state signals.
+        /// These are embedded in 37-byte packets on INPUT_DATA_KEY (the proven channel)
+        /// because Fusion silently drops 4-byte messages on custom ReliableKeys.
+        /// Sent every frame from the server to ensure at least one delivery per Fusion tick.
+        /// </summary>
+        private const int COUNTDOWN_SIGNAL_MAGIC = 999999;
+        private const int SCENE_LOAD_SIGNAL_MAGIC = 888888;
+
+        /// <summary>
+        /// When true, the server sends COUNTDOWN signals to all clients every frame.
+        /// Set by TriggerMatchStart(), cleared after spawn delay + buffer time.
+        /// </summary>
+        private bool _serverSendingCountdown = false;
+
+        /// <summary>
+        /// When true, the server sends SCENE_LOAD signals to all clients every frame.
+        /// Set after spawning players, cleared after a few seconds of buffer.
+        /// </summary>
+        private bool _serverSendingSceneLoad = false;
+
+        /// <summary>
+        /// Time.time when _serverSendingSceneLoad was enabled. Used to stop sending after a buffer period.
+        /// </summary>
+        private float _sceneLoadSignalStartTime = 0f;
+
         // --- RAW DATA INPUT TRANSPORT ---
         // Fusion's OnInput/GetInput pipeline and RPCs both silently fail in our setup.
         // This bypasses both entirely using Runner.SendReliableDataToServer(), which:
@@ -1059,6 +1142,15 @@ namespace GV.Network
                 {
                     var data = playerInput.CurrentInputData;
                     data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 42;
+
+                    // Embed START_MATCH in regular input via button bit 31.
+                    // This piggybacks on the proven INPUT_DATA_KEY channel that Fusion
+                    // always delivers, unlike separate ReliableKey channels which get dropped.
+                    if (_sendStartMatchViaInput)
+                    {
+                        data.buttons.Set(START_MATCH_BUTTON_BIT, true);
+                    }
+
                     byte[] bytes = SerializeInput(data);
 
                     // If START_MATCH flag is active, ALSO send on a SEPARATE ReliableKey (38 bytes)
@@ -2024,7 +2116,10 @@ namespace GV.Network
             _countdownActive = false;
             _connectedToDedicatedServer = false;
             _isRoomCreator = false;
+            _sendStartMatchViaInput = false;
             _manualSceneLoadRequested = false;
+            _serverSendingCountdown = false;
+            _serverSendingSceneLoad = false;
             // NOTE: _roomFlowActive is intentionally NOT reset here.
             // If the Runner shuts down and restarts (unexpected reconnect),
             // we need to remember we're in a room flow so NoOpSceneManager is used
@@ -2189,6 +2284,32 @@ namespace GV.Network
                 System.Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, data.Count);
                 var inputData = DeserializeInput(bytes);
 
+                // --- CLIENT: DETECT SERVER→CLIENT COUNTDOWN/SCENE_LOAD SIGNALS ---
+                // These are 37-byte packets with reserved magic numbers sent by the server
+                // on INPUT_DATA_KEY (the proven channel), because Fusion drops 4-byte packets
+                // on custom ReliableKeys.
+                if (!runner.IsServer && inputData.magicNumber == COUNTDOWN_SIGNAL_MAGIC)
+                {
+                    if (!_countdownActive)
+                    {
+                        Debug.Log("[NetworkManager] CLIENT: Received COUNTDOWN via 37-byte INPUT_DATA_KEY signal! Starting countdown...");
+                        StartCoroutine(CountdownThenLoad());
+                    }
+                    return; // Don't process as regular input
+                }
+
+                if (!runner.IsServer && inputData.magicNumber == SCENE_LOAD_SIGNAL_MAGIC)
+                {
+                    if (!_inGameplayScene)
+                    {
+                        Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD via 37-byte INPUT_DATA_KEY signal! Loading {gameplaySceneName}...");
+                        _manualSceneLoadRequested = true;
+                        HideAllMenuUI();
+                        UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+                    }
+                    return; // Don't process as regular input
+                }
+
                 // --- LEGACY CHECK FOR START_MATCH SIGNAL (magic % 1000 == 99) ---
                 if (inputData.magicNumber % 1000 == 99 && runner.IsServer && IsDedicatedServer)
                 {
@@ -2204,6 +2325,23 @@ namespace GV.Network
                     _clientInputs[player] = inputData;
                     RawRecvCount++;
                     return;
+                }
+
+                // --- CHECK FOR START_MATCH VIA BUTTON BIT (most reliable channel) ---
+                // Client embeds START_MATCH in regular input by setting bit 31.
+                // This works because it piggybacks on the proven INPUT_DATA_KEY delivery.
+                if ((inputData.buttons.Bits & (1 << START_MATCH_BUTTON_BIT)) != 0 && runner.IsServer && IsDedicatedServer)
+                {
+                    var liveInst = (Instance != null) ? Instance : this;
+                    if (!liveInst._countdownActive && !liveInst._inGameplayScene)
+                    {
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received START_MATCH via BUTTON BIT from player {player.PlayerId}! " +
+                                  $"pendingSpawns={liveInst._pendingSpawns.Count}, spawnedPlayers={liveInst._spawnedPlayers.Count}");
+                        TriggerMatchStart(player);
+                    }
+
+                    // Clear the bit before storing as regular input
+                    inputData.buttons.Set(START_MATCH_BUTTON_BIT, false);
                 }
 
                 // Validate: magic number is now playerID*1000+42 (e.g., 1042, 2042)
