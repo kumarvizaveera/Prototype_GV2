@@ -916,7 +916,7 @@ namespace GV.Network
         private static readonly ReliableKey START_MATCH_KEY = ReliableKey.FromInts(0x47, 0x56, 0x53, 0x4D); // "GVSM"
         private static readonly byte[] START_MATCH_MAGIC = { 0x53, 0x54, 0x52, 0x54 }; // "STRT"
 
-        private const int COUNTDOWN_SECONDS = 5;
+        private const int COUNTDOWN_SECONDS = 3;
 
         // --- RAW DATA INPUT TRANSPORT ---
         // Fusion's OnInput/GetInput pipeline and RPCs both silently fail in our setup.
@@ -1094,11 +1094,16 @@ namespace GV.Network
             {
                 try
                 {
-                    var playerObj = Runner.GetPlayerObject(Runner.LocalPlayer);
-                    if (playerObj != null)
+                    // GetPlayerObject requires SetPlayerObject which we never call.
+                    // Instead, find any NetworkObject with our InputAuthority.
+                    foreach (var no in Runner.GetAllNetworkObjects())
                     {
-                        Debug.Log($"[NetworkManager] CLIENT: Local player ship detected! Hiding loading screen.");
-                        HideLoadingScreen();
+                        if (no != null && no.InputAuthority == Runner.LocalPlayer && no.gameObject != this.gameObject)
+                        {
+                            Debug.Log($"[NetworkManager] CLIENT: Local player ship detected ({no.name})! Hiding loading screen.");
+                            HideLoadingScreen();
+                            break;
+                        }
                     }
                 }
                 catch (System.Exception)
