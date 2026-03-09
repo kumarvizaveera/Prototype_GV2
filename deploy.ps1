@@ -1,5 +1,6 @@
 # GV2 Dedicated Server — One-Command Deploy Script
 # Usage: Right-click → Run with PowerShell, or from terminal: .\deploy.ps1
+#        .\deploy.ps1 -Logs          — deploy and then tail server logs (Ctrl+C to stop)
 #
 # FIRST-TIME SETUP (run once to eliminate password prompts forever):
 #   1. Open PowerShell and run:  ssh-keygen -t ed25519
@@ -13,7 +14,8 @@ param(
     [string]$VPS = "187.124.96.178",
     [string]$User = "root",
     [string]$RemotePath = "/opt/gv2-server",
-    [string]$ServiceName = "gv2-server"
+    [string]$ServiceName = "gv2-server",
+    [switch]$Logs
 )
 
 # --- Auto-detect build path if not specified ---
@@ -127,6 +129,14 @@ Remove-Item $tarFile -Force -ErrorAction SilentlyContinue
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "  Deploy complete!" -ForegroundColor Green
-Write-Host "  View logs: ssh ${User}@${VPS} 'tail -f /var/log/gv2-server.log'" -ForegroundColor DarkGray
+if (-not $Logs) {
+    Write-Host "  View logs: .\deploy.ps1 -Logs  (or ssh ${User}@${VPS} 'tail -f /var/log/gv2-server.log')" -ForegroundColor DarkGray
+}
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
+
+if ($Logs) {
+    Write-Host "  Tailing server logs (Ctrl+C to stop)..." -ForegroundColor Cyan
+    Write-Host ""
+    ssh -o ConnectTimeout=10 "${User}@${VPS}" "tail -f /var/log/gv2-server.log"
+}

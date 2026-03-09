@@ -1241,3 +1241,136 @@ Reduced `COUNTDOWN_SECONDS` from 5 to 3. The "3…2…1…GO!" sequence is now s
 ### Files Modified
 
 - `Assets/GV/Scripts/Network/NetworkManager.cs` — All changes listed above
+
+---
+
+## Session — March 9, 2026: Spawn-Before-Load Race Condition & CLIENT_READY Handshake
+
+### Problem
+
+Timing sync was working but spawning was inconsistent — sometimes ships spawned, sometimes didn't, sometimes both screens stuck on loading. Diagnosed via `timingsynclogs.txt` through `timingsynclogs_4.txt` (server-side logs across multiple deploy/test cycles).
+
+### Root Cause Chain (4 bugs, each uncovered after fixing the previous)
+
+**Bug 1 — Spawn-before-load race condition (original issue)**
+The server spawned `NetworkObject`s before clients had loaded the gameplay scene. With `NoOpSceneManager`, Fusion doesn't manage scene transitions, so the server had no way to know clients were still on the lobby scene. Spawned ships had no scene to exist in on the client side → stuck on loading screen.
+
+**Bug 2 — CLIENT_READY signal silently dropped by Fusion**
+Implemented a CLIENT_READY handshake: server sends SCENE_LOAD, waits for clients to acknowledge scene load, then spawns. But the CLIENT_READY signal (magic=777777) was sent as a **separate** `SendReliableDataToServer()` call on `INPUT_DATA_KEY` — the same key used for regular input in the same `Update()` frame. Fusion only delivers one message per key per tick, so CLIENT_READY was always overwritten by the regular input packet (magic=2042). Server never received magic=777777.
+
+**Bug 3 — `SceneManager.LoadScene` called from inside `OnReliableDataReceived`**
+The server flooded SCENE_LOAD signals every frame during the wait phase. The client received SCENE_LOAD before its 3s countdown finished (`_inGameplayScene` was still false), triggering `SceneManager.LoadScene()` **directly from inside Fusion's `OnReliableDataReceived` callback**. Synchronous scene load in the middle of Fusion's tick processing corrupted the runner's internal state, breaking all subsequent networking — client could no longer send any data.
+
+**Bug 4 — Synchronous scene load kills Fusion connection**
+Even after fixing bugs 2 and 3, the synchronous `SceneManager.LoadScene()` in `CountdownThenLoad()` blocked Unity's entire game loop for 5-7 seconds while loading the heavy gameplay scene. During this time: no `Update()` runs, no input sent, no network ticks. Fusion interprets 8-10s of silence (3.3s countdown + ~6s scene load) as a disconnection → "Player left" on server.
+
+### Fixes Applied
+
+#### 1. CLIENT_READY Handshake System (NetworkManager.cs)
+
+**Server-side (UpdateMatchStartCountdown — 3-phase flow):**
+- **Phase 1**: Send COUNTDOWN signals to all clients every frame (unchanged)
+- **Phase 2**: When countdown finishes (3.5s), send SCENE_LOAD **once** on both channels (37-byte INPUT_DATA_KEY + 4-byte SCENE_LOAD_KEY). Set `_waitingForClientsReady = true`. Do NOT spawn yet.
+- **Phase 3**: Wait for CLIENT_READY from all clients. Track `_clientsReady` HashSet. When all connected clients are ready (or 15s timeout), call `ServerSpawnAllPendingPlayers()`.
+
+**Client-side (CountdownThenLoad + Update):**
+- After scene loads, `OnUnitySceneLoaded` sets `_clientSendingReady = true`
+- `Update()` embeds CLIENT_READY in the regular input magic number: `playerId * 1000 + 77` (e.g. 2077) instead of the normal `+ 42`. No separate send needed — piggybacks on the already-delivering input packet.
+- Send duration: 10 seconds (no extra network cost since it's embedded in existing input)
+
+**Server-side detection (OnReliableDataReceived):**
+- Checks `inputData.magicNumber % 1000 == 77` → adds player to `_clientsReady`
+- Strips signal before storing as regular input: `magic = (magic / 1000) * 1000 + 42`
+- Same pattern as START_MATCH (`% 1000 == 99`)
+
+**Constants added:**
+```csharp
+private const int CLIENT_READY_SIGNAL_MAGIC = 777777;  // Legacy 37-byte channel (backup)
+// Primary: magic % 1000 == 77 embedded in regular input
+private const float CLIENT_READY_TIMEOUT = 15f;
+private const float CLIENT_READY_SEND_DURATION = 10f;
+```
+
+**New fields:**
+```csharp
+private HashSet<PlayerRef> _clientsReady;
+private HashSet<PlayerRef> _playersAwaitingReady;
+private bool _waitingForClientsReady;
+private bool _clientSendingReady;
+private float _clientReadySendStartTime;
+private bool _pendingSceneLoadFromServer;
+```
+
+#### 2. Deferred Scene Load from OnReliableDataReceived
+
+Both SCENE_LOAD handlers (4-byte and 37-byte) no longer call `SceneManager.LoadScene` directly. Instead they set `_pendingSceneLoadFromServer = true`, which is consumed in `Update()` on the next frame (safe context). Also added `!_countdownActive` guard — if countdown coroutine is already handling scene loading, SCENE_LOAD signal is ignored.
+
+#### 3. Stopped SCENE_LOAD Flooding
+
+Removed the every-frame SCENE_LOAD re-send in Phase 3. SCENE_LOAD is now sent **once** when entering Phase 3. Clients that received COUNTDOWN already handle scene loading via `CountdownThenLoad()`.
+
+#### 4. Async Scene Loading
+
+Changed all client-side `SceneManager.LoadScene()` calls to `SceneManager.LoadSceneAsync()`:
+
+- **`CountdownThenLoad()`** — `yield return SceneManager.LoadSceneAsync(gameplaySceneName)` keeps the game loop running during load. Client continues sending input → Fusion connection stays alive.
+- **Deferred load in `Update()`** — uses `LoadSceneAsync()` for the SCENE_LOAD fallback path.
+- **`LoadGameplayWithClientSync()`** (host path) — same async fix.
+
+#### 5. Disconnect False-Positive Fix
+
+The wait loop previously used `allReady = true` as default, then skipped disconnected players with `continue`. If ALL players disconnected, no player was found to be "not ready", so `allReady` stayed true → false "All clients reported READY" → spawned for disconnected players.
+
+Fixed: track `connectedWaiting` and `connectedReady` counts. `allReady` is only true if `connectedWaiting > 0 && connectedReady == connectedWaiting`. If all players disconnect, abort spawn entirely. Fixed in both `UpdateMatchStartCountdown()` (flag-based) and `DedicatedServerCountdownThenLoad()` (coroutine) paths.
+
+#### 6. MissileCycleController Fix
+
+Fixed `InvalidOperationException` on player leave — `Update()` accessed `[Networked]` property `currentIndex` after despawn.
+
+**MissileCycleController.cs** and **MissileCycleControllerDynamic.cs:**
+```csharp
+// Before: allowed invalid object access
+if (Object != null && Object.IsValid && !Object.HasInputAuthority) return;
+
+// After: proper null/despawn guard
+if (Object == null || !Object.IsValid) return;
+if (!Object.HasInputAuthority) return;
+```
+
+#### 7. Deploy Script Enhancement
+
+**deploy.ps1** — Added `-Logs` switch parameter that tails server logs after deploy:
+```powershell
+param([switch]$Logs)
+# ... existing deploy commands ...
+if ($Logs) {
+    ssh -o ConnectTimeout=10 "${User}@${VPS}" "tail -f /var/log/gv2-server.log"
+}
+```
+
+### Key Architectural Insight
+
+Fusion's `SendReliableDataToServer/Player` with custom `ReliableKey` has several pitfalls:
+1. **4-byte messages on custom keys are silently dropped** — Fusion only reliably delivers 37-byte (INPUT_DATA_KEY-sized) packets
+2. **Same key, same frame = only one delivery** — sending two messages on the same ReliableKey in one Update tick causes the second to overwrite the first
+3. **Never call SceneManager.LoadScene from OnReliableDataReceived** — synchronous scene load inside a Fusion callback corrupts the runner
+4. **Synchronous scene loads kill the connection** — for heavy scenes, always use `LoadSceneAsync` to keep the game loop running
+
+The proven pattern for client→server signals: **embed the signal in the regular input's magic number** (`% 1000` encoding), so it piggybacks on the packet that's already guaranteed to deliver every frame.
+
+### Files Modified
+
+- `Assets/GV/Scripts/Network/NetworkManager.cs` — CLIENT_READY handshake, async scene loading, deferred SCENE_LOAD handler, disconnect false-positive fix, SCENE_LOAD flood removal
+- `Assets/GV/Scripts/MissileCycleController.cs` — Spawned guard fix
+- `Assets/GV/Scripts/MissileCycleControllerDynamic.cs` — Spawned guard fix
+- `deploy.ps1` — Added `-Logs` switch
+
+### Current Status
+
+- CLIENT_READY handshake via magic % 1000 == 77 ✓
+- Async scene loading keeps Fusion connection alive during heavy scene loads ✓
+- No SceneManager.LoadScene calls inside OnReliableDataReceived ✓
+- SCENE_LOAD sent once (not flooded every frame) ✓
+- Disconnect false-positive fixed (abort if all players leave) ✓
+- MissileCycleController despawn crash fixed ✓
+- Deploy script supports `-Logs` for live log tailing ✓

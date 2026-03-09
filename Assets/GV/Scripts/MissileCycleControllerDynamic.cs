@@ -361,11 +361,13 @@ namespace GV.Scripts
 
         private void Update()
         {
-            // Only allow input if we have InputAuthority (and are spawned)
-            if (Object != null && Object.IsValid && !Object.HasInputAuthority) return;
+            // Guard: skip if the NetworkObject has been despawned (e.g. player left).
+            // Accessing [Networked] properties like currentIndex throws InvalidOperationException
+            // if Spawned() hasn't been called or the object was despawned.
+            if (Object == null || !Object.IsValid) return;
 
-            // Allow locally if offline/not networked yet
-            if (Object != null && Object.IsValid == false) { /* Allow local testing */ }
+            // Only allow input if we have InputAuthority (and are spawned)
+            if (!Object.HasInputAuthority) return;
 
             // Swap awareness: this controller is for Vimana (B).
             // When Spaceship (A) is active, hide UI and skip input.

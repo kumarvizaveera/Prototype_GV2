@@ -570,13 +570,14 @@ namespace GV.Network
             {
                 StartCoroutine(LoadGameplayWithClientSync());
             }
-            // CLIENT connected to dedicated server: load the scene directly.
-            // We already ran the countdown locally, no need to wait for a separate LOAD command.
-            // The server's DedicatedServerCountdownThenLoad will set _inGameplayScene=true and
-            // spawn pending players on its side around the same time.
+            // CLIENT connected to dedicated server: load the scene ASYNCHRONOUSLY.
+            // CRITICAL: We MUST use LoadSceneAsync so that Unity's game loop keeps running
+            // during the load. This lets Update() continue sending input to the server,
+            // keeping the Fusion connection alive. Synchronous LoadScene blocks for 5-7s
+            // on heavy scenes, causing Fusion to disconnect the client.
             else if (Runner != null && Runner.IsClient && _connectedToDedicatedServer)
             {
-                Debug.Log($"[SPAWN-DEBUG] CLIENT: Countdown done. Setting _manualSceneLoadRequested=true, loading '{gameplaySceneName}'. " +
+                Debug.Log($"[SPAWN-DEBUG] CLIENT: Countdown done. Loading '{gameplaySceneName}' ASYNC. " +
                           $"Runner.IsClient={Runner.IsClient}, _connectedToDedicatedServer={_connectedToDedicatedServer}");
                 _manualSceneLoadRequested = true;
                 _inGameplayScene = true;
@@ -585,7 +586,20 @@ namespace GV.Network
                 ShowLoadingScreen();
 
                 HideAllMenuUI();
-                UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+
+                // Async load — game loop continues, network stays alive
+                var asyncOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(gameplaySceneName);
+                if (asyncOp != null)
+                {
+                    yield return asyncOp; // Coroutine waits for load to complete
+                    Debug.Log($"[SPAWN-DEBUG] CLIENT: Async scene load completed for '{gameplaySceneName}'.");
+                }
+                else
+                {
+                    // Fallback to sync load if async returns null (shouldn't happen)
+                    Debug.LogWarning("[SPAWN-DEBUG] CLIENT: LoadSceneAsync returned null! Falling back to sync load.");
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+                }
             }
             // CLIENT (non-dedicated host-client): wait for LOAD command from host via OnReliableDataReceived
         }
@@ -619,10 +633,13 @@ namespace GV.Network
             for (int i = 0; i < 10; i++)
                 yield return null;
 
-            Debug.Log($"[NetworkManager] HOST: Now loading gameplay scene: {gameplaySceneName}");
+            Debug.Log($"[NetworkManager] HOST: Now loading gameplay scene (async): {gameplaySceneName}");
             _manualSceneLoadRequested = true;
             HideAllMenuUI();
-            UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+            // Async load — keeps game loop running so Fusion connection stays alive
+            var asyncOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(gameplaySceneName);
+            if (asyncOp != null)
+                yield return asyncOp;
         }
 
         /// <summary>
@@ -676,42 +693,107 @@ namespace GV.Network
         /// <summary>
         /// Update-based dedicated server countdown. Replaces the coroutine approach
         /// which crashed with ArgumentNullException on destroyed MonoBehaviours.
+        ///
+        /// NEW FLOW (ack-based):
+        /// 1. Countdown finishes → send SCENE_LOAD to all clients (do NOT spawn yet)
+        /// 2. Keep sending SCENE_LOAD every frame until all clients respond with CLIENT_READY
+        /// 3. Once all clients are ready (or timeout), THEN spawn player objects
+        /// This ensures clients have their gameplay scene loaded before NetworkObjects are created.
         /// </summary>
         private void UpdateMatchStartCountdown()
         {
             if (!IsDedicatedServer) return;
 
-            // --- REPEATED SCENE_LOAD SIGNAL (runs after spawn, for 5 seconds) ---
-            if (_serverSendingSceneLoad && Runner != null)
+            // --- PHASE 3: WAITING FOR CLIENT_READY (runs after SCENE_LOAD sent, before spawn) ---
+            if (_waitingForClientsReady && Runner != null)
             {
-                if (Time.time - _sceneLoadSignalStartTime > 5f)
+                float waitElapsed = Time.time - _sceneLoadSignalStartTime;
+
+                // NOTE: We do NOT re-send SCENE_LOAD every frame anymore.
+                // Flooding SCENE_LOAD on INPUT_DATA_KEY can cause the client's OnReliableDataReceived
+                // to fire repeatedly, and if the client loads a scene from inside that callback it
+                // corrupts Fusion's runner. SCENE_LOAD was already sent once when entering PHASE 3.
+                // Clients that received COUNTDOWN will load the scene via CountdownThenLoad() anyway.
+
+                // Check if all expected players are ready
+                bool allReady = false; // Default to false — only true if at least one connected player is ready
+                int connectedWaiting = 0;
+                int connectedReady = 0;
+                foreach (var p in _playersAwaitingReady)
                 {
-                    _serverSendingSceneLoad = false;
-                    Debug.Log("[SPAWN-DEBUG] SERVER: Stopped sending SCENE_LOAD signals (5s buffer expired).");
-                }
-                else
-                {
-                    var sceneLoadData = new PlayerInputData();
-                    sceneLoadData.magicNumber = SCENE_LOAD_SIGNAL_MAGIC;
-                    byte[] sceneLoadBytes = SerializeInput(sceneLoadData);
-                    foreach (var p in Runner.ActivePlayers)
+                    // Skip players who disconnected while we were waiting
+                    bool stillConnected = false;
+                    foreach (var ap in Runner.ActivePlayers)
                     {
-                        try
-                        {
-                            Runner.SendReliableDataToPlayer(p, INPUT_DATA_KEY, sceneLoadBytes);
-                        }
-                        catch (System.Exception) { /* best-effort */ }
+                        if (ap == p) { stillConnected = true; break; }
+                    }
+                    if (!stillConnected)
+                    {
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: Player {p.PlayerId} disconnected while waiting for CLIENT_READY — skipping.");
+                        continue;
+                    }
+
+                    connectedWaiting++;
+                    if (_clientsReady.Contains(p))
+                    {
+                        connectedReady++;
                     }
                 }
+                // All connected players are ready (and there IS at least one)
+                allReady = (connectedWaiting > 0 && connectedReady == connectedWaiting);
+
+                // If ALL players disconnected, stop waiting (nothing to spawn)
+                if (connectedWaiting == 0)
+                {
+                    Debug.LogWarning("[SPAWN-DEBUG] SERVER: All players disconnected while waiting for CLIENT_READY. Aborting spawn.");
+                    _waitingForClientsReady = false;
+                    _serverSendingSceneLoad = false;
+                    return;
+                }
+
+                bool timedOut = waitElapsed >= CLIENT_READY_TIMEOUT;
+
+                if (allReady || timedOut)
+                {
+                    if (timedOut && !allReady)
+                    {
+                        string missing = "";
+                        foreach (var p in _playersAwaitingReady)
+                        {
+                            if (!_clientsReady.Contains(p)) missing += p.PlayerId + " ";
+                        }
+                        Debug.LogWarning($"[SPAWN-DEBUG] SERVER: CLIENT_READY TIMEOUT after {CLIENT_READY_TIMEOUT}s! " +
+                                         $"Missing players: {missing.Trim()}. Spawning anyway.");
+                    }
+                    else
+                    {
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: All clients reported READY in {waitElapsed:F1}s! Spawning players...");
+                    }
+
+                    // Stop sending SCENE_LOAD, stop waiting
+                    _waitingForClientsReady = false;
+                    _serverSendingSceneLoad = false;
+
+                    // NOW spawn all players (clients have their scene loaded)
+                    ServerSpawnAllPendingPlayers();
+                }
+                else if (waitElapsed > 0 && (int)(waitElapsed * 2) % 2 == 0) // Log every ~1s
+                {
+                    // Periodic status log
+                    Debug.Log($"[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... {connectedReady}/{connectedWaiting} connected ready, " +
+                              $"{_clientsReady.Count}/{_playersAwaitingReady.Count} total, " +
+                              $"elapsed={waitElapsed:F1}s/{CLIENT_READY_TIMEOUT}s");
+                }
+
+                return; // Don't fall through to countdown logic while waiting
             }
 
+            // --- PHASE 1: COUNTDOWN (sending countdown signals to clients) ---
             if (!_matchStartTriggered || _matchCountdownSentLoad) return;
 
             float elapsed = Time.time - _matchStartTime;
 
-            // --- REPEATED COUNTDOWN SIGNAL (piggyback on proven INPUT_DATA_KEY channel) ---
-            // Fusion silently drops 4-byte messages on custom ReliableKeys, so we also
-            // send 37-byte packets with COUNTDOWN_SIGNAL_MAGIC every frame to ensure delivery.
+            // Repeated COUNTDOWN signal (piggyback on proven INPUT_DATA_KEY channel)
             if (_serverSendingCountdown && Runner != null)
             {
                 var countdownData = new PlayerInputData();
@@ -727,17 +809,16 @@ namespace GV.Network
                 }
             }
 
-            // Server waits for the SAME countdown duration as clients (COUNTDOWN_SECONDS + 0.5s buffer)
-            // so that ships spawn roughly when clients finish their countdown and load the scene.
-            // Previously was 0.5s which caused a ~3s desync (ships existed on server before clients loaded).
+            // Wait for countdown duration (same as client countdown)
             float spawnDelay = COUNTDOWN_SECONDS + 0.5f;
             if (elapsed < spawnDelay) return;
 
-            // Countdown finished — spawn and send LOAD
+            // --- PHASE 2: COUNTDOWN FINISHED → SEND SCENE_LOAD (do NOT spawn yet) ---
             _matchCountdownSentLoad = true;
-            Debug.Log("[SPAWN-DEBUG] SERVER: Flag-based countdown finished! Spawning players...");
+            _serverSendingCountdown = false;
+            Debug.Log("[SPAWN-DEBUG] SERVER: Flag-based countdown finished! Sending SCENE_LOAD to clients (waiting for CLIENT_READY before spawning)...");
 
-            // Activate gameplay
+            // Prepare gameplay state on server side
             _inGameplayScene = true;
             Debug.Log($"[SPAWN-DEBUG] SERVER: _inGameplayScene set to TRUE. pendingSpawns={_pendingSpawns.Count}, " +
                       $"alreadySpawned={_spawnedPlayers.Count}, Runner={Runner != null}, RunnerIsRunning={Runner?.IsRunning}, " +
@@ -746,7 +827,56 @@ namespace GV.Network
             TryFindSpawnSpline();
             Debug.Log($"[SPAWN-DEBUG] SERVER: TryFindSpawnSpline done. spawnSpline={(spawnSpline != null ? spawnSpline.name : "NULL")}");
 
-            // Spawn all queued players
+            // Track which players we're waiting for
+            _clientsReady.Clear();
+            _playersAwaitingReady.Clear();
+            if (Runner != null)
+            {
+                foreach (var p in Runner.ActivePlayers)
+                {
+                    _playersAwaitingReady.Add(p);
+                }
+            }
+            Debug.Log($"[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY from {_playersAwaitingReady.Count} players...");
+
+            // Mark that we've entered PHASE 3 (waiting for CLIENT_READY)
+            _serverSendingSceneLoad = true;
+            _waitingForClientsReady = true;
+            _sceneLoadSignalStartTime = Time.time;
+
+            // Send SCENE_LOAD ONCE on both channels (4-byte key + 37-byte INPUT_DATA_KEY)
+            // We do NOT re-send every frame — flooding from OnReliableDataReceived can corrupt
+            // the client's Fusion runner if it triggers SceneManager.LoadScene.
+            if (Runner != null)
+            {
+                var sceneLoadData = new PlayerInputData();
+                sceneLoadData.magicNumber = SCENE_LOAD_SIGNAL_MAGIC;
+                byte[] sceneLoadBytes = SerializeInput(sceneLoadData);
+
+                foreach (var player in Runner.ActivePlayers)
+                {
+                    try
+                    {
+                        // 37-byte channel (proven delivery)
+                        Runner.SendReliableDataToPlayer(player, INPUT_DATA_KEY, sceneLoadBytes);
+                        // 4-byte channel (legacy fallback)
+                        Runner.SendReliableDataToPlayer(player, SCENE_LOAD_KEY, SCENE_LOAD_MAGIC);
+                        Debug.Log($"[NetworkManager] SERVER: Sent SCENE_LOAD to player {player.PlayerId}");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[NetworkManager] SERVER: Failed to send SCENE_LOAD to {player.PlayerId}: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Spawns all pending players. Called once all clients have reported CLIENT_READY
+        /// (or after timeout). Extracted from the old countdown logic for reuse.
+        /// </summary>
+        private void ServerSpawnAllPendingPlayers()
+        {
             var playersToSpawn = new List<PlayerRef>(_pendingSpawns);
             _pendingSpawns.Clear();
 
@@ -775,35 +905,15 @@ namespace GV.Network
                 Debug.Log($"[SPAWN-DEBUG] SERVER: SpawnPlayer returned for {p.PlayerId}, _spawnedPlayers now has {_spawnedPlayers.Count} entries");
             }
 
-            // Switch from COUNTDOWN to SCENE_LOAD signals
-            _serverSendingCountdown = false;
-            _serverSendingSceneLoad = true;
-            _sceneLoadSignalStartTime = Time.time;
-
-            // Send LOAD to all clients (legacy 4-byte channel — kept as fallback)
-            if (Runner != null)
-            {
-                foreach (var player in Runner.ActivePlayers)
-                {
-                    try
-                    {
-                        Runner.SendReliableDataToPlayer(player, SCENE_LOAD_KEY, SCENE_LOAD_MAGIC);
-                        Debug.Log($"[NetworkManager] SERVER: Sent SCENE_LOAD to player {player.PlayerId}");
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Debug.LogError($"[NetworkManager] SERVER: Failed to send SCENE_LOAD to {player.PlayerId}: {ex.Message}");
-                    }
-                }
-            }
-
-            Debug.Log("[NetworkManager] SERVER: Match started — players spawned and LOAD sent to clients.");
+            Debug.Log("[NetworkManager] SERVER: Match started — all clients ready, players spawned.");
         }
 
         /// <summary>
         /// Dedicated server version of the countdown + load flow (LEGACY COROUTINE — kept as backup).
-        /// Waits for countdown, then sends LOAD to all clients.
+        /// Waits for countdown, then sends SCENE_LOAD to all clients and waits for CLIENT_READY.
         /// Server does NOT load a new scene — it's already in the gameplay scene.
+        /// NOTE: The Update-based UpdateMatchStartCountdown() is the primary path. This coroutine
+        /// is only used if something triggers it directly (legacy code paths).
         /// </summary>
         private IEnumerator DedicatedServerCountdownThenLoad()
         {
@@ -822,57 +932,25 @@ namespace GV.Network
                 Debug.Log($"[NetworkManager] SERVER: Countdown: {i}");
                 yield return new WaitForSeconds(1f);
             }
-            Debug.Log("[NetworkManager] SERVER: Countdown finished! Sending LOAD to all clients...");
+            Debug.Log("[NetworkManager] SERVER: Countdown finished! Sending SCENE_LOAD to clients (waiting for CLIENT_READY)...");
 
             yield return new WaitForSeconds(0.3f); // Match the "GO!" pause on clients
 
-            // NOW activate gameplay and spawn all queued players.
-            // This is the moment the match actually starts on the server.
+            // Activate gameplay on server side (server is already in the scene)
             _inGameplayScene = true;
             Debug.Log($"[SPAWN-DEBUG] SERVER: _inGameplayScene set to TRUE. pendingSpawns={_pendingSpawns.Count}, " +
                       $"alreadySpawned={_spawnedPlayers.Count}, Runner={Runner != null}, RunnerIsRunning={Runner?.IsRunning}, " +
                       $"playerPrefab={(playerPrefab != null ? playerPrefab.name : "NULL")}");
 
-            // Find the spawn spline in the gameplay scene (server is already in it)
             TryFindSpawnSpline();
             Debug.Log($"[SPAWN-DEBUG] SERVER: TryFindSpawnSpline done. spawnSpline={(spawnSpline != null ? spawnSpline.name : "NULL")}");
 
-            // Spawn all players that were queued during OnPlayerJoined
-            var playersToSpawn = new List<PlayerRef>(_pendingSpawns);
-            _pendingSpawns.Clear();
-
-            Debug.Log($"[SPAWN-DEBUG] SERVER: Copied {playersToSpawn.Count} from pendingSpawns. Checking ActivePlayers...");
-
-            // Also catch any active players not in the queue (edge case: joined between queue and now)
-            int activeCount = 0;
-            foreach (var p in Runner.ActivePlayers)
-            {
-                activeCount++;
-                bool alreadySpawned = _spawnedPlayers.ContainsKey(p);
-                bool alreadyInList = playersToSpawn.Contains(p);
-                Debug.Log($"[SPAWN-DEBUG] SERVER: ActivePlayer {p.PlayerId} — alreadySpawned={alreadySpawned}, alreadyInList={alreadyInList}");
-                if (!alreadySpawned && !alreadyInList)
-                    playersToSpawn.Add(p);
-            }
-            Debug.Log($"[SPAWN-DEBUG] SERVER: ActivePlayers count={activeCount}, final playersToSpawn={playersToSpawn.Count}");
-
-            if (playersToSpawn.Count == 0)
-            {
-                Debug.LogError($"[SPAWN-DEBUG] SERVER: NO PLAYERS TO SPAWN! pendingSpawns was empty and no active players found without ships. " +
-                               $"This means OnPlayerJoined never queued anyone, or all players already have ships.");
-            }
-
-            Debug.Log($"[SPAWN-DEBUG] SERVER: Spawning {playersToSpawn.Count} players now...");
-            foreach (var p in playersToSpawn)
-            {
-                Debug.Log($"[SPAWN-DEBUG] SERVER: About to SpawnPlayer for {p.PlayerId}, slot={_spawnedPlayers.Count}");
-                SpawnPlayer(Runner, p, _spawnedPlayers.Count);
-                Debug.Log($"[SPAWN-DEBUG] SERVER: SpawnPlayer returned for {p.PlayerId}, _spawnedPlayers now has {_spawnedPlayers.Count} entries");
-            }
-
-            // Send LOAD command to all clients so they load the gameplay scene
+            // Send SCENE_LOAD to all clients FIRST (do NOT spawn yet)
+            _clientsReady.Clear();
+            _playersAwaitingReady.Clear();
             foreach (var player in Runner.ActivePlayers)
             {
+                _playersAwaitingReady.Add(player);
                 try
                 {
                     Runner.SendReliableDataToPlayer(player, SCENE_LOAD_KEY, SCENE_LOAD_MAGIC);
@@ -884,7 +962,52 @@ namespace GV.Network
                 }
             }
 
-            Debug.Log("[NetworkManager] SERVER: Match started — players spawned and LOAD sent to clients.");
+            // Also start sending on the proven INPUT_DATA_KEY channel
+            _serverSendingSceneLoad = true;
+            _waitingForClientsReady = true;
+            _sceneLoadSignalStartTime = Time.time;
+
+            Debug.Log($"[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY from {_playersAwaitingReady.Count} players (coroutine path)...");
+
+            // Wait for all clients to report ready (or timeout)
+            float waitStart = Time.time;
+            while (Time.time - waitStart < CLIENT_READY_TIMEOUT)
+            {
+                int connectedWaiting = 0;
+                int connectedReady = 0;
+                foreach (var p in _playersAwaitingReady)
+                {
+                    bool connected = false;
+                    foreach (var ap in Runner.ActivePlayers)
+                    {
+                        if (ap == p) { connected = true; break; }
+                    }
+                    if (!connected) continue;
+                    connectedWaiting++;
+                    if (_clientsReady.Contains(p)) connectedReady++;
+                }
+
+                if (connectedWaiting == 0)
+                {
+                    Debug.LogWarning("[SPAWN-DEBUG] SERVER: All players disconnected while waiting for CLIENT_READY (coroutine). Aborting.");
+                    _waitingForClientsReady = false;
+                    _serverSendingSceneLoad = false;
+                    yield break;
+                }
+
+                if (connectedReady == connectedWaiting)
+                {
+                    Debug.Log($"[SPAWN-DEBUG] SERVER: All clients reported READY in {Time.time - waitStart:F1}s (coroutine path)!");
+                    break;
+                }
+                yield return null;
+            }
+
+            _waitingForClientsReady = false;
+            _serverSendingSceneLoad = false;
+
+            // NOW spawn all players (clients have their scenes loaded)
+            ServerSpawnAllPendingPlayers();
         }
 
         // ── Room Code Generation ─────────────────────────────────────
@@ -1033,6 +1156,16 @@ namespace GV.Network
         private static readonly ReliableKey START_MATCH_KEY = ReliableKey.FromInts(0x47, 0x56, 0x53, 0x4D); // "GVSM"
         private static readonly byte[] START_MATCH_MAGIC = { 0x53, 0x54, 0x52, 0x54 }; // "STRT"
 
+        // CLIENT sends this to server after finishing gameplay scene load, telling server it's safe to spawn
+        private static readonly ReliableKey CLIENT_READY_KEY = ReliableKey.FromInts(0x47, 0x56, 0x43, 0x52); // "GVCR"
+        private static readonly byte[] CLIENT_READY_MAGIC = { 0x52, 0x44, 0x59, 0x21 }; // "RDY!"
+
+        /// <summary>
+        /// Magic number for CLIENT_READY signal sent via 37-byte INPUT_DATA_KEY channel (proven delivery).
+        /// Clients send this after their gameplay scene finishes loading so the server knows it's safe to spawn.
+        /// </summary>
+        private const int CLIENT_READY_SIGNAL_MAGIC = 777777;
+
         private const int COUNTDOWN_SECONDS = 3;
 
         /// <summary>
@@ -1060,14 +1193,53 @@ namespace GV.Network
 
         /// <summary>
         /// When true, the server sends SCENE_LOAD signals to all clients every frame.
-        /// Set after spawning players, cleared after a few seconds of buffer.
+        /// Set after countdown finishes, cleared after all clients report CLIENT_READY or timeout.
         /// </summary>
         private bool _serverSendingSceneLoad = false;
 
         /// <summary>
-        /// Time.time when _serverSendingSceneLoad was enabled. Used to stop sending after a buffer period.
+        /// Time.time when _serverSendingSceneLoad was enabled. Used for timeout fallback.
         /// </summary>
         private float _sceneLoadSignalStartTime = 0f;
+
+        /// <summary>
+        /// Set of players who have sent CLIENT_READY (finished loading the gameplay scene).
+        /// Server defers spawning until all expected players are ready (or timeout).
+        /// </summary>
+        private HashSet<PlayerRef> _clientsReady = new HashSet<PlayerRef>();
+
+        /// <summary>
+        /// Players that the server is waiting for CLIENT_READY from before spawning.
+        /// Populated when SCENE_LOAD is sent, cleared once all respond or timeout.
+        /// </summary>
+        private HashSet<PlayerRef> _playersAwaitingReady = new HashSet<PlayerRef>();
+
+        /// <summary>
+        /// When true, the server has sent SCENE_LOAD and is waiting for CLIENT_READY from all players
+        /// before spawning. Set by countdown finish, cleared after spawn.
+        /// </summary>
+        private bool _waitingForClientsReady = false;
+
+        /// <summary>
+        /// Timeout in seconds for waiting for CLIENT_READY. If a client hasn't responded
+        /// by this time, spawn anyway to avoid infinite hangs.
+        /// </summary>
+        private const float CLIENT_READY_TIMEOUT = 15f;
+
+        /// <summary>
+        /// When true, the client is sending CLIENT_READY signals every frame to ensure delivery.
+        /// Set after the client finishes loading the gameplay scene, cleared after a few seconds.
+        /// </summary>
+        private bool _clientSendingReady = false;
+
+        /// <summary>
+        /// When true, the client received SCENE_LOAD from server and needs to load the gameplay scene.
+        /// This is handled in Update() to avoid calling SceneManager.LoadScene from inside
+        /// OnReliableDataReceived (which corrupts Fusion's runner).
+        /// </summary>
+        private bool _pendingSceneLoadFromServer = false;
+        private float _clientReadySendStartTime = 0f;
+        private const float CLIENT_READY_SEND_DURATION = 10f; // Send for 10 seconds (embedded in regular input, no extra cost)
 
         // --- RAW DATA INPUT TRANSPORT ---
         // Fusion's OnInput/GetInput pipeline and RPCs both silently fail in our setup.
@@ -1188,11 +1360,17 @@ namespace GV.Network
                 {
                     var data = playerInput.CurrentInputData;
 
-                    // Encode START_MATCH in the magic number itself (proven delivery channel).
-                    // Normal: magic = playerId*1000 + 42  (e.g. 2042)
-                    // START:  magic = playerId*1000 + 99  (e.g. 2099)
-                    // The server checks magic % 1000 == 99 to detect START_MATCH.
-                    if (_sendStartMatchViaInput)
+                    // Encode signals in the magic number itself (proven delivery channel).
+                    // Normal:       magic = playerId*1000 + 42  (e.g. 2042)
+                    // START_MATCH:  magic = playerId*1000 + 99  (e.g. 2099)
+                    // CLIENT_READY: magic = playerId*1000 + 77  (e.g. 2077)
+                    // The server checks magic % 1000 to detect signals.
+                    if (_clientSendingReady)
+                    {
+                        // CLIENT_READY piggybacks on regular input — no separate send needed
+                        data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 77;
+                    }
+                    else if (_sendStartMatchViaInput)
                     {
                         data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 99;
                         data.buttons.Set(START_MATCH_BUTTON_BIT, true); // Also set bit 31 as backup
@@ -1257,6 +1435,30 @@ namespace GV.Network
                         }
                     }
                 }
+            }
+
+            // --- CLIENT: Deferred scene load from SCENE_LOAD signal ---
+            // OnReliableDataReceived sets _pendingSceneLoadFromServer=true instead of calling
+            // SceneManager.LoadScene directly (which would corrupt Fusion's runner).
+            if (_pendingSceneLoadFromServer && !_inGameplayScene)
+            {
+                _pendingSceneLoadFromServer = false;
+                _manualSceneLoadRequested = true;
+                _inGameplayScene = true;
+                Debug.Log($"[SPAWN-DEBUG] CLIENT: Executing deferred ASYNC scene load for '{gameplaySceneName}'...");
+                ShowLoadingScreen();
+                HideAllMenuUI();
+                // Use async load so game loop keeps running and Fusion connection stays alive
+                UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(gameplaySceneName);
+            }
+
+            // --- CLIENT: CLIENT_READY is now embedded in regular input magic (% 1000 == 77) ---
+            // No separate send needed. The _clientSendingReady flag modifies the magic number
+            // in the regular input send above. Just handle the timeout/expiry here.
+            if (_clientSendingReady && Time.time - _clientReadySendStartTime > CLIENT_READY_SEND_DURATION)
+            {
+                _clientSendingReady = false;
+                Debug.Log("[SPAWN-DEBUG] CLIENT: Stopped sending CLIENT_READY signals (duration expired).");
             }
 
             // --- CLIENT: Detect ship spawn and hide loading screen ---
@@ -1716,7 +1918,29 @@ namespace GV.Network
                 // so their Spawned() callback fires and [Networked] properties work.
                 RegisterSceneNetworkObjects(scene);
 
-                // Delay spawning by 1 frame so all scene objects (VehicleCamera, etc.)
+                // CLIENT: Send CLIENT_READY to the server so it knows we've loaded the scene
+                // and it's safe to spawn our player object. Send on both channels for reliability.
+                if (Runner != null && Runner.IsClient)
+                {
+                    Debug.Log("[SPAWN-DEBUG] CLIENT: Gameplay scene loaded! Sending CLIENT_READY to server...");
+
+                    // Send on dedicated 4-byte CLIENT_READY_KEY
+                    try
+                    {
+                        Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC);
+                        Debug.Log("[SPAWN-DEBUG] CLIENT: Sent CLIENT_READY via 4-byte key.");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"[SPAWN-DEBUG] CLIENT: Failed to send CLIENT_READY via 4-byte key: {ex.Message}");
+                    }
+
+                    // Also embed CLIENT_READY in regular input magic (% 1000 == 77) every frame
+                    _clientSendingReady = true;
+                    _clientReadySendStartTime = Time.time;
+                }
+
+                // SERVER: Delay spawning by 1 frame so all scene objects (VehicleCamera, etc.)
                 // have their Start() called. sceneLoaded fires after Awake() but before Start().
                 if (Runner != null && Runner.IsServer)
                 {
@@ -1992,6 +2216,15 @@ namespace GV.Network
                     else
                         Debug.LogWarning($"[SPAWN-DEBUG] Player {player.PlayerId} was ALREADY in _pendingSpawns!");
                 }
+                // Server is waiting for CLIENT_READY — queue this late joiner too
+                else if (liveInst._waitingForClientsReady)
+                {
+                    Debug.Log($"[SPAWN-DEBUG] Player {player.PlayerId} QUEUED in _pendingSpawns (waiting for CLIENT_READY). " +
+                              $"Also added to _playersAwaitingReady.");
+                    if (!liveInst._pendingSpawns.Contains(player))
+                        liveInst._pendingSpawns.Add(player);
+                    liveInst._playersAwaitingReady.Add(player);
+                }
                 else
                 {
                     Debug.Log($"[SPAWN-DEBUG] Player {player.PlayerId} spawning IMMEDIATELY (inGameplayScene=true)");
@@ -2182,6 +2415,11 @@ namespace GV.Network
             _manualSceneLoadRequested = false;
             _serverSendingCountdown = false;
             _serverSendingSceneLoad = false;
+            _waitingForClientsReady = false;
+            _clientsReady.Clear();
+            _playersAwaitingReady.Clear();
+            _clientSendingReady = false;
+            _pendingSceneLoadFromServer = false;
             // NOTE: _roomFlowActive is intentionally NOT reset here.
             // If the Runner shuts down and restarts (unexpected reconnect),
             // we need to remember we're in a room flow so NoOpSceneManager is used
@@ -2300,17 +2538,45 @@ namespace GV.Network
 
                 if (isLoadCommand)
                 {
-                    // Skip if already in gameplay scene (client loaded on its own during countdown)
-                    if (_inGameplayScene)
+                    // Skip if already in gameplay scene or countdown is handling it
+                    if (_inGameplayScene || _countdownActive)
                     {
-                        Debug.Log("[NetworkManager] CLIENT: Received SCENE_LOAD but already in gameplay scene — ignoring duplicate.");
+                        Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD but already handled — " +
+                                  $"inGameplay={_inGameplayScene}, countdown={_countdownActive}. Ignoring.");
                         return;
                     }
-                    Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD command from host! Loading {gameplaySceneName}...");
+                    // CRITICAL: Do NOT call SceneManager.LoadScene from inside OnReliableDataReceived!
+                    // Defer to Update() to avoid corrupting Fusion's runner.
+                    Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD (4-byte) — deferring scene load to Update().");
                     _manualSceneLoadRequested = true;
-                    HideAllMenuUI();
-                    UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+                    _pendingSceneLoadFromServer = true;
                     return; // Don't process as input data
+                }
+            }
+
+            // --- CLIENT_READY (exactly 4 bytes: "RDY!") ---
+            // Client sends this after loading the gameplay scene, telling server it's safe to spawn
+            if (data.Count == CLIENT_READY_MAGIC.Length && runner.IsServer)
+            {
+                byte[] readyBytes = new byte[data.Count];
+                System.Buffer.BlockCopy(data.Array, data.Offset, readyBytes, 0, data.Count);
+
+                bool isReady = true;
+                for (int i = 0; i < CLIENT_READY_MAGIC.Length; i++)
+                {
+                    if (readyBytes[i] != CLIENT_READY_MAGIC[i]) { isReady = false; break; }
+                }
+
+                if (isReady)
+                {
+                    var liveInst = (Instance != null) ? Instance : this;
+                    if (!liveInst._clientsReady.Contains(player))
+                    {
+                        liveInst._clientsReady.Add(player);
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY (4-byte) from player {player.PlayerId}! " +
+                                  $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
+                    }
+                    return;
                 }
             }
 
@@ -2378,14 +2644,54 @@ namespace GV.Network
 
                 if (!runner.IsServer && inputData.magicNumber == SCENE_LOAD_SIGNAL_MAGIC)
                 {
-                    if (!_inGameplayScene)
+                    if (!_inGameplayScene && !_countdownActive)
                     {
-                        Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD via 37-byte INPUT_DATA_KEY signal! Loading {gameplaySceneName}...");
+                        // CRITICAL: Do NOT call SceneManager.LoadScene from inside OnReliableDataReceived!
+                        // Synchronous scene load inside a Fusion callback corrupts the runner's internal
+                        // state, breaking all subsequent networking (client can't send data anymore).
+                        // Instead, set a flag and let Update() handle the actual scene load.
+                        Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD signal — deferring scene load to Update().");
                         _manualSceneLoadRequested = true;
-                        HideAllMenuUI();
-                        UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+                        _pendingSceneLoadFromServer = true;
+                    }
+                    else if (_countdownActive)
+                    {
+                        // Countdown is already running — it will handle scene loading via CountdownThenLoad().
+                        // No need to do anything here.
                     }
                     return; // Don't process as regular input
+                }
+
+                // --- CLIENT_READY SIGNAL via 37-byte INPUT_DATA_KEY (proven channel) ---
+                // Client sends this after loading the gameplay scene
+                if (runner.IsServer && inputData.magicNumber == CLIENT_READY_SIGNAL_MAGIC)
+                {
+                    var liveInst = (Instance != null) ? Instance : this;
+                    if (!liveInst._clientsReady.Contains(player))
+                    {
+                        liveInst._clientsReady.Add(player);
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY (37-byte signal) from player {player.PlayerId}! " +
+                                  $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
+                    }
+                    return; // Don't process as regular input
+                }
+
+                // --- CLIENT_READY via magic number encoding (magic % 1000 == 77) ---
+                // This is the PRIMARY delivery channel: CLIENT_READY piggybacks on regular input.
+                if (inputData.magicNumber % 1000 == 77 && runner.IsServer && IsDedicatedServer)
+                {
+                    var liveInst = (Instance != null) ? Instance : this;
+                    if (!liveInst._clientsReady.Contains(player))
+                    {
+                        liveInst._clientsReady.Add(player);
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY (magic%1000==77) from player {player.PlayerId}! " +
+                                  $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
+                    }
+                    // Store as regular input (strip the signal)
+                    inputData.magicNumber = (inputData.magicNumber / 1000) * 1000 + 42;
+                    _clientInputs[player] = inputData;
+                    RawRecvCount++;
+                    return;
                 }
 
                 // --- LEGACY CHECK FOR START_MATCH SIGNAL (magic % 1000 == 99) ---
