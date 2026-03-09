@@ -147,6 +147,13 @@ namespace GV.Network
         private bool _matchCountdownSentLoad = false;
 
         /// <summary>
+        /// Persistent loading screen created via code. Survives scene loads via DontDestroyOnLoad.
+        /// Automatically hidden when the local player's ship is detected in the scene.
+        /// </summary>
+        private GameObject _loadingScreenGO;
+        private bool _waitingForShipToAppear = false;
+
+        /// <summary>
         /// When true, this NetworkManager instance was created by RoomManager for a specific room.
         /// It will NOT auto-start in Start() — RoomManager calls StartServerForRoom() instead.
         /// Also skips singleton enforcement (multiple instances exist, one per room).
@@ -340,6 +347,67 @@ namespace GV.Network
         }
 
         /// <summary>
+        /// Creates a full-screen loading overlay that persists through scene loads.
+        /// Shows "Loading..." text centered on a semi-transparent black background.
+        /// </summary>
+        private void ShowLoadingScreen()
+        {
+            if (_loadingScreenGO != null) return; // Already showing
+
+            _loadingScreenGO = new GameObject("LoadingScreen");
+            DontDestroyOnLoad(_loadingScreenGO);
+
+            var canvas = _loadingScreenGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 9999; // On top of everything
+
+            _loadingScreenGO.AddComponent<UnityEngine.UI.CanvasScaler>();
+            _loadingScreenGO.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+
+            // Semi-transparent black background
+            var bgGO = new GameObject("Background");
+            bgGO.transform.SetParent(_loadingScreenGO.transform, false);
+            var bgImage = bgGO.AddComponent<UnityEngine.UI.Image>();
+            bgImage.color = new Color(0f, 0f, 0f, 0.85f);
+            var bgRect = bgGO.GetComponent<RectTransform>();
+            bgRect.anchorMin = Vector2.zero;
+            bgRect.anchorMax = Vector2.one;
+            bgRect.offsetMin = Vector2.zero;
+            bgRect.offsetMax = Vector2.zero;
+
+            // "Loading..." text
+            var textGO = new GameObject("LoadingText");
+            textGO.transform.SetParent(_loadingScreenGO.transform, false);
+            var tmp = textGO.AddComponent<TMPro.TextMeshProUGUI>();
+            tmp.text = "Loading...";
+            tmp.fontSize = 48;
+            tmp.alignment = TMPro.TextAlignmentOptions.Center;
+            tmp.color = Color.white;
+            var textRect = textGO.GetComponent<RectTransform>();
+            textRect.anchorMin = new Vector2(0.3f, 0.4f);
+            textRect.anchorMax = new Vector2(0.7f, 0.6f);
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+
+            _waitingForShipToAppear = true;
+            Debug.Log("[NetworkManager] Loading screen SHOWN — waiting for ship to appear");
+        }
+
+        /// <summary>
+        /// Destroys the loading screen overlay.
+        /// </summary>
+        private void HideLoadingScreen()
+        {
+            if (_loadingScreenGO != null)
+            {
+                Destroy(_loadingScreenGO);
+                _loadingScreenGO = null;
+            }
+            _waitingForShipToAppear = false;
+            Debug.Log("[NetworkManager] Loading screen HIDDEN — ship appeared");
+        }
+
+        /// <summary>
         /// Loads the gameplay scene. Called by "Enter Battle" button.
         /// Client sends START_MATCH to the dedicated server, which then
         /// sends countdown/load to all clients. Server is already in gameplay scene.
@@ -429,6 +497,10 @@ namespace GV.Network
             // Small pause to show "GO!"
             yield return new WaitForSeconds(0.3f);
 
+            // Show "Loading..." while scene loads
+            if (clientJoinedText != null)
+                clientJoinedText.text = "Loading...";
+
             // HOST (non-dedicated): send LOAD command to clients and then load the scene
             if (Runner != null && Runner.IsServer && !IsDedicatedServer)
             {
@@ -443,6 +515,11 @@ namespace GV.Network
                 Debug.Log($"[SPAWN-DEBUG] CLIENT: Countdown done. Setting _manualSceneLoadRequested=true, loading '{gameplaySceneName}'. " +
                           $"Runner.IsClient={Runner.IsClient}, _connectedToDedicatedServer={_connectedToDedicatedServer}");
                 _manualSceneLoadRequested = true;
+                _inGameplayScene = true;
+
+                // Show a persistent loading screen that survives scene load
+                ShowLoadingScreen();
+
                 HideAllMenuUI();
                 UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
             }
@@ -1009,6 +1086,24 @@ namespace GV.Network
                             Debug.LogError($"[NetworkManager] SendReliableDataToServer FAILED ({RawSendErrorCount}): {ex}");
                         }
                     }
+                }
+            }
+
+            // --- CLIENT: Detect ship spawn and hide loading screen ---
+            if (_waitingForShipToAppear && Runner != null && Runner.IsRunning)
+            {
+                try
+                {
+                    var playerObj = Runner.GetPlayerObject(Runner.LocalPlayer);
+                    if (playerObj != null)
+                    {
+                        Debug.Log($"[NetworkManager] CLIENT: Local player ship detected! Hiding loading screen.");
+                        HideLoadingScreen();
+                    }
+                }
+                catch (System.Exception)
+                {
+                    // Runner might not be ready yet, just wait
                 }
             }
         }
