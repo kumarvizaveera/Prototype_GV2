@@ -260,7 +260,7 @@ namespace GV.Network
                 }
             }
             Debug.Log($"[NetworkManager] ServerMode={serverMode}, IsDedicatedServer={IsDedicatedServer}, ParrelSyncClone={isParrelSyncClone}");
-            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-09-httpstart-v6");
+            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-09-synctiming-v7");
         }
 
         private void Start()
@@ -727,9 +727,11 @@ namespace GV.Network
                 }
             }
 
-            // Server spawns quickly — the CLIENT handles its own 5s countdown locally.
-            // Server just needs a tiny buffer to let the Fusion session stabilize.
-            if (elapsed < 0.5f) return;
+            // Server waits for the SAME countdown duration as clients (COUNTDOWN_SECONDS + 0.5s buffer)
+            // so that ships spawn roughly when clients finish their countdown and load the scene.
+            // Previously was 0.5s which caused a ~3s desync (ships existed on server before clients loaded).
+            float spawnDelay = COUNTDOWN_SECONDS + 0.5f;
+            if (elapsed < spawnDelay) return;
 
             // Countdown finished — spawn and send LOAD
             _matchCountdownSentLoad = true;
