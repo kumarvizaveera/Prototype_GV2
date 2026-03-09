@@ -314,7 +314,11 @@ namespace GV.Network
         private bool _cameraSetupDone = false;
         private float _cameraRetryTimer = 0f;
         private const float CAMERA_RETRY_INTERVAL = 0.5f;
-        private const float CAMERA_RETRY_MAX_TIME = 5f;
+        private const float CAMERA_RETRY_MAX_TIME = 10f;
+        private VehicleCamera _assignedVehicleCamera = null; // Track which VehicleCamera we assigned
+        private float _cameraHealthCheckTimer = 0f;
+        private const float CAMERA_HEALTH_CHECK_INTERVAL = 2f;
+        private const float CAMERA_HEALTH_CHECK_MAX_TIME = 15f;
 
         public override void Spawned()
         {
@@ -520,10 +524,34 @@ namespace GV.Network
                 // The client runs REAL physics locally (VehicleEngines3D + dynamic Rigidbody).
                 // Only SCK input scripts are disabled — our bridge feeds the engines directly.
                 // The host's authoritative state gently corrects the client to prevent drift.
-                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT local player ship - setting up CLIENT-SIDE PREDICTION");
+                Debug.Log($"[NetworkedSpaceshipBridge] CLIENT local player ship - setting up CLIENT-SIDE PREDICTION. " +
+                          $"pos={transform.position}, InputAuth={Object.InputAuthority}, LocalPlayer={Runner.LocalPlayer}");
+
+                // Snapshot camera state BEFORE SetupClientOwnShip (which may trigger GameAgentManager events)
+                var vcBefore = FindFirstObjectByType<VehicleCamera>();
+                string camStateBefore = vcBefore != null
+                    ? $"target={(vcBefore.TargetVehicle != null ? vcBefore.TargetVehicle.name : "NULL")}"
+                    : "VehicleCamera NOT FOUND";
+                Debug.Log($"[CAM-DIAG] BEFORE SetupClientOwnShip: {camStateBefore}");
+
                 SetupClientOwnShip();
+
+                // Snapshot camera state AFTER SetupClientOwnShip
+                if (vcBefore != null)
+                {
+                    string camStateAfter = $"target={(vcBefore.TargetVehicle != null ? vcBefore.TargetVehicle.name : "NULL")}";
+                    Debug.Log($"[CAM-DIAG] AFTER SetupClientOwnShip: {camStateAfter}");
+                }
+
                 _hasCheckedAuthority = true;
                 SetupCamera();
+
+                // Snapshot camera state AFTER SetupCamera
+                if (vcBefore != null)
+                {
+                    string camStateFinal = $"target={(vcBefore.TargetVehicle != null ? vcBefore.TargetVehicle.name : "NULL")}";
+                    Debug.Log($"[CAM-DIAG] AFTER SetupCamera: {camStateFinal}");
+                }
             }
             else
             {
@@ -545,6 +573,7 @@ namespace GV.Network
             if (NetworkManager.Instance != null && NetworkManager.Instance.IsDedicatedServer)
             {
                 _cameraSetupDone = true; // Prevent retry attempts
+                Debug.Log("[CAM-SETUP] Skipping camera setup on dedicated server");
                 return;
             }
 
@@ -552,35 +581,86 @@ namespace GV.Network
             var vehicle = GetComponentInChildren<Vehicle>(true);
             if (vehicle == null)
             {
-                Debug.LogWarning("[NetworkedSpaceshipBridge] No Vehicle found on spawned player!");
+                Debug.LogWarning("[CAM-SETUP] No Vehicle found on spawned player!");
                 return;
             }
+
+            var camTarget = vehicle.GetComponentInChildren<CameraTarget>(true);
+            Debug.Log($"[CAM-SETUP] Vehicle={vehicle.name}, CameraTarget={(camTarget != null ? camTarget.name : "NULL")}, " +
+                      $"shipPos={transform.position}, HasInputAuth={Object.HasInputAuthority}, " +
+                      $"HasStateAuth={Object.HasStateAuthority}");
 
             // Find the VehicleCamera in the scene (SpaceCombatKit's camera system)
             var vehicleCamera = FindFirstObjectByType<VehicleCamera>();
             if (vehicleCamera != null)
             {
+                Debug.Log($"[CAM-SETUP] Found VehicleCamera: {vehicleCamera.name}, " +
+                          $"camPos={vehicleCamera.transform.position}, " +
+                          $"currentTarget={(vehicleCamera.TargetVehicle != null ? vehicleCamera.TargetVehicle.name : "NULL")}");
+
+                // === FIX: Disconnect VehicleCamera from GameAgentManager BEFORE setting vehicle ===
+                // GameAgentManager.onFocusedVehicleChanged can fire when GameAgent is disabled
+                // (in SetupClientOwnShip), which resets the camera target to null AFTER we set it.
+                // By removing the listener, we prevent any GameAgentManager events from overriding
+                // our manual camera assignment.
+                if (GameAgentManager.Instance != null)
+                {
+                    GameAgentManager.Instance.onFocusedVehicleChanged.RemoveListener(vehicleCamera.SetVehicle);
+                    Debug.Log("[CAM-SETUP] Disconnected VehicleCamera from GameAgentManager to prevent interference");
+                }
+
                 vehicleCamera.SetVehicle(vehicle);
                 _cameraSetupDone = true;
-                Debug.Log($"[NetworkedSpaceshipBridge] VehicleCamera now following: {vehicle.name}");
+                _assignedVehicleCamera = vehicleCamera;
+                Debug.Log($"[CAM-SETUP] VehicleCamera.SetVehicle({vehicle.name}) called. " +
+                          $"camPos AFTER={vehicleCamera.transform.position}, " +
+                          $"targetVehicle={(vehicleCamera.TargetVehicle != null ? vehicleCamera.TargetVehicle.name : "NULL")}");
                 return;
+            }
+            else
+            {
+                Debug.LogWarning("[CAM-SETUP] FindFirstObjectByType<VehicleCamera>() returned NULL");
             }
 
             // Fallback: try generic CameraEntity
             var cameraEntity = FindFirstObjectByType<CameraEntity>();
             if (cameraEntity != null)
             {
-                var cameraTarget = GetComponentInChildren<CameraTarget>(true);
-                if (cameraTarget != null)
+                Debug.Log($"[CAM-SETUP] Trying fallback CameraEntity: {cameraEntity.name}");
+                if (camTarget != null)
                 {
-                    cameraEntity.SetCameraTarget(cameraTarget);
+                    // Same fix: disconnect from GameAgentManager if this is also a VehicleCamera
+                    var asVehicleCam = cameraEntity as VehicleCamera;
+                    if (asVehicleCam != null && GameAgentManager.Instance != null)
+                    {
+                        GameAgentManager.Instance.onFocusedVehicleChanged.RemoveListener(asVehicleCam.SetVehicle);
+                    }
+
+                    cameraEntity.SetCameraTarget(camTarget);
                     _cameraSetupDone = true;
-                    Debug.Log($"[NetworkedSpaceshipBridge] CameraEntity now following: {name}");
+                    Debug.Log($"[CAM-SETUP] CameraEntity now following: {name}");
                     return;
                 }
+                else
+                {
+                    Debug.LogWarning("[CAM-SETUP] No CameraTarget found on vehicle for CameraEntity fallback");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[CAM-SETUP] FindFirstObjectByType<CameraEntity>() also returned NULL");
             }
 
-            Debug.LogWarning("[NetworkedSpaceshipBridge] No camera system found yet - will retry in Update");
+            // Last resort: Try to find ANY camera and move it to ship position
+            var mainCam = Camera.main;
+            if (mainCam != null)
+            {
+                Debug.LogWarning($"[CAM-SETUP] LAST RESORT: Moving Camera.main ({mainCam.name}) to ship position {transform.position}");
+                mainCam.transform.position = transform.position + new Vector3(0, 5, -15);
+                mainCam.transform.LookAt(transform.position);
+            }
+
+            Debug.LogWarning("[CAM-SETUP] No camera system found yet - will retry in Update");
         }
 
         /// <summary>
@@ -898,6 +978,44 @@ namespace GV.Network
                 }
             }
 
+            // --- CAMERA HEALTH CHECK (detect if camera was reset after setup) ---
+            if (_cameraSetupDone && _assignedVehicleCamera != null && Object.HasInputAuthority)
+            {
+                _cameraHealthCheckTimer += Time.deltaTime;
+                if (_cameraHealthCheckTimer >= CAMERA_HEALTH_CHECK_MAX_TIME)
+                {
+                    _cameraHealthCheckTimer = float.MaxValue; // Stop checking
+                }
+                else if (_cameraHealthCheckTimer > CAMERA_HEALTH_CHECK_INTERVAL &&
+                         ((int)(_cameraHealthCheckTimer / CAMERA_HEALTH_CHECK_INTERVAL)) != ((int)((_cameraHealthCheckTimer - Time.deltaTime) / CAMERA_HEALTH_CHECK_INTERVAL)))
+                {
+                    // Check every CAMERA_HEALTH_CHECK_INTERVAL seconds
+                    var vehicle = GetComponentInChildren<Vehicle>(true);
+                    if (vehicle != null && _assignedVehicleCamera.TargetVehicle != vehicle)
+                    {
+                        Debug.LogWarning($"[CAM-HEALTH] Camera target was RESET! " +
+                                         $"Expected={vehicle.name}, " +
+                                         $"Actual={((_assignedVehicleCamera.TargetVehicle != null) ? _assignedVehicleCamera.TargetVehicle.name : "NULL")}. " +
+                                         $"Re-assigning camera...");
+
+                        // Disconnect from GameAgentManager again (in case it was re-added)
+                        if (GameAgentManager.Instance != null)
+                            GameAgentManager.Instance.onFocusedVehicleChanged.RemoveListener(_assignedVehicleCamera.SetVehicle);
+
+                        _assignedVehicleCamera.SetVehicle(vehicle);
+
+                        Debug.Log($"[CAM-HEALTH] Camera re-assigned. " +
+                                  $"TargetVehicle={((_assignedVehicleCamera.TargetVehicle != null) ? _assignedVehicleCamera.TargetVehicle.name : "NULL")}, " +
+                                  $"camPos={_assignedVehicleCamera.transform.position}");
+                    }
+                    else if (vehicle != null)
+                    {
+                        Debug.Log($"[CAM-HEALTH] Camera OK. target={_assignedVehicleCamera.TargetVehicle?.name}, " +
+                                  $"camPos={_assignedVehicleCamera.transform.position}, shipPos={transform.position}");
+                    }
+                }
+            }
+
             // --- CAMERA RETRY (local player only) ---
             if (_cameraSetupDone) return;
             if (!Object.HasInputAuthority) return;
@@ -905,15 +1023,26 @@ namespace GV.Network
             _cameraRetryTimer += Time.deltaTime;
             if (_cameraRetryTimer >= CAMERA_RETRY_MAX_TIME)
             {
-                Debug.LogError("[NetworkedSpaceshipBridge] Camera setup failed after max retries!");
-                _cameraSetupDone = true; // Stop trying
+                Debug.LogError($"[CAM-SETUP] Camera setup FAILED after {CAMERA_RETRY_MAX_TIME}s of retries! " +
+                               $"Attempting last-resort camera move to ship position {transform.position}");
+                _cameraSetupDone = true;
+
+                // Last resort: move any camera to ship position
+                var mainCam = Camera.main;
+                if (mainCam != null)
+                {
+                    mainCam.transform.position = transform.position + new Vector3(0, 5, -15);
+                    mainCam.transform.LookAt(transform.position);
+                    Debug.LogWarning($"[CAM-SETUP] LAST RESORT: Moved Camera.main to ship. camPos={mainCam.transform.position}");
+                }
                 return;
             }
 
             // Retry every CAMERA_RETRY_INTERVAL seconds
-            if (Time.frameCount % (int)(CAMERA_RETRY_INTERVAL / Time.deltaTime + 1) == 0)
+            if (_cameraRetryTimer > CAMERA_RETRY_INTERVAL &&
+                ((int)(_cameraRetryTimer / CAMERA_RETRY_INTERVAL)) != ((int)((_cameraRetryTimer - Time.deltaTime) / CAMERA_RETRY_INTERVAL)))
             {
-                Debug.Log("[NetworkedSpaceshipBridge] Retrying camera setup...");
+                Debug.Log($"[CAM-SETUP] Retrying camera setup... elapsed={_cameraRetryTimer:F1}s");
                 SetupCamera();
             }
         }

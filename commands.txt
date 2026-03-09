@@ -1,0 +1,43 @@
+
+
+ssh root@187.124.96.178 "systemctl stop gv2-server"
+
+scp -r "C:\Users\Veera\Desktop\Unity\GitHub\Prototype_GV2\ServerBuild\*" root@187.124.96.178:/opt/gv2-server/
+
+
+ssh root@187.124.96.178 "chmod +x /opt/gv2-server/Server_Test.x86_64 && systemctl start gv2-server"
+
+
+ssh root@187.124.96.178 "tail -f /var/log/gv2-server.log"
+
+
+@Krishna9271927
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 1. Stop server
+ssh root@187.124.96.178 "systemctl stop gv2-server && rm -rf /opt/gv2-server/*"
+
+# 2. Copy new build (use the folder path without wildcard)
+scp -r "C:\Users\Veera\Desktop\Unity\GitHub\Prototype_GV2\ServerBuild\." root@187.124.96.178:/opt/gv2-server/
+
+# 3. Start server
+ssh root@187.124.96.178 "chmod +x /opt/gv2-server/Server_Test.x86_64 && systemctl start gv2-server"
+
+# 4. Watch logs — look for "camera-fix-v8"
+ssh root@187.124.96.178 "tail -f /var/log/gv2-server.log"
+
+
+
+@Krishna9271927

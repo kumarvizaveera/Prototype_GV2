@@ -1431,3 +1431,136 @@ Fixing the UserId collision should resolve the entire chain since both players w
 
 - **ParrelSync clones share Photon UserId** — Both editors generate the same default UserId because they share the project's Photon settings. Photon kicks the first connection when the second connects with the same UserId. Fix: always set a unique `AuthenticationValues.UserId` before `StartGame()`.
 - **OnPlayerLeft must clean ALL player tracking collections** — Not just `_spawnedPlayers` (for already-spawned ships), but also `_pendingSpawns` (queued pre-spawn), `_playersAwaitingReady` (waiting for CLIENT_READY), and `_clientsReady` (acknowledged scene load). Ghost entries in any of these cause spawn logic to wait for or reference disconnected players.
+
+## Session — March 10, 2026 (continued): CLIENT_READY Delivery, Loading Screen Timeout, Camera Fix & Deploy Pipeline
+
+**BUILD_VERSION: 2026-03-10-camera-fix-v8**
+
+### Problem Chain
+
+After the UserId collision fix, testing revealed a cascade of issues — each hidden behind the previous one:
+
+1. **CLIENT_READY never arrives at server** — magic number stays at `2042`/`3042` (never `x077`), meaning the client's scene-loaded acknowledgment never reaches the server
+2. **Loading screen stuck forever** — even after server force-spawns ships at 15s timeout, the client stays on the loading screen
+3. **Camera stuck at scene origin** — after loading screen eventually disappears, the game scene is visible but the camera stays at the default scene position instead of following the spawned ship
+
+All three log files analyzed (timingsynclogs_7/8/9) showed `BUILD_VERSION v7` — none of the code fixes were actually deployed (see Deploy Pipeline Fix below).
+
+### Bug 1: CLIENT_READY Never Sent — RegisterSceneNetworkObjects Blocks All 3 Channels
+
+**Symptom:** Server logs show `CLIENT_READY 0/1` or `CLIENT_READY 0/2` for 15 seconds, then timeout. Client magic stays at `playerId*1000+42` (never switches to `+77` ready signal).
+
+**Root Cause:** In `OnUnitySceneLoaded`, `RegisterSceneNetworkObjects(scene)` is called BEFORE the three CLIENT_READY send channels. If it throws an exception, all three channels silently fail — no try-catch existed.
+
+**Fix — 3 Layers of Defense (NetworkManager.cs):**
+
+**Layer 1: Try-catch around RegisterSceneNetworkObjects**
+```csharp
+try { RegisterSceneNetworkObjects(scene); }
+catch (System.Exception ex) {
+    Debug.LogError($"RegisterSceneNetworkObjects THREW — continuing to CLIENT_READY sends. Error: {ex}");
+}
+```
+
+**Layer 2: Fallback CLIENT_READY in CountdownThenLoad**
+After `yield return asyncOp` (scene load complete), if `_clientSendingReady` is still false, sends on all 3 channels:
+- Channel 1: 4-byte `CLIENT_READY_KEY` ("RDY!") via `SendReliableDataToServer`
+- Channel 2: 37-byte `CLIENT_READY_SIGNAL_MAGIC` (777777) on `INPUT_DATA_KEY`
+- Channel 3: Sets `_clientSendingReady = true` to embed `magic % 1000 == 77` in regular input
+
+**Layer 3: Watchdog Timer in Update()**
+3-second watchdog after `_inGameplayScene` is set true. If `_clientSendingReady` is still false, fires all 3 channels as last resort. Fields: `_inGameplaySceneTimestamp`, `_clientReadyWatchdogFired`, `CLIENT_READY_WATCHDOG_DELAY = 3f`.
+
+### Bug 2: Loading Screen Never Hides — Silent Exception Swallowing
+
+**Symptom:** Client stuck on loading screen even after server force-spawns ships. Ship detection loop in `Update()` runs but never finds the ship.
+
+**Root Cause:** The `_waitingForShipToAppear` loop in Update() had `catch (System.Exception) { }` — a completely empty catch block. If `Runner.GetAllNetworkObjects()` throws every frame, the loading screen stays forever with zero diagnostic output.
+
+**Fix (NetworkManager.cs):**
+- Changed empty catch to log exceptions (once per second via `_shipDetectLogCounter`)
+- Added periodic diagnostic logging (`[SHIP-DETECT]` tag) showing elapsed time, total network objects, LocalPlayer info
+- Added 25-second timeout (`LOADING_SCREEN_TIMEOUT`) to force-hide loading screen
+- Fields: `_loadingScreenShownTime`, `_shipDetectLogCounter`
+
+### Bug 3: Camera Stuck at Scene Origin — GameAgentManager Overrides Manual Camera Setup
+
+**Symptom:** After loading screen disappears, the game scene is visible but camera stays at the default scene position. Ship is spawned far away (e.g., pos=(1690, -67, -1132)) but camera doesn't follow it.
+
+**Root Cause:** `VehicleCamera` subscribes to `GameAgentManager.onFocusedVehicleChanged` in its `Awake()`. In `NetworkedSpaceshipBridge.Spawned()`, `SetupClientOwnShip()` is called BEFORE `SetupCamera()`. Inside `SetupClientOwnShip()`:
+1. `GameAgentManager.Instance.Unregister(ga)` — may fire `onFocusedVehicleChanged(null)`
+2. `ga.EnterVehicle(vehicle)` — may fire `onFocusedVehicleChanged(vehicle)`
+3. `ga.enabled = false` — `OnDisable()` may fire `onFocusedVehicleChanged(null)` AFTER `SetupCamera()` completes
+
+If step 3 fires asynchronously or on the next frame, it calls `VehicleCamera.SetVehicle(null)`, undoing the manual camera assignment from `SetupCamera()`.
+
+**Fix — 3 Layers of Defense (NetworkedSpaceshipBridge.cs):**
+
+**Layer 1: Disconnect VehicleCamera from GameAgentManager**
+In `SetupCamera()`, before calling `vehicleCamera.SetVehicle(vehicle)`:
+```csharp
+if (GameAgentManager.Instance != null)
+    GameAgentManager.Instance.onFocusedVehicleChanged.RemoveListener(vehicleCamera.SetVehicle);
+```
+This prevents any GameAgentManager events from overriding the manual camera assignment.
+
+**Layer 2: Camera Health Check (every 2s for 15s)**
+In `Update()`, periodically verifies `_assignedVehicleCamera.TargetVehicle` still matches the local player's ship. If something reset it, re-assigns the camera and removes the GameAgentManager listener again. Tags: `[CAM-HEALTH]`.
+
+**Layer 3: Last-Resort Camera Teleport**
+If camera setup fails after 10s of retries (extended from 5s), moves `Camera.main` directly to the ship position + offset as a fallback.
+
+**Diagnostic Logging Added:**
+- `[CAM-SETUP]` — VehicleCamera discovery, SetVehicle calls, CameraTarget presence, all fallback paths
+- `[CAM-DIAG]` — Camera state snapshots BEFORE SetupClientOwnShip, AFTER SetupClientOwnShip, AFTER SetupCamera
+- `[CAM-HEALTH]` — Periodic camera target verification, re-assignment if reset detected
+
+### Bug 4: `_inGameplayScene` Not Reset in OnShutdown (from previous session)
+
+**Symptom:** First game works, second game doesn't. Client ignores SCENE_LOAD signals on subsequent games.
+
+**Fix:** Complete state reset in `OnShutdown()` — all flags, timers, collections, and loading screen cleanup:
+```
+_inGameplayScene, _inGameplaySceneTimestamp, _clientReadyWatchdogFired,
+_waitingForShipToAppear, _loadingScreenShownTime, _shipDetectLogCounter,
+_clientSendingReady, _connectedToDedicatedServer, _isRoomCreator,
+_pendingSceneLoadFromServer, _countdownActive, _sendStartMatchViaInput,
+_manualSceneLoadRequested, _serverSendingCountdown, _serverSendingSceneLoad,
+_waitingForClientsReady, _clientsReady, _playersAwaitingReady,
+_spawnedPlayers, _pendingSpawns, _loadingScreenGO (destroyed)
+```
+
+### Deploy Pipeline Fix
+
+**Problem:** All test logs (timingsynclogs 7/8/9) showed `BUILD_VERSION v7` despite user rebuilding multiple times. Code fixes were never reaching the server.
+
+**Root Causes Found:**
+1. **Wrong executable name in systemd service** — Service config had `ExecStart=Server_Test.x86_64` but Unity produces `Server_Tests.x86_64` (with an "s"). The service was running a stale binary.
+2. **ServerBuild folder not updated by Unity editor Play** — Pressing Play in the editor only recompiles `Library/ScriptAssemblies/`, NOT the `ServerBuild/` folder. Must explicitly do File → Build → Dedicated Server (Linux) to update `ServerBuild/`.
+3. **scp not overwriting files** — On some attempts, `scp -r` didn't overwrite existing files on the VPS.
+
+**Fix:**
+1. Fixed systemd service: `sed -i 's/Server_Test.x86_64/Server_Tests.x86_64/' /etc/systemd/system/gv2-server.service`
+2. Clean deploy procedure: `rm -rf /opt/gv2-server && mkdir -p /opt/gv2-server` before copying
+3. Documented proper deploy commands:
+```bash
+ssh root@187.124.96.178 "systemctl stop gv2-server && rm -rf /opt/gv2-server && mkdir -p /opt/gv2-server"
+scp -r "ServerBuild\." root@187.124.96.178:/opt/gv2-server/
+ssh root@187.124.96.178 "chmod +x /opt/gv2-server/Server_Tests.x86_64 && systemctl start gv2-server"
+ssh root@187.124.96.178 "tail -f /var/log/gv2-server.log"
+```
+
+### Files Modified
+
+- `Assets/GV/Scripts/Network/NetworkManager.cs` — CLIENT_READY 3-layer defense, loading screen timeout, ship detection diagnostics, complete OnShutdown resets, BUILD_VERSION bumped to v8
+- `Assets/GV/Scripts/Network/NetworkedSpaceshipBridge.cs` — Camera 3-layer defense (GameAgentManager disconnect, health check, last-resort teleport), comprehensive `[CAM-SETUP]`/`[CAM-DIAG]`/`[CAM-HEALTH]` diagnostic logging
+- `/etc/systemd/system/gv2-server.service` (on VPS) — Fixed executable name from `Server_Test` to `Server_Tests`
+
+### Key Lessons
+
+- **Three layers of defense pattern** — For critical handshake/setup operations, don't rely on a single mechanism. Use: (1) fix the root cause, (2) add a fallback path, (3) add a watchdog/health-check. Applied to both CLIENT_READY delivery and camera setup.
+- **Empty catch blocks are silent killers** — `catch (System.Exception) { }` in a per-frame loop means a bug can persist forever with zero evidence. Always log caught exceptions, even if you can't handle them.
+- **GameAgentManager event interference** — SCK's `VehicleCamera` listens to `GameAgentManager.onFocusedVehicleChanged`. When manually setting camera targets (bypassing SCK's normal flow), you must disconnect this listener to prevent SCK from resetting your assignment.
+- **Unity build targets are independent** — Editor Play mode compiles to `Library/ScriptAssemblies/`. The Dedicated Server build in `ServerBuild/` is a completely separate output. Code changes are NOT reflected in server builds until you explicitly rebuild for that target.
+- **Verify deployed builds** — Always check `BUILD_VERSION` in logs after deploy. If it doesn't match, the build pipeline is broken. Use `strings -e l Assembly-CSharp.dll | grep BUILD_VERSION` to verify DLL content directly.
+- **systemd service filename must match exactly** — A typo in `ExecStart` (missing an "s") means the service silently runs a stale binary or fails entirely.

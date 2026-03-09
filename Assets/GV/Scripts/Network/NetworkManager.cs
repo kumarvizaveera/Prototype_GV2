@@ -152,6 +152,9 @@ namespace GV.Network
         /// </summary>
         private GameObject _loadingScreenGO;
         private bool _waitingForShipToAppear = false;
+        private float _loadingScreenShownTime = 0f;
+        private const float LOADING_SCREEN_TIMEOUT = 25f; // Force-hide after 25s (past server's 15s timeout)
+        private int _shipDetectLogCounter = 0;
 
         /// <summary>
         /// When true, this NetworkManager instance was created by RoomManager for a specific room.
@@ -260,7 +263,7 @@ namespace GV.Network
                 }
             }
             Debug.Log($"[NetworkManager] ServerMode={serverMode}, IsDedicatedServer={IsDedicatedServer}, ParrelSyncClone={isParrelSyncClone}");
-            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-09-synctiming-v7");
+            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-10-camera-fix-v8");
         }
 
         private void Start()
@@ -417,6 +420,8 @@ namespace GV.Network
             textRect.offsetMax = Vector2.zero;
 
             _waitingForShipToAppear = true;
+            _loadingScreenShownTime = Time.time;
+            _shipDetectLogCounter = 0;
             Debug.Log("[NetworkManager] Loading screen SHOWN — waiting for ship to appear");
         }
 
@@ -594,6 +599,8 @@ namespace GV.Network
                 Debug.Log($"[CTL-DIAG] Taking CLIENT+DEDICATED path. Loading '{gameplaySceneName}' ASYNC.");
                 _manualSceneLoadRequested = true;
                 _inGameplayScene = true;
+                _inGameplaySceneTimestamp = Time.time;
+                _clientReadyWatchdogFired = false;
 
                 // Show a persistent loading screen that survives scene load
                 try
@@ -637,6 +644,54 @@ namespace GV.Network
                     {
                         Debug.LogError($"[CTL-DIAG] EXCEPTION in sync LoadScene: {ex}");
                     }
+                }
+
+                // === FALLBACK CLIENT_READY ===
+                // OnUnitySceneLoaded SHOULD have fired during the scene load above and set
+                // _clientSendingReady=true + sent CLIENT_READY on all 3 channels. But if it
+                // didn't fire (e.g., scene name mismatch, _manualSceneLoadRequested was false,
+                // RegisterSceneNetworkObjects threw, or any other failure), we send CLIENT_READY
+                // here as a safety net. The server uses a HashSet for _clientsReady, so duplicate
+                // signals are harmless.
+                if (!_clientSendingReady && Runner != null && Runner.IsClient && Runner.IsRunning)
+                {
+                    Debug.LogWarning($"[CTL-DIAG] FALLBACK: _clientSendingReady is STILL false after scene load! " +
+                                     $"OnUnitySceneLoaded did NOT send CLIENT_READY. Sending from CountdownThenLoad fallback. " +
+                                     $"_manualSceneLoadRequested={_manualSceneLoadRequested}, _inGameplayScene={_inGameplayScene}");
+
+                    // Channel 1: 4-byte CLIENT_READY_KEY
+                    try
+                    {
+                        Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC);
+                        Debug.Log("[CTL-DIAG] FALLBACK: Sent CLIENT_READY via 4-byte key.");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"[CTL-DIAG] FALLBACK: Failed 4-byte CLIENT_READY: {ex.Message}");
+                    }
+
+                    // Channel 2: 37-byte CLIENT_READY_SIGNAL_MAGIC on INPUT_DATA_KEY
+                    try
+                    {
+                        var readyData = new PlayerInputData();
+                        readyData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                        byte[] readyBytes = SerializeInput(readyData);
+                        Runner.SendReliableDataToServer(INPUT_DATA_KEY, readyBytes);
+                        Debug.Log("[CTL-DIAG] FALLBACK: Sent CLIENT_READY via 37-byte INPUT_DATA_KEY.");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"[CTL-DIAG] FALLBACK: Failed 37-byte CLIENT_READY: {ex.Message}");
+                    }
+
+                    // Channel 3: Embed in regular input
+                    _clientSendingReady = true;
+                    _clientReadySendStartTime = Time.time;
+                    Debug.Log($"[CTL-DIAG] FALLBACK: _clientSendingReady=true, will embed magic%1000==77 for {CLIENT_READY_SEND_DURATION}s");
+                }
+                else if (_clientSendingReady)
+                {
+                    Debug.Log("[CTL-DIAG] CLIENT_READY already active (sent by OnUnitySceneLoaded). No fallback needed.");
                 }
             }
             else
@@ -1288,6 +1343,16 @@ namespace GV.Network
         /// </summary>
         private bool _pendingSceneLoadFromServer = false;
         private float _clientReadySendStartTime = 0f;
+
+        /// <summary>
+        /// Watchdog: tracks when _inGameplayScene was set true on the client.
+        /// If CLIENT_READY hasn't been sent within CLIENT_READY_WATCHDOG_DELAY seconds,
+        /// the watchdog in Update() force-sends it. Covers edge cases where
+        /// OnUnitySceneLoaded fails or doesn't fire.
+        /// </summary>
+        private float _inGameplaySceneTimestamp = 0f;
+        private bool _clientReadyWatchdogFired = false;
+        private const float CLIENT_READY_WATCHDOG_DELAY = 3f;
         private const float CLIENT_READY_SEND_DURATION = 10f; // Send for 10 seconds (embedded in regular input, no extra cost)
 
         // --- RAW DATA INPUT TRANSPORT ---
@@ -1494,6 +1559,8 @@ namespace GV.Network
                 _pendingSceneLoadFromServer = false;
                 _manualSceneLoadRequested = true;
                 _inGameplayScene = true;
+                _inGameplaySceneTimestamp = Time.time;
+                _clientReadyWatchdogFired = false;
                 Debug.Log($"[SPAWN-DEBUG] CLIENT: Executing deferred ASYNC scene load for '{gameplaySceneName}'...");
                 ShowLoadingScreen();
                 HideAllMenuUI();
@@ -1510,26 +1577,92 @@ namespace GV.Network
                 Debug.Log("[SPAWN-DEBUG] CLIENT: Stopped sending CLIENT_READY signals (duration expired).");
             }
 
+            // --- CLIENT: WATCHDOG — force-send CLIENT_READY if scene loaded but it was never sent ---
+            // This catches ALL edge cases: OnUnitySceneLoaded didn't fire, threw an exception,
+            // scene name mismatch, _manualSceneLoadRequested race condition, etc.
+            // Fires once, CLIENT_READY_WATCHDOG_DELAY seconds after _inGameplayScene was set true.
+            if (_inGameplayScene && !_clientSendingReady && !_clientReadyWatchdogFired
+                && _inGameplaySceneTimestamp > 0f
+                && Time.time - _inGameplaySceneTimestamp > CLIENT_READY_WATCHDOG_DELAY
+                && Runner != null && Runner.IsClient && Runner.IsRunning)
+            {
+                _clientReadyWatchdogFired = true;
+                Debug.LogWarning($"[CTL-DIAG] WATCHDOG: _inGameplayScene=true for {CLIENT_READY_WATCHDOG_DELAY}s " +
+                                 $"but CLIENT_READY was NEVER sent! Force-sending now.");
+
+                // Channel 1: 4-byte
+                try { Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC); }
+                catch (System.Exception ex) { Debug.LogWarning($"[CTL-DIAG] WATCHDOG 4-byte failed: {ex.Message}"); }
+
+                // Channel 2: 37-byte
+                try
+                {
+                    var readyData = new PlayerInputData();
+                    readyData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                    byte[] readyBytes = SerializeInput(readyData);
+                    Runner.SendReliableDataToServer(INPUT_DATA_KEY, readyBytes);
+                }
+                catch (System.Exception ex) { Debug.LogWarning($"[CTL-DIAG] WATCHDOG 37-byte failed: {ex.Message}"); }
+
+                // Channel 3: Embed in regular input
+                _clientSendingReady = true;
+                _clientReadySendStartTime = Time.time;
+                Debug.Log($"[CTL-DIAG] WATCHDOG: _clientSendingReady=true, will embed magic%1000==77 for {CLIENT_READY_SEND_DURATION}s");
+            }
+
             // --- CLIENT: Detect ship spawn and hide loading screen ---
             if (_waitingForShipToAppear && Runner != null && Runner.IsRunning)
             {
+                float loadingElapsed = Time.time - _loadingScreenShownTime;
+
                 try
                 {
                     // GetPlayerObject requires SetPlayerObject which we never call.
                     // Instead, find any NetworkObject with our InputAuthority.
+                    bool found = false;
+                    int totalObjects = 0;
                     foreach (var no in Runner.GetAllNetworkObjects())
                     {
+                        totalObjects++;
                         if (no != null && no.InputAuthority == Runner.LocalPlayer && no.gameObject != this.gameObject)
                         {
-                            Debug.Log($"[NetworkManager] CLIENT: Local player ship detected ({no.name})! Hiding loading screen.");
+                            Debug.Log($"[NetworkManager] CLIENT: Local player ship detected ({no.name})! Hiding loading screen after {loadingElapsed:F1}s.");
                             HideLoadingScreen();
+                            found = true;
                             break;
                         }
                     }
+
+                    // Periodic diagnostic log (every ~60 frames ≈ once per second)
+                    if (!found)
+                    {
+                        _shipDetectLogCounter++;
+                        if (_shipDetectLogCounter % 60 == 1)
+                        {
+                            Debug.Log($"[SHIP-DETECT] Waiting for ship... elapsed={loadingElapsed:F1}s, " +
+                                      $"totalNetworkObjects={totalObjects}, LocalPlayer={Runner.LocalPlayer}, " +
+                                      $"IsRunning={Runner.IsRunning}, IsClient={Runner.IsClient}");
+                        }
+                    }
                 }
-                catch (System.Exception)
+                catch (System.Exception ex)
                 {
-                    // Runner might not be ready yet, just wait
+                    // Log the exception so we can diagnose instead of silently hiding the error
+                    _shipDetectLogCounter++;
+                    if (_shipDetectLogCounter % 60 == 1)
+                    {
+                        Debug.LogWarning($"[SHIP-DETECT] Exception in ship detection (elapsed={loadingElapsed:F1}s): {ex.Message}");
+                    }
+                }
+
+                // TIMEOUT: Force-hide loading screen if it's been showing too long.
+                // The server force-spawns after 15s, so by 25s something is clearly wrong.
+                // Don't leave the player stuck on a loading screen forever.
+                if (loadingElapsed > LOADING_SCREEN_TIMEOUT)
+                {
+                    Debug.LogWarning($"[NetworkManager] CLIENT: Loading screen TIMEOUT after {loadingElapsed:F1}s! " +
+                                     $"Force-hiding loading screen. Ship detection may have failed.");
+                    HideLoadingScreen();
                 }
             }
         }
@@ -1987,7 +2120,17 @@ namespace GV.Network
                 // Fusion's NetworkSceneManagerDefault, Fusion doesn't know about NetworkObjects
                 // placed in the scene (like BattleZoneController). This tells Fusion to adopt them
                 // so their Spawned() callback fires and [Networked] properties work.
-                RegisterSceneNetworkObjects(scene);
+                // WRAPPED in try-catch: RegisterSceneNetworkObjects must NEVER prevent CLIENT_READY
+                // from being sent. If it throws (e.g., scene objects in bad state during async reload),
+                // we log the error but continue to the critical CLIENT_READY sends below.
+                try
+                {
+                    RegisterSceneNetworkObjects(scene);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[NetworkManager] RegisterSceneNetworkObjects THREW — continuing to CLIENT_READY sends. Error: {ex}");
+                }
 
                 // CLIENT: Send CLIENT_READY to the server so it knows we've loaded the scene
                 // and it's safe to spawn our player object. Send on ALL channels for reliability.
@@ -2024,6 +2167,7 @@ namespace GV.Network
                     // Channel 3: Embed CLIENT_READY in regular input magic (% 1000 == 77) every frame
                     _clientSendingReady = true;
                     _clientReadySendStartTime = Time.time;
+                    _clientReadyWatchdogFired = true; // Mark watchdog as satisfied — CLIENT_READY was sent
                     Debug.Log($"[CTL-DIAG] CLIENT: _clientSendingReady=true, will embed magic%1000==77 for {CLIENT_READY_SEND_DURATION}s");
                 }
 
@@ -2514,7 +2658,11 @@ namespace GV.Network
             _clientSendingReady = false;
             _pendingSceneLoadFromServer = false;
             _inGameplayScene = false;
+            _inGameplaySceneTimestamp = 0f;
+            _clientReadyWatchdogFired = false;
             _waitingForShipToAppear = false;
+            _loadingScreenShownTime = 0f;
+            _shipDetectLogCounter = 0;
             // Clean up loading screen so it doesn't persist into the next game
             if (_loadingScreenGO != null)
             {
