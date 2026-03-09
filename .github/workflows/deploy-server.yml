@@ -1,0 +1,103 @@
+# GV2 Dedicated Server — Auto-Deploy to VPS
+# Triggers when you push a new server build to the 'server-build' branch.
+#
+# SETUP (one-time, ~10 minutes):
+#   1. Add these GitHub Secrets (Settings → Secrets and variables → Actions):
+#      - VPS_SSH_KEY   → your SSH private key (see setup-guide below)
+#      - VPS_HOST      → 187.124.96.178
+#      - VPS_USER      → root
+#
+#   2. Push your Unity Linux server build to the 'server-build' branch:
+#      git checkout -b server-build
+#      git add -A && git commit -m "Server build" && git push -u origin server-build
+#
+#   3. Every time you push to 'server-build', this workflow auto-deploys to VPS.
+
+name: Deploy Server to VPS
+
+on:
+  push:
+    branches: [ server-build ]
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout server build
+        uses: actions/checkout@v4
+
+      - name: Package server build
+        run: |
+          echo "📦 Packaging server build..."
+          # Tar everything except git/docs/Unity project files — just the build output
+          tar -czf /tmp/gv2-server-build.tar.gz \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='docs' \
+            --exclude='Assets' \
+            --exclude='Packages' \
+            --exclude='ProjectSettings' \
+            --exclude='UserSettings' \
+            --exclude='Library' \
+            --exclude='Logs' \
+            --exclude='Temp' \
+            --exclude='obj' \
+            --exclude='*.sln' \
+            --exclude='*.csproj' \
+            --exclude='*.ps1' \
+            --exclude='tasks' \
+            -C . .
+          ls -lh /tmp/gv2-server-build.tar.gz
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload & Deploy
+        run: |
+          SSH_CMD="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          SCP_CMD="scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
+
+          echo "📤 Uploading build..."
+          $SCP_CMD /tmp/gv2-server-build.tar.gz ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/
+
+          echo "🚀 Deploying..."
+          $SSH_CMD << 'DEPLOY'
+            echo "Stopping server..."
+            systemctl stop gv2-server 2>/dev/null || true
+
+            echo "Cleaning old files..."
+            rm -rf /opt/gv2-server/*
+
+            echo "Extracting new build..."
+            tar -xzf /tmp/gv2-server-build.tar.gz -C /opt/gv2-server
+
+            echo "Setting permissions..."
+            chown -R root:root /opt/gv2-server
+            chmod +x /opt/gv2-server/*.x86_64 2>/dev/null || true
+            chmod +x /opt/gv2-server/Prototype_GV2 2>/dev/null || true
+
+            echo "Updating service to match build executable..."
+            EXE=$(find /opt/gv2-server -maxdepth 1 -name '*.x86_64' -type f | head -1)
+            if [ -n "$EXE" ]; then
+              sed -i "s|ExecStart=.*|ExecStart=$EXE -batchmode -nographics -server|" /etc/systemd/system/gv2-server.service
+              systemctl daemon-reload
+            fi
+
+            echo "Starting server..."
+            systemctl start gv2-server
+            sleep 10
+
+            echo "Checking status..."
+            systemctl is-active gv2-server || true
+
+            rm -f /tmp/gv2-server-build.tar.gz
+            echo "DEPLOY COMPLETE"
+          DEPLOY
