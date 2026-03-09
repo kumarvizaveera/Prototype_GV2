@@ -1374,3 +1374,60 @@ The proven pattern for client→server signals: **embed the signal in the regula
 - Disconnect false-positive fixed (abort if all players leave) ✓
 - MissileCycleController despawn crash fixed ✓
 - Deploy script supports `-Logs` for live log tailing ✓
+
+---
+
+## Session — March 10, 2026: ParrelSync UserId Collision & OnPlayerLeft Cleanup
+
+### Problem
+
+After Create Room on the clone editor (Player 2) and Join Room on the main editor (Player 3), Player 2 was immediately kicked — "player count went to zero on clone." Both clients then got stuck on the loading screen. Server logs showed CLIENT_READY never arrived (waited 13.2s until Player 3 also disconnected).
+
+### Bug 1: Photon UserId Collision — Player 2 Kicked When Player 3 Joins
+
+**Symptom:** The instant Player 3 registered (`RegisterUniqueIdPlayerMapping`), Player 2 disconnected. Server log sequence:
+```
+[Fusion] RegisterUniqueIdPlayerMapping actorid:3 ...player:[Player:3]
+[NetworkManager] Player 2 left
+[Fusion] adding player [Player:3]
+```
+
+**Root Cause:** ParrelSync clones share the same project folder and Photon settings. Fusion/Photon auto-generates a `UserId` from the project's settings, so both editors connected with the **same Photon UserId**. Photon treats the second connection as the same user reconnecting and kicks the first.
+
+**Fix (NetworkManager.cs — `StartGame()`):**
+- Added unique `AuthenticationValues.UserId` generation before `Runner.StartGame()`
+- In Editor: main editor gets `"editor_main_<guid>"`, ParrelSync clone gets `"clone_<cloneArg>"`
+- In builds: uses `System.Guid.NewGuid().ToString()`
+- Set via `AuthValues` property on `StartGameArgs` (NOT on `FusionAppSettings` — that class doesn't have `AuthValues`)
+
+### Bug 2: OnPlayerLeft Doesn't Clean Up _pendingSpawns
+
+**Symptom:** After Player 2 was kicked, it remained as a ghost entry in `_pendingSpawns` (log showed `pendingSpawns=2` even though only Player 3 was connected). This caused the server to think 2 players needed spawning.
+
+**Root Cause:** `OnPlayerLeft()` only cleaned up `_spawnedPlayers` (ships already spawned) but never removed the disconnected player from `_pendingSpawns`, `_playersAwaitingReady`, or `_clientsReady`.
+
+**Fix (NetworkManager.cs — `OnPlayerLeft()`):**
+- Added `_pendingSpawns.Remove(player)` — removes ghost from spawn queue
+- Added `_playersAwaitingReady.Remove(player)` — prevents waiting for disconnected players
+- Added `_clientsReady.Remove(player)` — cleanup
+
+### Why CLIENT_READY Never Arrived
+
+With the UserId collision as the primary issue, the chain reaction was:
+1. Player 2 kicked → clone UI shows "player count 0"
+2. Player 3 was the only player, match triggered via HTTP `/start`
+3. Server sent COUNTDOWN (both 4-byte and 37-byte channels) to Player 3
+4. Server moved to Phase 2 (SCENE_LOAD) after 3.5s and waited for CLIENT_READY
+5. Player 3 likely received COUNTDOWN and started loading, but the overall network state was degraded from the collision event
+6. CLIENT_READY never arrived → 15s timeout → Player 3 disconnected → server aborted spawn
+
+Fixing the UserId collision should resolve the entire chain since both players will remain connected and the normal Enter Battle flow (client button → START_MATCH → COUNTDOWN → scene load → CLIENT_READY → spawn) will work with two stable connections.
+
+### Files Modified
+
+- `Assets/GV/Scripts/Network/NetworkManager.cs` — Unique Photon UserId per client, OnPlayerLeft cleanup of _pendingSpawns/_playersAwaitingReady/_clientsReady
+
+### Key Lessons
+
+- **ParrelSync clones share Photon UserId** — Both editors generate the same default UserId because they share the project's Photon settings. Photon kicks the first connection when the second connects with the same UserId. Fix: always set a unique `AuthenticationValues.UserId` before `StartGame()`.
+- **OnPlayerLeft must clean ALL player tracking collections** — Not just `_spawnedPlayers` (for already-spawned ships), but also `_pendingSpawns` (queued pre-spawn), `_playersAwaitingReady` (waiting for CLIENT_READY), and `_clientsReady` (acknowledged scene load). Ghost entries in any of these cause spawn logic to wait for or reference disconnected players.

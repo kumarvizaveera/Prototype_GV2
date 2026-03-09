@@ -533,6 +533,12 @@ namespace GV.Network
             if (_countdownActive) yield break;
             _countdownActive = true;
 
+            Debug.Log($"[CTL-DIAG] CountdownThenLoad STARTED. Runner={Runner != null}, " +
+                      $"IsClient={Runner?.IsClient}, IsServer={Runner?.IsServer}, " +
+                      $"_connectedToDedicatedServer={_connectedToDedicatedServer}, " +
+                      $"gameplaySceneName='{gameplaySceneName}', " +
+                      $"activeScene='{UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}'");
+
             // Cancel any "Client has joined" auto-hide so it doesn't hide our countdown
             if (_hideClientJoinedCoroutine != null)
             {
@@ -565,9 +571,17 @@ namespace GV.Network
             if (clientJoinedText != null)
                 clientJoinedText.text = "Loading...";
 
+            Debug.Log($"[CTL-DIAG] Post-countdown state: Runner={Runner != null}, " +
+                      $"IsClient={Runner?.IsClient}, IsServer={Runner?.IsServer}, " +
+                      $"IsDedicatedServer={IsDedicatedServer}, " +
+                      $"_connectedToDedicatedServer={_connectedToDedicatedServer}, " +
+                      $"_manualSceneLoadRequested={_manualSceneLoadRequested}, " +
+                      $"_inGameplayScene={_inGameplayScene}");
+
             // HOST (non-dedicated): send LOAD command to clients and then load the scene
             if (Runner != null && Runner.IsServer && !IsDedicatedServer)
             {
+                Debug.Log("[CTL-DIAG] Taking HOST path (IsServer && !IsDedicatedServer)");
                 StartCoroutine(LoadGameplayWithClientSync());
             }
             // CLIENT connected to dedicated server: load the scene ASYNCHRONOUSLY.
@@ -577,31 +591,66 @@ namespace GV.Network
             // on heavy scenes, causing Fusion to disconnect the client.
             else if (Runner != null && Runner.IsClient && _connectedToDedicatedServer)
             {
-                Debug.Log($"[SPAWN-DEBUG] CLIENT: Countdown done. Loading '{gameplaySceneName}' ASYNC. " +
-                          $"Runner.IsClient={Runner.IsClient}, _connectedToDedicatedServer={_connectedToDedicatedServer}");
+                Debug.Log($"[CTL-DIAG] Taking CLIENT+DEDICATED path. Loading '{gameplaySceneName}' ASYNC.");
                 _manualSceneLoadRequested = true;
                 _inGameplayScene = true;
 
                 // Show a persistent loading screen that survives scene load
-                ShowLoadingScreen();
-
-                HideAllMenuUI();
+                try
+                {
+                    ShowLoadingScreen();
+                    HideAllMenuUI();
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[CTL-DIAG] EXCEPTION in ShowLoadingScreen/HideAllMenuUI: {ex}");
+                }
 
                 // Async load — game loop continues, network stays alive
-                var asyncOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(gameplaySceneName);
+                AsyncOperation asyncOp = null;
+                try
+                {
+                    asyncOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(gameplaySceneName);
+                    Debug.Log($"[CTL-DIAG] LoadSceneAsync('{gameplaySceneName}') returned: {(asyncOp != null ? "valid AsyncOperation" : "NULL")}");
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[CTL-DIAG] EXCEPTION in LoadSceneAsync: {ex}");
+                }
+
                 if (asyncOp != null)
                 {
+                    Debug.Log($"[CTL-DIAG] Yielding on asyncOp (isDone={asyncOp.isDone}, progress={asyncOp.progress})...");
                     yield return asyncOp; // Coroutine waits for load to complete
-                    Debug.Log($"[SPAWN-DEBUG] CLIENT: Async scene load completed for '{gameplaySceneName}'.");
+                    Debug.Log($"[CTL-DIAG] Async scene load COMPLETED for '{gameplaySceneName}'. " +
+                              $"_clientSendingReady={_clientSendingReady}, _manualSceneLoadRequested={_manualSceneLoadRequested}");
                 }
                 else
                 {
                     // Fallback to sync load if async returns null (shouldn't happen)
-                    Debug.LogWarning("[SPAWN-DEBUG] CLIENT: LoadSceneAsync returned null! Falling back to sync load.");
-                    UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+                    Debug.LogWarning("[CTL-DIAG] LoadSceneAsync returned null! Falling back to sync load.");
+                    try
+                    {
+                        UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[CTL-DIAG] EXCEPTION in sync LoadScene: {ex}");
+                    }
                 }
             }
-            // CLIENT (non-dedicated host-client): wait for LOAD command from host via OnReliableDataReceived
+            else
+            {
+                // NO PATH MATCHED — this is the bug if it fires on a dedicated-server client
+                Debug.LogError($"[CTL-DIAG] NO SCENE LOAD PATH MATCHED! " +
+                               $"Runner={(Runner != null ? "exists" : "NULL")}, " +
+                               $"IsClient={Runner?.IsClient}, IsServer={Runner?.IsServer}, " +
+                               $"IsDedicatedServer={IsDedicatedServer}, " +
+                               $"_connectedToDedicatedServer={_connectedToDedicatedServer}. " +
+                               $"SCENE WILL NOT LOAD — CLIENT_READY WILL NEVER BE SENT!");
+            }
+
+            Debug.Log($"[CTL-DIAG] CountdownThenLoad EXITING. _clientSendingReady={_clientSendingReady}");
         }
 
         /// <summary>
@@ -1723,7 +1772,28 @@ namespace GV.Network
             appSettings.AppVersion = appVersion;
             appSettings.FixedRegion = fixedRegion;
             appSettings.UseNameServer = true;
-            
+
+            // --- Unique UserId per client ---
+            // ParrelSync clones share the same project folder, so Photon generates the same
+            // default UserId for both editors. When the second editor connects to the same
+            // Fusion session, Photon treats it as the same user reconnecting and kicks the first.
+            // Fix: generate a unique UserId per client instance.
+            string uniqueUserId = System.Guid.NewGuid().ToString();
+            #if UNITY_EDITOR
+            if (ParrelSync.ClonesManager.IsClone())
+            {
+                // Append clone arg to make it deterministic but unique per clone
+                string cloneArg = ParrelSync.ClonesManager.GetArgument();
+                uniqueUserId = "clone_" + (string.IsNullOrEmpty(cloneArg) ? System.Guid.NewGuid().ToString() : cloneArg);
+            }
+            else
+            {
+                uniqueUserId = "editor_main_" + System.Guid.NewGuid().ToString().Substring(0, 8);
+            }
+            #endif
+            var authValues = new Fusion.Photon.Realtime.AuthenticationValues(uniqueUserId);
+            Debug.Log($"[NetworkManager] Photon UserId set to: {uniqueUserId}");
+
             // Use room code as session name. Dedicated server and AutoHostOrClient fall back to "GV2S".
             // Must be uppercase and exactly 4 chars — room code UI only accepts 4-char codes.
             string sessionName = !string.IsNullOrEmpty(CurrentRoomCode) ? CurrentRoomCode : "GV2S";
@@ -1775,7 +1845,8 @@ namespace GV.Network
                     PlayerCount = maxPlayers,
                     Scene = sceneInfo,
                     SceneManager = sceneManager,
-                    CustomPhotonAppSettings = appSettings
+                    CustomPhotonAppSettings = appSettings,
+                    AuthValues = authValues
                 });
             }
             catch (System.Exception ex)
@@ -1919,12 +1990,13 @@ namespace GV.Network
                 RegisterSceneNetworkObjects(scene);
 
                 // CLIENT: Send CLIENT_READY to the server so it knows we've loaded the scene
-                // and it's safe to spawn our player object. Send on both channels for reliability.
+                // and it's safe to spawn our player object. Send on ALL channels for reliability.
                 if (Runner != null && Runner.IsClient)
                 {
-                    Debug.Log("[SPAWN-DEBUG] CLIENT: Gameplay scene loaded! Sending CLIENT_READY to server...");
+                    Debug.Log($"[CTL-DIAG] CLIENT: Gameplay scene loaded! Sending CLIENT_READY on ALL channels. " +
+                              $"LocalPlayer={Runner.LocalPlayer}, IsRunning={Runner.IsRunning}");
 
-                    // Send on dedicated 4-byte CLIENT_READY_KEY
+                    // Channel 1: 4-byte CLIENT_READY_KEY ("RDY!")
                     try
                     {
                         Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC);
@@ -1935,9 +2007,24 @@ namespace GV.Network
                         Debug.LogWarning($"[SPAWN-DEBUG] CLIENT: Failed to send CLIENT_READY via 4-byte key: {ex.Message}");
                     }
 
-                    // Also embed CLIENT_READY in regular input magic (% 1000 == 77) every frame
+                    // Channel 2: 37-byte CLIENT_READY_SIGNAL_MAGIC on INPUT_DATA_KEY (proven channel)
+                    try
+                    {
+                        var readyData = new PlayerInputData();
+                        readyData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                        byte[] readyBytes = SerializeInput(readyData);
+                        Runner.SendReliableDataToServer(INPUT_DATA_KEY, readyBytes);
+                        Debug.Log("[SPAWN-DEBUG] CLIENT: Sent CLIENT_READY via 37-byte INPUT_DATA_KEY (magic=777777).");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"[SPAWN-DEBUG] CLIENT: Failed to send CLIENT_READY via 37-byte key: {ex.Message}");
+                    }
+
+                    // Channel 3: Embed CLIENT_READY in regular input magic (% 1000 == 77) every frame
                     _clientSendingReady = true;
                     _clientReadySendStartTime = Time.time;
+                    Debug.Log($"[CTL-DIAG] CLIENT: _clientSendingReady=true, will embed magic%1000==77 for {CLIENT_READY_SEND_DURATION}s");
                 }
 
                 // SERVER: Delay spawning by 1 frame so all scene objects (VehicleCamera, etc.)
@@ -2317,13 +2404,18 @@ namespace GV.Network
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
             Debug.Log($"[NetworkManager] Player {player.PlayerId} left");
-            
+
+            // Clean up pending spawn queue — prevents ghost players from blocking spawn logic
+            _pendingSpawns.Remove(player);
+            _playersAwaitingReady.Remove(player);
+            _clientsReady.Remove(player);
+
             if (_spawnedPlayers.TryGetValue(player, out var playerObject))
             {
                 if (playerObject != null) runner.Despawn(playerObject);
                 _spawnedPlayers.Remove(player);
             }
-            
+
             OnPlayerLeftGame?.Invoke(runner, player);
         }
 
@@ -2408,6 +2500,7 @@ namespace GV.Network
             
             OnDisconnectedEvent?.Invoke(runner, shutdownReason);
             _spawnedPlayers.Clear();
+            _pendingSpawns.Clear();
             _countdownActive = false;
             _connectedToDedicatedServer = false;
             _isRoomCreator = false;
@@ -2420,6 +2513,14 @@ namespace GV.Network
             _playersAwaitingReady.Clear();
             _clientSendingReady = false;
             _pendingSceneLoadFromServer = false;
+            _inGameplayScene = false;
+            _waitingForShipToAppear = false;
+            // Clean up loading screen so it doesn't persist into the next game
+            if (_loadingScreenGO != null)
+            {
+                Destroy(_loadingScreenGO);
+                _loadingScreenGO = null;
+            }
             // NOTE: _roomFlowActive is intentionally NOT reset here.
             // If the Runner shuts down and restarts (unexpected reconnect),
             // we need to remember we're in a room flow so NoOpSceneManager is used
