@@ -1,0 +1,173 @@
+1st try [RoomManager] Creating room 'FR4Q'...
+OnGUI function detected on MonoBehaviour, but not called, because IMGUI module is stripped.
+[NetworkManager] Awake() on instance -37082, existing Instance=NULL, scene=Room_Tests_2, roomManagerControlled=False
+[NetworkManager] Instance SET to -37082, DontDestroyOnLoad applied
+[NetworkManager] ServerMode=Auto, IsDedicatedServer=True, ParrelSyncClone=False
+[NetworkManager] StartServerForRoom: code=FR4Q, maxPlayers=4
+[NetworkManager] Static state RESET (prevents stale data from previous play session)
+[NetworkManager] Runner created with DontDestroyOnLoad
+[NetworkManager] Registered SINGLE callback (NetworkManager) BEFORE StartGame — OnInput delegates to NetworkedPlayerInput
+[NetworkManager] Active scene: 'Room_Tests_2', buildIndex=2, isLoaded=True
+[NetworkManager] PhotonAppSettings.Global found: True
+[NetworkManager] Loaded from Global: AppId length=36, AppVersion=''
+[NetworkManager] Starting game. Mode=Server, Region=us, Session=FR4Q, MaxPlayers=4, AppID=...63dc, AppVersion='', UseNameServer=True
+[NetworkManager] Using NoOpSceneManager on Runner GO (NetworkRunner) — scene loading handled manually
+[NetworkManager] Dedicated Server (RoomManager-controlled) — waiting for StartServerForRoom()
+[RoomManager] HTTP: Created room 'FR4Q'
+<color=#144078>[Fusion]</color> [0.0] SupportLogger Info: AppID: "4f22d424***" AppVersion: "" Client: v4.1.8.16 (NetStandard20) Build: 6000.3.0f1, LinuxServer, ENABLE_MONO, DEBUG, NET_STANDARD_2_0 Socket: SocketUdp UserId: "" AuthType: N/A AuthMode: Auth PayloadEncryption State: ConnectingToNameServer PeerID: 65535 NameServer: ns.photonengine.io Current Server: ns.photonengine.io:27000 IP:  Region: us 03/09/2026 07:59:04 UTC
+<color=#144078>[Fusion]</color> [1.361] SupportLogger Info: AppID: "4f22d424***" AppVersion: "" Client: v4.1.8.16 (NetStandard20) Build: 6000.3.0f1, LinuxServer, ENABLE_MONO, DEBUG, NET_STANDARD_2_0 Socket: SocketUdp UserId: "8ec7b88c-1ff8-4863-95dd-ded5ab8c4658" AuthType: None AuthMode: Auth PayloadEncryption State: ConnectingToMasterServer PeerID: 2153 NameServer: ns.photonengine.io Current Server: 5.8.93.201:27001 IP: 5.8.93.201:27001 Region: us 03/09/2026 07:59:06 UTC
+[NoOpSceneManager] Initialized — scene sync is DISABLED for this runner.
+[NetworkManager] StartGame returned: Ok=True, ShutdownReason=Ok
+[SCENE-DIAG] Runner GO 'NetworkRunner' has 1 INetworkSceneManager(s):
+[SCENE-DIAG]   - NoOpSceneManager (instanceID=-37090)
+[SCENE-DIAG] NetworkManager GO 'NetworkManager_Room_FR4Q' has 0 INetworkSceneManager(s):
+[SCENE-DIAG] Total NetworkSceneManagerDefault in scene: 0
+[SCENE-DIAG] Runner.gameObject == this.gameObject? False
+[SCENE-DIAG] _connectedToDedicatedServer=False, _isRoomManagerControlled=True, _roomFlowActive=True
+[NetworkManager] Post-StartGame: re-registered callbacks, ProvideInput=False, IsClient=False, IsServer=True, LocalPlayer=[Player:None]
+[NetworkManager] Started game as Server, LocalPlayer=[Player:None], Session=FR4Q
+[LevelSynchronizer] Generated Seed: 674734736
+[NetworkManager] Spawned LevelSynchronizer
+[NetworkManager] StartServerForRoom result: success=True
+[RoomManager] Room 'FR4Q' is LIVE — session created, waiting for players
+[NoOpSceneManager] OnSceneInfoChanged (source=Initial, sceneCount=1) — IGNORING (manual scene control).
+[GyroRings] Randomized start: Checkpoint 9 (range was 3-15)
+Placed Gyro_Random Power (1) at checkpoint 9 (Instance-9)
+Placed Gyro_Random Power (2) at checkpoint 27 (Instance-27)
+Placed Gyro_Random Power (3) at checkpoint 45 (Instance-45)
+Placed Gyro_Random Power (4) at checkpoint 63 (Instance-63)
+Placed Gyro_Random Power (5) at checkpoint 81 (Instance-81)
+Placed Gyro_Random Power (6) at checkpoint 99 (Instance-99)
+[NetworkedAstraRefillInitializer] Initializing spawner with seed: 674734736 on Weapon Cubes
+[AstraRefillSpawner] Box: spawned 540/540 objects (seed=41)
+[NetworkedSpawnerInitializer] Initializing spawner with seed: -56218936
+[MassObjectSpawner] Spawned 100/100 objects (seed=41)
+<color=#144078>[Fusion]</color> RegisterUniqueIdPlayerMapping actorid:2 id:12786377100562671454, player:[Player:2]
+<color=#144078>[Fusion]</color> adding player [Player:2]
+[SPAWN-DEBUG] OnPlayerJoined: player=2, IsServer=True, inGameplayScene=False, IsDedicatedServer=True, playerPrefab=Player_ForMultiplayer, pendingSpawns=0, spawnedPlayers=0, isRoomManagerControlled=True, instanceID=-37082
+[SPAWN-DEBUG] Player 2 QUEUED in _pendingSpawns (inGameplayScene=false). pendingSpawns will be 1 after add.
+[NetworkManager] OnReliableDataReceived #1: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-37082, Instance.ID=-37082, sameInstance=True
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=1
+[NetworkManager] OnReliableDataReceived #2: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-37082, Instance.ID=-37082, sameInstance=True
+[NetworkManager] OnReliableDataReceived #3: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-37082, Instance.ID=-37082, sameInstance=True
+[NetworkManager] OnReliableDataReceived #4: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-37082, Instance.ID=-37082, sameInstance=True
+[NetworkManager] OnReliableDataReceived #5: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-37082, Instance.ID=-37082, sameInstance=True
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=59
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=117
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=145
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.14,0.15), magic=2042, recvTotal=200
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.22,0.31), magic=2042, recvTotal=257
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.09,0.25), magic=2042, recvTotal=313
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.15,0.16), magic=2042, recvTotal=370
+[SPAWN-DEBUG] SERVER: Received START_MATCH (4-byte) from player 2! pendingSpawns=1, spawnedPlayers=0, inGameplayScene=False, countdownActive=False
+[SPAWN-DEBUG] SERVER: TriggerMatchStart — sending COUNTDOWN, will spawn after 5s
+[SPAWN-DEBUG] SERVER: Sent COUNTDOWN to player 2
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.16,0.16), magic=2042, recvTotal=425
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.04,0.31), magic=2042, recvTotal=482
+[SPAWN-DEBUG] SERVER: Flag-based countdown finished! Spawning players...
+[SPAWN-DEBUG] SERVER: _inGameplayScene set to TRUE. pendingSpawns=1, alreadySpawned=0, Runner=True, RunnerIsRunning=True, playerPrefab=Player_ForMultiplayer
+[NetworkManager] Found spawnSpline on scene instance 'Spline_2' at worldPos: (-1357.23, 0.00, 401.62)
+[SPAWN-DEBUG] SERVER: TryFindSpawnSpline done. spawnSpline=Spline_2
+[SPAWN-DEBUG] SERVER: Copied 1 from pendingSpawns. Checking ActivePlayers...
+[SPAWN-DEBUG] SERVER: ActivePlayer 2 — alreadySpawned=False, alreadyInList=True
+[SPAWN-DEBUG] SERVER: ActivePlayers count=1, final playersToSpawn=1
+[SPAWN-DEBUG] SERVER: Spawning 1 players now...
+[SPAWN-DEBUG] SERVER: About to SpawnPlayer for 2, slot=0
+[SPAWN-DEBUG] SpawnPlayer ENTER: player=2, slotIndex=0, runner=True, runner.IsRunning=True, runner.IsServer=True, _spawnedPlayers.Count=0
+[NetworkManager] Spline spawn — seed: 674734736, splineLength: 53198.8, spacingT: 0.0047, startT: 0.1754
+[NetworkManager] Player slot 0 → t=0.1754, pos=(1920.89, 38.39, -1482.01), rot=(357.97, 208.54, 0.00)
+[NetworkManager] Player slot 1 → t=0.1801, pos=(1798.03, 43.51, -1699.90), rot=(359.62, 209.64, 0.00)
+[NetworkManager] Player slot 2 → t=0.1848, pos=(1677.56, 41.70, -1919.07), rot=(1.26, 207.40, 0.00)
+[NetworkManager] Player slot 3 → t=0.1895, pos=(1574.09, 31.35, -2146.23), rot=(3.73, 200.37, 0.00)
+[SPAWN-DEBUG] Spawning player 2 at slot 0, pos=(1920.89, 38.39, -1482.01), rot=(357.97, 208.54, 0.00), splineFound=True, playerPrefab=Player_ForMultiplayer
+[ResourceContainer] (BoostFuel) Awake: currentAmount set to 36 (start=36, capacity=36)
+[NetworkedSpaceshipBridge] Spawned on Player_ForMultiplayer(Clone) - HasInputAuthority: False, HasStateAuthority: True, InputAuthority: [Player:2]
+[NetworkedSpaceshipBridge] Disabled NetworkTransform on Player_ForMultiplayer(Clone) (StateAuth=True, InputAuth=False)
+[NetworkedSpaceshipBridge] Remote player ship - disabling ALL local input immediately , this sending COUNTDOWN, will spawn after 5s is a mismatch, its coming after game scene already loads and  steer values are already changing(meaning ship already spawned and i cannot see it  yet, i can only see it after 5secods, and i can see ship already spawned and moving after that) and now the following for 2nd try.............. [RoomManager] Room 'FR4Q' empty for 60s — shutting down
+[NetworkManager] OnShutdown called! Reason=Ok, Runner=exists, IsRunning=YES, IsDedicatedServer=True
+[NoOpSceneManager] Shutdown called! Stack trace:
+  at System.Environment.get_StackTrace () [0x00000] in <1a795a29c7af4385b159eb69f68237b8>:0
+  at NoOpSceneManager.Shutdown () [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+  at Fusion.NetworkRunner.Shutdown (System.Boolean destroyGameObject, Fusion.ShutdownReason shutdownReason, System.Boolean forceShutdownProcedure) [0x00000] in <70c0879301ea465eaf2082d70d62c9c8>:0
+  at GV.Network.NetworkManager.Disconnect () [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+  at GV.Network.RoomManager.ShutdownRoomInternal (GV.Network.RoomManager+RoomInfo room) [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+  at GV.Network.RoomManager.ShutdownRoom (System.String code) [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+  at GV.Network.RoomManager.CleanupEmptyRooms () [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+  at GV.Network.RoomManager.Update () [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+[RoomManager] Room 'FR4Q' shut down
+<color=#144078>[Fusion]</color> Left Room
+<color=#144078>[Fusion]</color> [1:46.46] SupportLogger Info: AppID: "4f22d424***" AppVersion: "" Client: v4.1.8.16 (NetStandard20) Build: 6000.3.0f1, LinuxServer, ENABLE_MONO, DEBUG, NET_STANDARD_2_0 Socket: SocketUdp UserId: "8ec7b88c-1ff8-4863-95dd-ded5ab8c4658" AuthType: None AuthMode: Auth PayloadEncryption State: Disconnected PeerID: 62875 NameServer: ns.photonengine.io Current Server: 95.85.93.122:27002 IP: 95.85.93.122:27002 Region: us 03/09/2026 08:00:51 UTC
+<color=#144078>[Fusion]</color> Disconnected: DisconnectByClientLogic
+[RoomManager] Creating room 'MNGF'...
+OnGUI function detected on MonoBehaviour, but not called, because IMGUI module is stripped.
+[NetworkManager] Awake() on instance -63242, existing Instance=NULL, scene=Room_Tests_2, roomManagerControlled=False
+[NetworkManager] Instance SET to -63242, DontDestroyOnLoad applied
+[NetworkManager] ServerMode=Auto, IsDedicatedServer=True, ParrelSyncClone=False
+[NetworkManager] StartServerForRoom: code=MNGF, maxPlayers=4
+[NetworkManager] Static state RESET (prevents stale data from previous play session)
+[NetworkManager] Runner created with DontDestroyOnLoad
+[NetworkManager] Registered SINGLE callback (NetworkManager) BEFORE StartGame — OnInput delegates to NetworkedPlayerInput
+[NetworkManager] Active scene: 'Room_Tests_2', buildIndex=2, isLoaded=True
+[NetworkManager] PhotonAppSettings.Global found: True
+[NetworkManager] Loaded from Global: AppId length=36, AppVersion=''
+[NetworkManager] Starting game. Mode=Server, Region=us, Session=MNGF, MaxPlayers=4, AppID=...63dc, AppVersion='', UseNameServer=True
+[NetworkManager] Using NoOpSceneManager on Runner GO (NetworkRunner) — scene loading handled manually
+[RoomManager] HTTP: Created room 'MNGF'
+[NetworkManager] Dedicated Server (RoomManager-controlled) — waiting for StartServerForRoom()
+<color=#144078>[Fusion]</color> [3:9.9] SupportLogger Info: AppID: "4f22d424***" AppVersion: "" Client: v4.1.8.16 (NetStandard20) Build: 6000.3.0f1, LinuxServer, ENABLE_MONO, DEBUG, NET_STANDARD_2_0 Socket: SocketUdp UserId: "936ff8b0-a84e-49ea-bc61-6f2832eb90c2" AuthType: None AuthMode: Auth PayloadEncryption State: ConnectingToMasterServer PeerID: 4393 NameServer: ns.photonengine.io Current Server: 5.8.93.201:27001 IP: 5.8.93.201:27001 Region: us 03/09/2026 08:02:13 UTC
+[NoOpSceneManager] Initialized — scene sync is DISABLED for this runner.
+[NetworkManager] StartGame returned: Ok=True, ShutdownReason=Ok
+[SCENE-DIAG] Runner GO 'NetworkRunner' has 1 INetworkSceneManager(s):
+[SCENE-DIAG]   - NoOpSceneManager (instanceID=-63250)
+[SCENE-DIAG] NetworkManager GO 'NetworkManager_Room_MNGF' has 0 INetworkSceneManager(s):
+[SCENE-DIAG] Total NetworkSceneManagerDefault in scene: 0
+[SCENE-DIAG] Runner.gameObject == this.gameObject? False
+[SCENE-DIAG] _connectedToDedicatedServer=False, _isRoomManagerControlled=True, _roomFlowActive=True
+[NetworkManager] Post-StartGame: re-registered callbacks, ProvideInput=False, IsClient=False, IsServer=True, LocalPlayer=[Player:None]
+[NetworkManager] Started game as Server, LocalPlayer=[Player:None], Session=MNGF
+[LevelSynchronizer] Generated Seed: 674922794
+[NetworkManager] Spawned LevelSynchronizer
+[NetworkManager] StartServerForRoom result: success=True
+[RoomManager] Room 'MNGF' is LIVE — session created, waiting for players
+[NoOpSceneManager] OnSceneInfoChanged (source=Initial, sceneCount=1) — IGNORING (manual scene control).
+<color=#144078>[Fusion]</color> RegisterUniqueIdPlayerMapping actorid:2 id:14071653581735429845, player:[Player:2]
+<color=#144078>[Fusion]</color> adding player [Player:2]
+[SPAWN-DEBUG] OnPlayerJoined: player=2, IsServer=True, inGameplayScene=False, IsDedicatedServer=True, playerPrefab=Player_ForMultiplayer, pendingSpawns=0, spawnedPlayers=0, isRoomManagerControlled=True, instanceID=-63242
+[SPAWN-DEBUG] Player 2 QUEUED in _pendingSpawns (inGameplayScene=false). pendingSpawns will be 1 after add.
+[NetworkManager] OnReliableDataReceived #1: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-63242, Instance.ID=-63242, sameInstance=True
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=1
+[NetworkManager] OnReliableDataReceived #2: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-63242, Instance.ID=-63242, sameInstance=True
+[NetworkManager] OnReliableDataReceived #3: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-63242, Instance.ID=-63242, sameInstance=True
+[NetworkManager] OnReliableDataReceived #4: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-63242, Instance.ID=-63242, sameInstance=True
+[NetworkManager] OnReliableDataReceived #5: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-63242, Instance.ID=-63242, sameInstance=True
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=59
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=117
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=175
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=233
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=252
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.15,0.05), magic=2042, recvTotal=307
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.33,0.23), magic=2042, recvTotal=363
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.06,0.13), magic=2042, recvTotal=419
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.04,0.12), magic=2042, recvTotal=474
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.04,0.12), magic=2042, recvTotal=530
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.04,0.12), magic=2042, recvTotal=586
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.04,0.12), magic=2042, recvTotal=641
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.04,0.12), magic=2042, recvTotal=696
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.04,0.12), magic=2042, recvTotal=752
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(-0.04,0.12), magic=2042, recvTotal=806
+[NetworkManager] Player 2 left
+[RoomManager] Room 'MNGF' empty for 60s — shutting down
+[NetworkManager] OnShutdown called! Reason=Ok, Runner=exists, IsRunning=YES, IsDedicatedServer=True
+[NoOpSceneManager] Shutdown called! Stack trace:
+  at System.Environment.get_StackTrace () [0x00000] in <1a795a29c7af4385b159eb69f68237b8>:0
+  at NoOpSceneManager.Shutdown () [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+  at Fusion.NetworkRunner.Shutdown (System.Boolean destroyGameObject, Fusion.ShutdownReason shutdownReason, System.Boolean forceShutdownProcedure) [0x00000] in <70c0879301ea465eaf2082d70d62c9c8>:0
+  at GV.Network.NetworkManager.Disconnect () [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+  at GV.Network.RoomManager.ShutdownRoomInternal (GV.Network.RoomManager+RoomInfo room) [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+  at GV.Network.RoomManager.ShutdownRoom (System.String code) [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+  at GV.Network.RoomManager.CleanupEmptyRooms () [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+  at GV.Network.RoomManager.Update () [0x00000] in <f34e755a0e584ddeb9a88d1676ff102f>:0
+[RoomManager] Room 'MNGF' shut down
+<color=#144078>[Fusion]</color> Left Room
+<color=#144078>[Fusion]</color> [5:1.1] SupportLogger Info: AppID: "4f22d424***" AppVersion: "" Client: v4.1.8.16 (NetStandard20) Build: 6000.3.0f1, LinuxServer, ENABLE_MONO, DEBUG, NET_STANDARD_2_0 Socket: SocketUdp UserId: "936ff8b0-a84e-49ea-bc61-6f2832eb90c2" AuthType: None AuthMode: Auth PayloadEncryption State: Disconnected PeerID: 32782 NameServer: ns.photonengine.io Current Server: 91.199.82.119:27002 IP: 91.199.82.119:27002 Region: us 03/09/2026 08:04:06 UTC
+<color=#144078>[Fusion]</color> Disconnected: DisconnectByClientLogic , this time i cannot see the ship at all

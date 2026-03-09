@@ -129,6 +129,24 @@ namespace GV.Network
         private bool _countdownActive = false;
 
         /// <summary>
+        /// When true, the next raw input send will embed a START_MATCH signal (magic % 1000 == 99).
+        /// This piggybacks on the proven 37-byte input channel instead of a separate 4-byte reliable key
+        /// which Fusion sometimes fails to deliver when input data is flooding.
+        /// </summary>
+        private bool _sendStartMatchViaInput = false;
+        private int _startMatchSendAttempts = 0;
+        private const int START_MATCH_SEND_REPEATS = 60; // Send the signal for ~1 second of frames to ensure delivery
+
+        /// <summary>
+        /// Flag-based countdown for dedicated server. Avoids StartCoroutine which can crash
+        /// with ArgumentNullException when the MonoBehaviour is in a bad state (destroyed but
+        /// still receiving Fusion callbacks). Set by TriggerMatchStart(), ticked by Update().
+        /// </summary>
+        private bool _matchStartTriggered = false;
+        private float _matchStartTime = 0f;
+        private bool _matchCountdownSentLoad = false;
+
+        /// <summary>
         /// When true, this NetworkManager instance was created by RoomManager for a specific room.
         /// It will NOT auto-start in Start() — RoomManager calls StartServerForRoom() instead.
         /// Also skips singleton enforcement (multiple instances exist, one per room).
@@ -347,8 +365,16 @@ namespace GV.Network
                 if (enterBattleButton != null) enterBattleButton.interactable = false;
                 try
                 {
+                    // PRIMARY: Embed START_MATCH in the raw input channel (proven to work).
+                    // The next N frames of input data will have magic % 1000 == 99 instead of 42.
+                    _sendStartMatchViaInput = true;
+                    _startMatchSendAttempts = 0;
+                    Debug.Log("[NetworkManager] CLIENT: START_MATCH flag SET — will embed in next raw input sends");
+
+                    // FALLBACK: Also try the old 4-byte reliable key (may not arrive due to Fusion channel issue)
                     Runner.SendReliableDataToServer(START_MATCH_KEY, START_MATCH_MAGIC);
-                    Debug.Log("[NetworkManager] CLIENT: START_MATCH sent to server");
+                    Debug.Log("[NetworkManager] CLIENT: START_MATCH also sent via legacy 4-byte channel");
+
                     // Client starts its own countdown — server will also send COUNTDOWN to all clients,
                     // but starting locally ensures no delay for the button-presser
                     StartCoroutine(CountdownThenLoad());
@@ -414,7 +440,8 @@ namespace GV.Network
             // spawn pending players on its side around the same time.
             else if (Runner != null && Runner.IsClient && _connectedToDedicatedServer)
             {
-                Debug.Log($"[NetworkManager] CLIENT: Countdown done, loading gameplay scene: {gameplaySceneName}");
+                Debug.Log($"[SPAWN-DEBUG] CLIENT: Countdown done. Setting _manualSceneLoadRequested=true, loading '{gameplaySceneName}'. " +
+                          $"Runner.IsClient={Runner.IsClient}, _connectedToDedicatedServer={_connectedToDedicatedServer}");
                 _manualSceneLoadRequested = true;
                 HideAllMenuUI();
                 UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
@@ -458,12 +485,144 @@ namespace GV.Network
         }
 
         /// <summary>
-        /// Dedicated server version of the countdown + load flow.
+        /// Safely triggers match start on dedicated server. Sets flags instead of using
+        /// StartCoroutine directly, avoiding ArgumentNullException when the MonoBehaviour
+        /// is in a destroyed state but still receiving Fusion callbacks.
+        /// </summary>
+        private void TriggerMatchStart(PlayerRef triggeringPlayer)
+        {
+            // CRITICAL: If this callback fired on a stale/destroyed instance (DUAL INSTANCE),
+            // delegate to the live Instance so that Update() will see the flags.
+            var target = (Instance != null && Instance != this) ? Instance : this;
+            var activeRunner = (target.Runner != null && target.Runner.IsRunning) ? target.Runner
+                             : (Runner != null && Runner.IsRunning) ? Runner : null;
+
+            if (target != this)
+            {
+                Debug.LogWarning($"[SPAWN-DEBUG] TriggerMatchStart REDIRECTED from stale instance {GetInstanceID()} to live Instance {target.GetInstanceID()}");
+            }
+
+            target._countdownActive = true;
+            target._matchStartTriggered = true;
+            target._matchStartTime = Time.time;
+            target._matchCountdownSentLoad = false;
+
+            Debug.Log($"[SPAWN-DEBUG] SERVER: TriggerMatchStart — sending COUNTDOWN, will spawn after 0.5s (client handles its own {COUNTDOWN_SECONDS}s countdown)");
+
+            // Send COUNTDOWN to ALL clients
+            if (activeRunner != null)
+            {
+                foreach (var p in activeRunner.ActivePlayers)
+                {
+                    try
+                    {
+                        activeRunner.SendReliableDataToPlayer(p, COUNTDOWN_KEY, COUNTDOWN_MAGIC);
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: Sent COUNTDOWN to player {p.PlayerId}");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[SPAWN-DEBUG] SERVER: Failed to send COUNTDOWN to {p.PlayerId}: {ex.Message}");
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError("[SPAWN-DEBUG] SERVER: TriggerMatchStart — NO active Runner found! Cannot send COUNTDOWN.");
+            }
+        }
+
+        /// <summary>
+        /// Update-based dedicated server countdown. Replaces the coroutine approach
+        /// which crashed with ArgumentNullException on destroyed MonoBehaviours.
+        /// </summary>
+        private void UpdateMatchStartCountdown()
+        {
+            if (!_matchStartTriggered || _matchCountdownSentLoad) return;
+            if (!IsDedicatedServer) return;
+
+            float elapsed = Time.time - _matchStartTime;
+
+            // Server spawns quickly — the CLIENT handles its own 5s countdown locally.
+            // Server just needs a tiny buffer to let the Fusion session stabilize.
+            if (elapsed < 0.5f) return;
+
+            // Countdown finished — spawn and send LOAD
+            _matchCountdownSentLoad = true;
+            Debug.Log("[SPAWN-DEBUG] SERVER: Flag-based countdown finished! Spawning players...");
+
+            // Activate gameplay
+            _inGameplayScene = true;
+            Debug.Log($"[SPAWN-DEBUG] SERVER: _inGameplayScene set to TRUE. pendingSpawns={_pendingSpawns.Count}, " +
+                      $"alreadySpawned={_spawnedPlayers.Count}, Runner={Runner != null}, RunnerIsRunning={Runner?.IsRunning}, " +
+                      $"playerPrefab={(playerPrefab != null ? playerPrefab.name : "NULL")}");
+
+            TryFindSpawnSpline();
+            Debug.Log($"[SPAWN-DEBUG] SERVER: TryFindSpawnSpline done. spawnSpline={(spawnSpline != null ? spawnSpline.name : "NULL")}");
+
+            // Spawn all queued players
+            var playersToSpawn = new List<PlayerRef>(_pendingSpawns);
+            _pendingSpawns.Clear();
+
+            Debug.Log($"[SPAWN-DEBUG] SERVER: Copied {playersToSpawn.Count} from pendingSpawns. Checking ActivePlayers...");
+
+            if (Runner != null)
+            {
+                int activeCount = 0;
+                foreach (var p in Runner.ActivePlayers)
+                {
+                    activeCount++;
+                    bool alreadySpawned = _spawnedPlayers.ContainsKey(p);
+                    bool alreadyInList = playersToSpawn.Contains(p);
+                    Debug.Log($"[SPAWN-DEBUG] SERVER: ActivePlayer {p.PlayerId} — alreadySpawned={alreadySpawned}, alreadyInList={alreadyInList}");
+                    if (!alreadySpawned && !alreadyInList)
+                        playersToSpawn.Add(p);
+                }
+                Debug.Log($"[SPAWN-DEBUG] SERVER: ActivePlayers count={activeCount}, final playersToSpawn={playersToSpawn.Count}");
+            }
+
+            Debug.Log($"[SPAWN-DEBUG] SERVER: Spawning {playersToSpawn.Count} players now...");
+            foreach (var p in playersToSpawn)
+            {
+                Debug.Log($"[SPAWN-DEBUG] SERVER: About to SpawnPlayer for {p.PlayerId}, slot={_spawnedPlayers.Count}");
+                SpawnPlayer(Runner, p, _spawnedPlayers.Count);
+                Debug.Log($"[SPAWN-DEBUG] SERVER: SpawnPlayer returned for {p.PlayerId}, _spawnedPlayers now has {_spawnedPlayers.Count} entries");
+            }
+
+            // Send LOAD to all clients
+            if (Runner != null)
+            {
+                foreach (var player in Runner.ActivePlayers)
+                {
+                    try
+                    {
+                        Runner.SendReliableDataToPlayer(player, SCENE_LOAD_KEY, SCENE_LOAD_MAGIC);
+                        Debug.Log($"[NetworkManager] SERVER: Sent SCENE_LOAD to player {player.PlayerId}");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"[NetworkManager] SERVER: Failed to send SCENE_LOAD to {player.PlayerId}: {ex.Message}");
+                    }
+                }
+            }
+
+            Debug.Log("[NetworkManager] SERVER: Match started — players spawned and LOAD sent to clients.");
+        }
+
+        /// <summary>
+        /// Dedicated server version of the countdown + load flow (LEGACY COROUTINE — kept as backup).
         /// Waits for countdown, then sends LOAD to all clients.
         /// Server does NOT load a new scene — it's already in the gameplay scene.
         /// </summary>
         private IEnumerator DedicatedServerCountdownThenLoad()
         {
+            // Guard against duplicate coroutines (both old 4-byte key AND input channel may trigger)
+            if (_countdownActive)
+            {
+                Debug.Log("[SPAWN-DEBUG] SERVER: DedicatedServerCountdownThenLoad SKIPPED — countdown already active");
+                yield break;
+            }
+            _countdownActive = true;
+
             // Wait for countdown duration (server doesn't show UI, just waits)
             Debug.Log($"[NetworkManager] SERVER: Starting {COUNTDOWN_SECONDS}s countdown...");
             for (int i = COUNTDOWN_SECONDS; i > 0; i--)
@@ -478,26 +637,45 @@ namespace GV.Network
             // NOW activate gameplay and spawn all queued players.
             // This is the moment the match actually starts on the server.
             _inGameplayScene = true;
-            Debug.Log($"[NetworkManager] SERVER: _inGameplayScene=true, pending spawns: {_pendingSpawns.Count}");
+            Debug.Log($"[SPAWN-DEBUG] SERVER: _inGameplayScene set to TRUE. pendingSpawns={_pendingSpawns.Count}, " +
+                      $"alreadySpawned={_spawnedPlayers.Count}, Runner={Runner != null}, RunnerIsRunning={Runner?.IsRunning}, " +
+                      $"playerPrefab={(playerPrefab != null ? playerPrefab.name : "NULL")}");
 
             // Find the spawn spline in the gameplay scene (server is already in it)
             TryFindSpawnSpline();
+            Debug.Log($"[SPAWN-DEBUG] SERVER: TryFindSpawnSpline done. spawnSpline={(spawnSpline != null ? spawnSpline.name : "NULL")}");
 
             // Spawn all players that were queued during OnPlayerJoined
             var playersToSpawn = new List<PlayerRef>(_pendingSpawns);
             _pendingSpawns.Clear();
 
+            Debug.Log($"[SPAWN-DEBUG] SERVER: Copied {playersToSpawn.Count} from pendingSpawns. Checking ActivePlayers...");
+
             // Also catch any active players not in the queue (edge case: joined between queue and now)
+            int activeCount = 0;
             foreach (var p in Runner.ActivePlayers)
             {
-                if (!_spawnedPlayers.ContainsKey(p) && !playersToSpawn.Contains(p))
+                activeCount++;
+                bool alreadySpawned = _spawnedPlayers.ContainsKey(p);
+                bool alreadyInList = playersToSpawn.Contains(p);
+                Debug.Log($"[SPAWN-DEBUG] SERVER: ActivePlayer {p.PlayerId} — alreadySpawned={alreadySpawned}, alreadyInList={alreadyInList}");
+                if (!alreadySpawned && !alreadyInList)
                     playersToSpawn.Add(p);
             }
+            Debug.Log($"[SPAWN-DEBUG] SERVER: ActivePlayers count={activeCount}, final playersToSpawn={playersToSpawn.Count}");
 
-            Debug.Log($"[NetworkManager] SERVER: Spawning {playersToSpawn.Count} players now.");
+            if (playersToSpawn.Count == 0)
+            {
+                Debug.LogError($"[SPAWN-DEBUG] SERVER: NO PLAYERS TO SPAWN! pendingSpawns was empty and no active players found without ships. " +
+                               $"This means OnPlayerJoined never queued anyone, or all players already have ships.");
+            }
+
+            Debug.Log($"[SPAWN-DEBUG] SERVER: Spawning {playersToSpawn.Count} players now...");
             foreach (var p in playersToSpawn)
             {
+                Debug.Log($"[SPAWN-DEBUG] SERVER: About to SpawnPlayer for {p.PlayerId}, slot={_spawnedPlayers.Count}");
                 SpawnPlayer(Runner, p, _spawnedPlayers.Count);
+                Debug.Log($"[SPAWN-DEBUG] SERVER: SpawnPlayer returned for {p.PlayerId}, _spawnedPlayers now has {_spawnedPlayers.Count} entries");
             }
 
             // Send LOAD command to all clients so they load the gameplay scene
@@ -588,11 +766,11 @@ namespace GV.Network
                 }
 
                 // Join the room as a client
-                Debug.Log($"[NetworkManager] Room created on VPS: {code} — joining as client...");
+                Debug.Log($"[NetworkManager] Room created on VPS: {code} — connecting as client...");
                 CurrentRoomCode = code;
                 _connectedToDedicatedServer = true;
                 _roomFlowActive = true;
-                if (statusText != null) statusText.text = $"Joining room {code}...";
+                if (statusText != null) statusText.text = $"Room {code} created! Connecting...";
                 StartClient();
             }
         }
@@ -670,6 +848,7 @@ namespace GV.Network
         // - Runs from NetworkManager (always active, never disabled by DisableLocalInput)
         // - Uses a simple byte[] transport that Fusion routes to OnReliableDataReceived on the host
         private static readonly ReliableKey INPUT_DATA_KEY = ReliableKey.FromInts(0x47, 0x56, 0x49, 0x4E); // "GVIN"
+        private static readonly ReliableKey START_MATCH_INPUT_KEY = ReliableKey.FromInts(0x47, 0x56, 0x53, 0x49); // "GVSI" — dedicated key for START_MATCH via input
         private bool _loggedFirstRawSend = false;
         private float _lastRawSendLogTime = 0f;
 
@@ -728,9 +907,12 @@ namespace GV.Network
 
         private void Update()
         {
-            // --- DEDICATED SERVER: no UI, no keyboard input, no raw send ---
-            // The server only receives data (OnReliableDataReceived), never sends.
-            if (IsDedicatedServer) return;
+            // --- DEDICATED SERVER: flag-based countdown (replaces coroutine to avoid crash) ---
+            if (IsDedicatedServer)
+            {
+                UpdateMatchStartCountdown();
+                return;
+            }
 
             if (!IsConnected)
             {
@@ -777,9 +959,31 @@ namespace GV.Network
                 else
                 {
                     var data = playerInput.CurrentInputData;
-                    // Encode player ID into magic number (same as OnInput)
                     data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 42;
                     byte[] bytes = SerializeInput(data);
+
+                    // If START_MATCH flag is active, ALSO send on a SEPARATE ReliableKey (38 bytes)
+                    // This uses a different key so Fusion won't merge it with regular input
+                    if (_sendStartMatchViaInput)
+                    {
+                        byte[] startBytes = new byte[bytes.Length + 1];
+                        System.Buffer.BlockCopy(bytes, 0, startBytes, 0, bytes.Length);
+                        startBytes[bytes.Length] = 0xFF; // Marker byte
+                        try
+                        {
+                            Runner.SendReliableDataToServer(START_MATCH_INPUT_KEY, startBytes);
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.LogError($"[NetworkManager] CLIENT: Failed to send START_MATCH via input key: {ex.Message}");
+                        }
+                        _startMatchSendAttempts++;
+                        if (_startMatchSendAttempts >= START_MATCH_SEND_REPEATS)
+                        {
+                            _sendStartMatchViaInput = false;
+                            Debug.Log($"[NetworkManager] CLIENT: START_MATCH signal sent {_startMatchSendAttempts} times via dedicated key, stopping.");
+                        }
+                    }
 
                     try
                     {
@@ -1489,26 +1693,39 @@ namespace GV.Network
         
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            Debug.Log($"[NetworkManager] Player {player.PlayerId} joined. IsServer: {runner.IsServer}, " +
-                      $"inGameplayScene: {_inGameplayScene}, playerPrefab: {(playerPrefab != null ? playerPrefab.name : "NULL")}");
+            Debug.Log($"[SPAWN-DEBUG] OnPlayerJoined: player={player.PlayerId}, IsServer={runner.IsServer}, " +
+                      $"inGameplayScene={_inGameplayScene}, IsDedicatedServer={IsDedicatedServer}, " +
+                      $"playerPrefab={(playerPrefab != null ? playerPrefab.name : "NULL")}, " +
+                      $"pendingSpawns={_pendingSpawns.Count}, spawnedPlayers={_spawnedPlayers.Count}, " +
+                      $"isRoomManagerControlled={_isRoomManagerControlled}, " +
+                      $"instanceID={GetInstanceID()}");
 
             if (runner.IsServer && playerPrefab != null)
             {
+                // DUAL INSTANCE: Always queue on the LIVE instance so UpdateMatchStartCountdown sees the player
+                var liveInst = (Instance != null) ? Instance : this;
+
                 // Don't spawn ships in the menu/lobby scene — queue them for when gameplay scene loads
-                if (!_inGameplayScene)
+                if (!liveInst._inGameplayScene)
                 {
-                    Debug.Log($"[NetworkManager] Player {player.PlayerId} queued — waiting for gameplay scene to spawn.");
-                    if (!_pendingSpawns.Contains(player))
-                        _pendingSpawns.Add(player);
+                    Debug.Log($"[SPAWN-DEBUG] Player {player.PlayerId} QUEUED in _pendingSpawns (inGameplayScene=false). " +
+                              $"pendingSpawns will be {liveInst._pendingSpawns.Count + 1} after add. " +
+                              $"thisID={GetInstanceID()}, liveID={liveInst.GetInstanceID()}");
+                    if (!liveInst._pendingSpawns.Contains(player))
+                        liveInst._pendingSpawns.Add(player);
+                    else
+                        Debug.LogWarning($"[SPAWN-DEBUG] Player {player.PlayerId} was ALREADY in _pendingSpawns!");
                 }
                 else
                 {
-                    SpawnPlayer(runner, player, _spawnedPlayers.Count);
+                    Debug.Log($"[SPAWN-DEBUG] Player {player.PlayerId} spawning IMMEDIATELY (inGameplayScene=true)");
+                    SpawnPlayer(runner, player, liveInst._spawnedPlayers.Count);
                 }
             }
             else
             {
-                Debug.LogWarning($"[NetworkManager] NOT spawning - IsServer: {runner.IsServer}, playerPrefab: {(playerPrefab != null ? "assigned" : "NULL")}");
+                Debug.LogWarning($"[SPAWN-DEBUG] NOT spawning player {player.PlayerId} — IsServer={runner.IsServer}, " +
+                                 $"playerPrefab={(playerPrefab != null ? "assigned" : "NULL")}");
             }
 
             // Show "Client has joined" on the host when a non-host player joins, then auto-hide.
@@ -1527,11 +1744,21 @@ namespace GV.Network
 
         private void SpawnPlayer(NetworkRunner runner, PlayerRef player, int slotIndex = -1)
         {
+            Debug.Log($"[SPAWN-DEBUG] SpawnPlayer ENTER: player={player.PlayerId}, slotIndex={slotIndex}, " +
+                      $"runner={runner != null}, runner.IsRunning={runner?.IsRunning}, " +
+                      $"runner.IsServer={runner?.IsServer}, _spawnedPlayers.Count={_spawnedPlayers.Count}");
+
             // Guard: don't double-spawn if both OnUnitySceneLoaded and OnSceneLoadDone fire
             if (_spawnedPlayers.ContainsKey(player) && _spawnedPlayers[player] != null)
             {
-                Debug.Log($"[NetworkManager] Player {player.PlayerId} already has a ship — skipping spawn");
+                Debug.Log($"[SPAWN-DEBUG] Player {player.PlayerId} already has a ship ({_spawnedPlayers[player].name}) — skipping spawn");
                 return;
+            }
+
+            if (_spawnedPlayers.ContainsKey(player) && _spawnedPlayers[player] == null)
+            {
+                Debug.LogWarning($"[SPAWN-DEBUG] Player {player.PlayerId} has NULL ship reference — removing stale entry and re-spawning");
+                _spawnedPlayers.Remove(player);
             }
 
             // Use explicit slot index if provided, otherwise fall back to count of existing ships
@@ -1542,25 +1769,40 @@ namespace GV.Network
             var spawnPos = _cachedSpawnPositions[clampedIndex];
             var spawnRot = _cachedSpawnRotations[clampedIndex];
 
-            Debug.Log($"[NetworkManager] Spawning player {player.PlayerId} at slot {clampedIndex}, " +
-                      $"pos={spawnPos}, splineFound={spawnSpline != null}");
+            Debug.Log($"[SPAWN-DEBUG] Spawning player {player.PlayerId} at slot {clampedIndex}, " +
+                      $"pos={spawnPos}, rot={spawnRot.eulerAngles}, splineFound={spawnSpline != null}, " +
+                      $"playerPrefab={playerPrefab.name}");
 
-            var playerObject = runner.Spawn(playerPrefab, spawnPos, spawnRot, inputAuthority: player);
-
-            Debug.Log($"[NetworkManager] Spawn returned: {(playerObject != null ? playerObject.name : "NULL")}");
-
-            if (playerObject != null)
+            try
             {
-                playerObject.AssignInputAuthority(player);
-                Debug.Log($"[NetworkManager] Assigned InputAuthority to {player}, now authority is: {playerObject.InputAuthority}");
+                var playerObject = runner.Spawn(playerPrefab, spawnPos, spawnRot, inputAuthority: player);
 
-                if (!IsDedicatedServer && player == runner.LocalPlayer)
+                Debug.Log($"[SPAWN-DEBUG] runner.Spawn returned: {(playerObject != null ? playerObject.name : "NULL")} " +
+                          $"for player {player.PlayerId}");
+
+                if (playerObject != null)
                 {
-                    SetupCameraFollow(playerObject.gameObject);
-                }
-            }
+                    playerObject.AssignInputAuthority(player);
+                    Debug.Log($"[SPAWN-DEBUG] Assigned InputAuthority to {player.PlayerId}, " +
+                              $"authority is now: {playerObject.InputAuthority}");
 
-            _spawnedPlayers[player] = playerObject;
+                    if (!IsDedicatedServer && player == runner.LocalPlayer)
+                    {
+                        SetupCameraFollow(playerObject.gameObject);
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"[SPAWN-DEBUG] runner.Spawn returned NULL for player {player.PlayerId}! " +
+                                   $"Check if playerPrefab is a valid NetworkObject with a NetworkRunner reference.");
+                }
+
+                _spawnedPlayers[player] = playerObject;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[SPAWN-DEBUG] EXCEPTION during runner.Spawn for player {player.PlayerId}: {ex.Message}\n{ex.StackTrace}");
+            }
         }
         
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
@@ -1700,6 +1942,14 @@ namespace GV.Network
                           $"sameInstance={Instance == this}");
             }
 
+            // DEBUG: Log ALL 4-byte messages to diagnose delivery
+            if (data.Count == 4)
+            {
+                byte[] debugBytes = new byte[4];
+                System.Buffer.BlockCopy(data.Array, data.Offset, debugBytes, 0, 4);
+                Debug.Log($"[SPAWN-DEBUG] SERVER: Received 4-byte message: [{debugBytes[0]},{debugBytes[1]},{debugBytes[2]},{debugBytes[3]}] = \"{System.Text.Encoding.ASCII.GetString(debugBytes)}\" from player {player.PlayerId}");
+            }
+
             // --- START_MATCH COMMAND (exactly 4 bytes: "STRT") ---
             // Client sends this to dedicated server to request match start
             if (data.Count == START_MATCH_MAGIC.Length && runner.IsServer && IsDedicatedServer)
@@ -1715,23 +1965,21 @@ namespace GV.Network
 
                 if (isStart)
                 {
-                    Debug.Log($"[NetworkManager] SERVER: Received START_MATCH from player {player.PlayerId}! Starting match...");
-                    // Send COUNTDOWN to ALL clients (including the one that requested it, for sync)
-                    foreach (var p in Runner.ActivePlayers)
+                    // Check guards on the LIVE instance (handles DUAL INSTANCE case)
+                    var liveInst = (Instance != null) ? Instance : this;
+                    Debug.Log($"[SPAWN-DEBUG] SERVER: Received START_MATCH (4-byte) from player {player.PlayerId}! " +
+                              $"pendingSpawns={liveInst._pendingSpawns.Count}, spawnedPlayers={liveInst._spawnedPlayers.Count}, " +
+                              $"inGameplayScene={liveInst._inGameplayScene}, countdownActive={liveInst._countdownActive}, " +
+                              $"thisID={GetInstanceID()}, liveID={liveInst.GetInstanceID()}");
+
+                    // Guard: only trigger once
+                    if (liveInst._countdownActive || liveInst._inGameplayScene)
                     {
-                        try
-                        {
-                            Runner.SendReliableDataToPlayer(p, COUNTDOWN_KEY, COUNTDOWN_MAGIC);
-                            Debug.Log($"[NetworkManager] SERVER: Sent COUNTDOWN to player {p.PlayerId}");
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Debug.LogError($"[NetworkManager] SERVER: Failed to send COUNTDOWN to {p.PlayerId}: {ex.Message}");
-                        }
+                        Debug.Log("[SPAWN-DEBUG] SERVER: SKIPPING 4-byte START_MATCH — already in countdown or gameplay");
+                        return;
                     }
-                    // Server starts its own countdown — at the end, sends LOAD to all clients
-                    // Server itself does NOT load a new scene (it's already in gameplay)
-                    StartCoroutine(DedicatedServerCountdownThenLoad());
+
+                    TriggerMatchStart(player);
                     return;
                 }
             }
@@ -1772,6 +2020,12 @@ namespace GV.Network
 
                 if (isLoadCommand)
                 {
+                    // Skip if already in gameplay scene (client loaded on its own during countdown)
+                    if (_inGameplayScene)
+                    {
+                        Debug.Log("[NetworkManager] CLIENT: Received SCENE_LOAD but already in gameplay scene — ignoring duplicate.");
+                        return;
+                    }
                     Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD command from host! Loading {gameplaySceneName}...");
                     _manualSceneLoadRequested = true;
                     HideAllMenuUI();
@@ -1780,13 +2034,54 @@ namespace GV.Network
                 }
             }
 
-            // --- INPUT DATA (37+ bytes) ---
-            // Accept any reliable data with the right size (skip key comparison — ReliableKey == may not work)
+            // --- START_MATCH VIA DEDICATED KEY (38 bytes = 37 input + 1 marker) ---
+            // Client sends on START_MATCH_INPUT_KEY (separate from INPUT_DATA_KEY) to avoid Fusion merging
+            if (data.Count == 38 && runner.IsServer && IsDedicatedServer)
+            {
+                byte[] bytes = new byte[37];
+                System.Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, 37);
+                var inputData = DeserializeInput(bytes);
+
+                Debug.Log($"[SPAWN-DEBUG] SERVER: Received 38-byte START_MATCH packet from player {player.PlayerId}! magic={inputData.magicNumber}");
+
+                var liveInst = (Instance != null) ? Instance : this;
+                if (!liveInst._countdownActive && !liveInst._inGameplayScene)
+                {
+                    Debug.Log($"[SPAWN-DEBUG] SERVER: START_MATCH via DEDICATED KEY from player {player.PlayerId}! " +
+                              $"pendingSpawns={liveInst._pendingSpawns.Count}, spawnedPlayers={liveInst._spawnedPlayers.Count}");
+                    TriggerMatchStart(player);
+                }
+
+                // Also store as regular input
+                _clientInputs[player] = inputData;
+                RawRecvCount++;
+                return;
+            }
+
+            // --- INPUT DATA (37 bytes) ---
+            // Accept any reliable data with the right size
             if (data.Count >= 37)
             {
                 byte[] bytes = new byte[data.Count];
                 System.Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, data.Count);
                 var inputData = DeserializeInput(bytes);
+
+                // --- LEGACY CHECK FOR START_MATCH SIGNAL (magic % 1000 == 99) ---
+                if (inputData.magicNumber % 1000 == 99 && runner.IsServer && IsDedicatedServer)
+                {
+                    var liveInst = (Instance != null) ? Instance : this;
+                    if (!liveInst._countdownActive && !liveInst._inGameplayScene)
+                    {
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received START_MATCH via LEGACY INPUT CHANNEL from player {player.PlayerId}!");
+                        TriggerMatchStart(player);
+                    }
+
+                    // Also store as regular input (strip the signal)
+                    inputData.magicNumber = (inputData.magicNumber / 1000) * 1000 + 42;
+                    _clientInputs[player] = inputData;
+                    RawRecvCount++;
+                    return;
+                }
 
                 // Validate: magic number is now playerID*1000+42 (e.g., 1042, 2042)
                 // Accept any value ending in 42 to confirm it's our input data
