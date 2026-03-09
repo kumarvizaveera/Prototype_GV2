@@ -1148,3 +1148,96 @@ Additionally, `OnSceneLoadDone` had a `!IsDedicatedServer` bypass in its guard, 
 - `Assets/GV/Scripts/Network/NetworkManager.cs` — Delayed ship spawning, scene load guards, `_roomFlowActive` + `_manualSceneLoadRequested` flags
 - `Assets/GV/Scripts/Network/NoOpSceneManager.cs` — Shutdown stack trace logging, improved OnSceneInfoChanged logging
 - `Assets/GV/Scripts/Network/NetworkedSpaceshipBridge.cs` — Per-frame RPC spam fix + grace period (from earlier in session)
+
+---
+
+## Session — March 9, 2026: Ship Spawn Reliability & START_MATCH Delivery
+
+### Problem
+
+After the previous session's work, pressing Enter Battle would sometimes spawn ships and sometimes not. Multiple cascading bugs were discovered and fixed across this session.
+
+### Bug 1: DUAL INSTANCE — Fusion Callbacks Firing on Destroyed NetworkManager
+
+**Symptom:** On the 2nd room creation, two rooms were created (e.g., FVKU + CYWL). The second room's `StartServerForRoom` threw `NullReferenceException`. Callbacks like `TriggerMatchStart` and `OnPlayerJoined` fired on the destroyed instance (instanceID=0) instead of the live `Instance` singleton.
+
+**Root cause:** When RoomManager creates a new room, a duplicate NetworkManager gets instantiated then destroyed, but Fusion callbacks still fire on it. `TriggerMatchStart` set `_countdownActive` and `_matchStartTriggered` flags on the dead instance, but `Update()` only runs on the live instance — so the countdown never advanced.
+
+**Fix:**
+- `TriggerMatchStart()` — redirects all flag operations to `Instance` (the live singleton) instead of `this`. Logs a warning when redirection happens.
+- `OnPlayerJoined()` — queues players on `liveInst._pendingSpawns` instead of `this._pendingSpawns`
+- Both 4-byte and 38-byte START_MATCH handlers — guard checks (`_countdownActive`, `_inGameplayScene`) performed on `Instance` instead of `this`
+
+### Bug 2: Fusion ReliableKey Coalescing — START_MATCH Never Delivered
+
+**Symptom:** Client sent START_MATCH 60 times (confirmed in client Unity logs), but server received zero. Diagnostic logs for "NON-STANDARD magic" and "Received 4-byte message" never appeared in server output.
+
+**Root cause:** Fusion's `SendReliableDataToServer` with the same `ReliableKey` coalesces/deduplicates messages. The 60 magic=2099 input frames shared `INPUT_DATA_KEY` with regular magic=2042 frames. Fusion delivered only the latest value (2042), silently dropping all 2099 frames. The 4-byte `START_MATCH_KEY` also got crowded out when `INPUT_DATA_KEY` flooded the reliable channel.
+
+**Fix:** Created a completely separate `ReliableKey`:
+- New key: `START_MATCH_INPUT_KEY = ReliableKey.FromInts(0x47, 0x56, 0x53, 0x49)` (ASCII "GVSI")
+- Client sends 38-byte packets (37 bytes input data + 1 marker byte `0xFF`) on this dedicated key
+- Server detects `data.Count == 38` as START_MATCH packets, separate from regular 37-byte input
+- The 4-byte "STRT" channel remains as a bonus fallback
+
+**Result after fix — successful delivery on both tries:**
+- 4-byte "STRT" arrived first → triggered `TriggerMatchStart`
+- Five 38-byte packets arrived right after (rest skipped since countdown already active)
+- Ship spawned successfully in 0.5s after START_MATCH
+
+### Bug 3: Server Countdown Too Long (5.3s)
+
+**Symptom:** Server waited 5.3 seconds to spawn ships, but client already loaded the gameplay scene after its own 5-second countdown. Steer values were changing (client sending input) before START_MATCH was received, and the ship appeared ~5s late.
+
+**Fix:** Reduced server-side spawn delay from `COUNTDOWN_SECONDS + 0.3f` (5.3s) to `0.5f`. The server now spawns almost immediately after receiving START_MATCH — the client handles its own visual countdown independently.
+
+### Bug 4: START_MATCH_SEND_REPEATS Too Low (3)
+
+**Symptom:** Only 3 frames of the START_MATCH signal were sent. With network batching and Fusion's internal timing, all 3 could be lost before delivery.
+
+**Fix:** Increased `START_MATCH_SEND_REPEATS` from 3 to 60 (~1 second of frames). Combined with the separate ReliableKey fix, this ensures reliable delivery.
+
+### Post-Fix: Loading Screen for Scene Load Delay
+
+**Symptom:** After all spawn bugs were fixed, ships spawned correctly on both 1st and 2nd tries, but the ship appeared ~10 seconds after the "GO!" countdown finished. The server spawns quickly (0.5s) but the client takes time to load the gameplay scene and receive the Fusion-replicated ship.
+
+**Fix:** Added a persistent loading screen:
+- `ShowLoadingScreen()` — creates a `DontDestroyOnLoad` Canvas with semi-transparent black background (85% opacity) and "Loading..." text (TMPro, white, 48pt). `sortingOrder=9999` ensures it renders on top of everything.
+- Called in `CountdownThenLoad()` right before `SceneManager.LoadScene()`
+- `HideLoadingScreen()` — destroys the loading screen GameObject
+- Detection in `Update()`: iterates `Runner.GetAllNetworkObjects()` looking for any `NetworkObject` with `InputAuthority == Runner.LocalPlayer` (excluding NetworkManager itself). Once found, calls `HideLoadingScreen()`.
+- Initial attempt used `Runner.GetPlayerObject(Runner.LocalPlayer)` which always returned null because `Runner.SetPlayerObject()` was never called in `SpawnPlayer()`. Fixed by switching to the `GetAllNetworkObjects()` iteration approach.
+
+### Countdown Reduced: 5s → 3s
+
+Reduced `COUNTDOWN_SECONDS` from 5 to 3. The "3…2…1…GO!" sequence is now shorter, reducing total wait time before the match starts.
+
+### All Code Changes (NetworkManager.cs)
+
+1. `START_MATCH_SEND_REPEATS`: 3 → 60
+2. `COUNTDOWN_SECONDS`: 5 → 3
+3. Server spawn delay in `UpdateMatchStartCountdown`: `COUNTDOWN_SECONDS + 0.3f` → `0.5f`
+4. `TriggerMatchStart()`: redirects to live `Instance` singleton
+5. `OnPlayerJoined()`: queues on `liveInst._pendingSpawns`
+6. 4-byte START_MATCH handler: guard checks on `Instance`
+7. New `START_MATCH_INPUT_KEY` ReliableKey ("GVSI")
+8. Client sends 38-byte packets on separate key (37 input + 1 marker byte `0xFF`)
+9. Server detects 38-byte packets as START_MATCH
+10. Debug logs: "NON-STANDARD magic", "Received 4-byte message", "Received 38-byte START_MATCH packet"
+11. `ShowLoadingScreen()` / `HideLoadingScreen()` with `DontDestroyOnLoad` Canvas
+12. `Update()` ship detection via `GetAllNetworkObjects()` → hides loading screen when ship appears
+13. `_inGameplayScene = true` set before scene load in `CountdownThenLoad`
+
+### Current Status
+
+- Ship spawning works reliably on both 1st and 2nd room creations ✓
+- START_MATCH delivered via dual channels (4-byte "STRT" + 38-byte "GVSI") ✓
+- DUAL INSTANCE issue handled — all callbacks redirect to live Instance ✓
+- Server spawns in 0.5s after START_MATCH ✓
+- Client countdown reduced to 3 seconds ✓
+- Loading screen shows during scene load gap, hides when ship appears ✓
+- Debug logs in place for future diagnostics ✓
+
+### Files Modified
+
+- `Assets/GV/Scripts/Network/NetworkManager.cs` — All changes listed above

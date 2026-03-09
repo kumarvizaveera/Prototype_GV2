@@ -179,6 +179,12 @@ namespace GV.Network
         private bool _manualSceneLoadRequested = false;
 
         /// <summary>
+        /// True when this client created the room (leader). False when joining an existing room.
+        /// The leader gets the Enter Battle button; joiners see "Waiting for leader to start..."
+        /// </summary>
+        private bool _isRoomCreator = false;
+
+        /// <summary>
         /// Callback invoked after StartServerForRoom completes.
         /// </summary>
         private Action<bool> _roomStartCallback;
@@ -329,8 +335,22 @@ namespace GV.Network
             if (connectedPanel != null) connectedPanel.SetActive(true);
             if (roomCodeDisplayText != null) roomCodeDisplayText.text = $"Room: {CurrentRoomCode}";
 
-            // All rooms are on the dedicated server — every client gets Enter Battle
-            if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(true);
+            if (_isRoomCreator)
+            {
+                // Leader (room creator) gets the Enter Battle button
+                if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(true);
+                if (clientJoinedText != null) clientJoinedText.gameObject.SetActive(false);
+            }
+            else
+            {
+                // Joiners wait for the leader to start the match
+                if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(false);
+                if (clientJoinedText != null)
+                {
+                    clientJoinedText.text = "Waiting for leader to start the match...";
+                    clientJoinedText.gameObject.SetActive(true);
+                }
+            }
         }
 
         /// <summary>
@@ -842,11 +862,12 @@ namespace GV.Network
                     yield break;
                 }
 
-                // Join the room as a client
-                Debug.Log($"[NetworkManager] Room created on VPS: {code} — connecting as client...");
+                // Join the room as a client (we're the leader/creator)
+                Debug.Log($"[NetworkManager] Room created on VPS: {code} — connecting as client (leader)...");
                 CurrentRoomCode = code;
                 _connectedToDedicatedServer = true;
                 _roomFlowActive = true;
+                _isRoomCreator = true;
                 if (statusText != null) statusText.text = $"Room {code} created! Connecting...";
                 StartClient();
             }
@@ -889,6 +910,7 @@ namespace GV.Network
             // All rooms are on the dedicated server now — always true
             _connectedToDedicatedServer = true;
             _roomFlowActive = true;
+            _isRoomCreator = false;
             Debug.Log($"[NetworkManager] Joining room with code: {CurrentRoomCode} (dedicated server)");
             if (statusText != null) statusText.text = $"Joining room {code}...";
             if (createRoomButton != null) createRoomButton.interactable = false;
@@ -2001,6 +2023,7 @@ namespace GV.Network
             _spawnedPlayers.Clear();
             _countdownActive = false;
             _connectedToDedicatedServer = false;
+            _isRoomCreator = false;
             _manualSceneLoadRequested = false;
             // NOTE: _roomFlowActive is intentionally NOT reset here.
             // If the Runner shuts down and restarts (unexpected reconnect),
