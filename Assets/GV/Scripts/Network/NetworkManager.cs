@@ -112,7 +112,7 @@ namespace GV.Network
         /// True once we're in the gameplay scene and ready to spawn players.
         /// Prevents ships from spawning in the menu/lobby scene.
         /// </summary>
-        private bool _inGameplayScene = false;
+        internal bool _inGameplayScene = false;
         private Coroutine _hideClientJoinedCoroutine;
 
         /// <summary>
@@ -126,7 +126,7 @@ namespace GV.Network
         /// Prevents double-countdown when client starts countdown locally AND receives
         /// COUNTDOWN from the server in dedicated server mode.
         /// </summary>
-        private bool _countdownActive = false;
+        internal bool _countdownActive = false;
 
         /// <summary>
         /// When true, the next raw input send will embed a START_MATCH signal (magic % 1000 == 99).
@@ -260,6 +260,7 @@ namespace GV.Network
                 }
             }
             Debug.Log($"[NetworkManager] ServerMode={serverMode}, IsDedicatedServer={IsDedicatedServer}, ParrelSyncClone={isParrelSyncClone}");
+            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-09-httpstart-v6");
         }
 
         private void Start()
@@ -335,15 +336,21 @@ namespace GV.Network
             if (connectedPanel != null) connectedPanel.SetActive(true);
             if (roomCodeDisplayText != null) roomCodeDisplayText.text = $"Room: {CurrentRoomCode}";
 
+            Debug.Log($"[MATCH-DEBUG] ShowConnectedUI: _isRoomCreator={_isRoomCreator}, " +
+                      $"enterBattleButton={(enterBattleButton != null ? "exists" : "NULL")}, " +
+                      $"clientJoinedText={(clientJoinedText != null ? "exists" : "NULL")}");
+
             if (_isRoomCreator)
             {
                 // Leader (room creator) gets the Enter Battle button
+                Debug.Log("[MATCH-DEBUG] ShowConnectedUI: CREATOR — showing Enter Battle button");
                 if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(true);
                 if (clientJoinedText != null) clientJoinedText.gameObject.SetActive(false);
             }
             else
             {
                 // Joiners wait for the leader to start the match
+                Debug.Log("[MATCH-DEBUG] ShowConnectedUI: JOINER — showing 'Waiting for leader...'");
                 if (enterBattleButton != null) enterBattleButton.gameObject.SetActive(false);
                 if (clientJoinedText != null)
                 {
@@ -449,33 +456,70 @@ namespace GV.Network
             // CLIENT sends START_MATCH to dedicated server
             if (Runner.IsClient && !Runner.IsServer)
             {
-                Debug.Log("[NetworkManager] CLIENT: Sending START_MATCH to dedicated server...");
+                Debug.Log($"[MATCH-DEBUG] CLIENT: LoadGameplay() CALLED! Runner.IsClient={Runner.IsClient}, " +
+                          $"Runner.IsServer={Runner.IsServer}, _isRoomCreator={_isRoomCreator}, " +
+                          $"LocalPlayer={Runner.LocalPlayer}, roomCode={CurrentRoomCode}");
                 if (enterBattleButton != null) enterBattleButton.interactable = false;
+
+                // ═══ PRIMARY: HTTP POST to VPS /start/{code} (TCP — guaranteed delivery) ═══
+                // Fusion's ReliableData has proven unreliable for START_MATCH signals.
+                // HTTP uses the same VPS endpoint that room creation uses, which is rock-solid.
+                if (_connectedToDedicatedServer && !string.IsNullOrEmpty(CurrentRoomCode))
+                {
+                    Debug.Log($"[MATCH-DEBUG] CLIENT: Sending START_MATCH via HTTP to VPS /start/{CurrentRoomCode}");
+                    StartCoroutine(SendStartMatchViaHttp(CurrentRoomCode));
+                }
+
+                // ═══ FALLBACK 1: Embed in magic number (raw input channel) ═══
+                _sendStartMatchViaInput = true;
+                _startMatchSendAttempts = 0;
+                Debug.Log("[NetworkManager] CLIENT: START_MATCH flag SET — will embed magic=99 in raw input sends");
+
                 try
                 {
-                    // PRIMARY: Embed START_MATCH in the raw input channel (proven to work).
-                    // The next N frames of input data will have magic % 1000 == 99 instead of 42.
-                    _sendStartMatchViaInput = true;
-                    _startMatchSendAttempts = 0;
-                    Debug.Log("[NetworkManager] CLIENT: START_MATCH flag SET — will embed in next raw input sends");
-
-                    // FALLBACK: Also try the old 4-byte reliable key (may not arrive due to Fusion channel issue)
+                    // FALLBACK 2: Old 4-byte reliable key (may not arrive due to Fusion channel issue)
                     Runner.SendReliableDataToServer(START_MATCH_KEY, START_MATCH_MAGIC);
-                    Debug.Log("[NetworkManager] CLIENT: START_MATCH also sent via legacy 4-byte channel");
-
-                    // Client starts its own countdown — server will also send COUNTDOWN to all clients,
-                    // but starting locally ensures no delay for the button-presser
-                    StartCoroutine(CountdownThenLoad());
                 }
                 catch (System.Exception ex)
                 {
-                    Debug.LogError($"[NetworkManager] Failed to send START_MATCH: {ex.Message}");
-                    if (enterBattleButton != null) enterBattleButton.interactable = true;
+                    Debug.LogWarning($"[NetworkManager] 4-byte START_MATCH send failed (non-critical): {ex.Message}");
                 }
+
+                // Client starts its own countdown — server will also send COUNTDOWN to all clients,
+                // but starting locally ensures no delay for the button-presser
+                StartCoroutine(CountdownThenLoad());
                 return;
             }
 
             Debug.LogWarning("[NetworkManager] LoadGameplay called but not a client — ignoring.");
+        }
+
+        /// <summary>
+        /// Sends START_MATCH to the VPS via HTTP POST (TCP transport — guaranteed delivery).
+        /// This bypasses Fusion's ReliableData which has proven unreliable for signaling.
+        /// </summary>
+        private IEnumerator SendStartMatchViaHttp(string roomCode)
+        {
+            string url = $"{vpsRoomApiUrl.TrimEnd('/')}/start/{roomCode}";
+            Debug.Log($"[MATCH-DEBUG] CLIENT: HTTP POST {url}");
+
+            using (var request = new UnityEngine.Networking.UnityWebRequest(url, "POST"))
+            {
+                request.downloadHandler = new UnityEngine.Networking.DownloadHandlerBuffer();
+                request.timeout = 5;
+
+                yield return request.SendWebRequest();
+
+                if (request.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
+                {
+                    Debug.Log($"[MATCH-DEBUG] CLIENT: HTTP /start/{roomCode} SUCCESS: {request.downloadHandler.text}");
+                }
+                else
+                {
+                    Debug.LogError($"[MATCH-DEBUG] CLIENT: HTTP /start/{roomCode} FAILED: {request.error} " +
+                                   $"(code={request.responseCode})");
+                }
+            }
         }
 
         /// <summary>
@@ -586,7 +630,7 @@ namespace GV.Network
         /// StartCoroutine directly, avoiding ArgumentNullException when the MonoBehaviour
         /// is in a destroyed state but still receiving Fusion callbacks.
         /// </summary>
-        private void TriggerMatchStart(PlayerRef triggeringPlayer)
+        internal void TriggerMatchStart(PlayerRef triggeringPlayer)
         {
             // CRITICAL: If this callback fired on a stale/destroyed instance (DUAL INSTANCE),
             // delegate to the live Instance so that Update() will see the flags.
@@ -1141,14 +1185,24 @@ namespace GV.Network
                 else
                 {
                     var data = playerInput.CurrentInputData;
-                    data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 42;
 
-                    // Embed START_MATCH in regular input via button bit 31.
-                    // This piggybacks on the proven INPUT_DATA_KEY channel that Fusion
-                    // always delivers, unlike separate ReliableKey channels which get dropped.
+                    // Encode START_MATCH in the magic number itself (proven delivery channel).
+                    // Normal: magic = playerId*1000 + 42  (e.g. 2042)
+                    // START:  magic = playerId*1000 + 99  (e.g. 2099)
+                    // The server checks magic % 1000 == 99 to detect START_MATCH.
                     if (_sendStartMatchViaInput)
                     {
-                        data.buttons.Set(START_MATCH_BUTTON_BIT, true);
+                        data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 99;
+                        data.buttons.Set(START_MATCH_BUTTON_BIT, true); // Also set bit 31 as backup
+                        if (_startMatchSendAttempts <= 3)
+                        {
+                            Debug.Log($"[MATCH-DEBUG] CLIENT: Embedding START_MATCH in magic={data.magicNumber} (% 1000 == 99) " +
+                                      $"+ bit 31. buttons.Bits=0x{data.buttons.Bits:X8}, attempt #{_startMatchSendAttempts}");
+                        }
+                    }
+                    else
+                    {
+                        data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 42;
                     }
 
                     byte[] bytes = SerializeInput(data);
@@ -1262,6 +1316,12 @@ namespace GV.Network
             for (int i = 0; i < 32; i++)
             {
                 data.buttons.Set(i, (buttonsBits & (1 << i)) != 0);
+            }
+
+            // DIAGNOSTIC: Compare raw buttonsBits vs reconstructed Bits
+            if (buttonsBits != 0 && data.buttons.Bits != buttonsBits)
+            {
+                Debug.LogWarning($"[MATCH-DEBUG] DeserializeInput: MISMATCH! raw buttonsBits=0x{buttonsBits:X8} but after Set loop, buttons.Bits=0x{data.buttons.Bits:X8}");
             }
 
             data.magicNumber = ReadInt(bytes, ref offset);
@@ -2282,6 +2342,22 @@ namespace GV.Network
             {
                 byte[] bytes = new byte[data.Count];
                 System.Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, data.Count);
+
+                // RAW HEX DUMP: Log bytes 24-32 (boost=24, buttons=25-28, magic=29-32)
+                // Fires on first 5 packets OR whenever buttons bytes are non-zero
+                if (runner.IsServer && IsDedicatedServer)
+                {
+                    bool hasNonZeroButtons = bytes[25] != 0 || bytes[26] != 0 || bytes[27] != 0 || bytes[28] != 0;
+                    if (RawRecvCount <= 5 || hasNonZeroButtons)
+                    {
+                        string hexDump = "";
+                        for (int hx = 24; hx < System.Math.Min(33, bytes.Length); hx++)
+                            hexDump += bytes[hx].ToString("X2") + " ";
+                        Debug.Log($"[MATCH-DEBUG] SERVER RAW BYTES [24..32] from player {player.PlayerId}: {hexDump} " +
+                                  $"(len={data.Count}, hasButtons={hasNonZeroButtons})");
+                    }
+                }
+
                 var inputData = DeserializeInput(bytes);
 
                 // --- CLIENT: DETECT SERVER→CLIENT COUNTDOWN/SCENE_LOAD SIGNALS ---
@@ -2327,15 +2403,28 @@ namespace GV.Network
                     return;
                 }
 
-                // --- CHECK FOR START_MATCH VIA BUTTON BIT (most reliable channel) ---
-                // Client embeds START_MATCH in regular input by setting bit 31.
-                // This works because it piggybacks on the proven INPUT_DATA_KEY delivery.
-                if ((inputData.buttons.Bits & (1 << START_MATCH_BUTTON_BIT)) != 0 && runner.IsServer && IsDedicatedServer)
+                // --- CHECK FOR START_MATCH VIA RAW BYTES (bypass NetworkButtons entirely) ---
+                // Bit 31 of buttons is at byte offset 28 (little-endian: byte 25=bits0-7, 28=bits24-31)
+                // Check raw byte 28 for 0x80 bit — this bypasses any potential NetworkButtons.Set() bug
+                bool rawBit31 = (bytes[28] & 0x80) != 0;
+
+                // Also check via NetworkButtons for comparison
+                bool fusionBit31 = (inputData.buttons.Bits & (1 << START_MATCH_BUTTON_BIT)) != 0;
+
+                if (runner.IsServer && IsDedicatedServer && (rawBit31 || fusionBit31 || inputData.buttons.Bits != 0))
+                {
+                    Debug.Log($"[MATCH-DEBUG] SERVER: Input from player {player.PlayerId}: " +
+                              $"rawBit31={rawBit31}, fusionBit31={fusionBit31}, " +
+                              $"buttons.Bits=0x{inputData.buttons.Bits:X8}, rawByte28=0x{bytes[28]:X2}, magic={inputData.magicNumber}");
+                }
+
+                if ((rawBit31 || fusionBit31) && runner.IsServer && IsDedicatedServer)
                 {
                     var liveInst = (Instance != null) ? Instance : this;
                     if (!liveInst._countdownActive && !liveInst._inGameplayScene)
                     {
                         Debug.Log($"[SPAWN-DEBUG] SERVER: Received START_MATCH via BUTTON BIT from player {player.PlayerId}! " +
+                                  $"rawBit31={rawBit31}, fusionBit31={fusionBit31}, " +
                                   $"pendingSpawns={liveInst._pendingSpawns.Count}, spawnedPlayers={liveInst._spawnedPlayers.Count}");
                         TriggerMatchStart(player);
                     }

@@ -465,6 +465,11 @@ namespace GV.Network
                     string code = request.Url.AbsolutePath.Substring("/rooms/".Length).Trim('/').ToUpper();
                     HandleDeleteRoom(response, code);
                 }
+                else if (method == "POST" && path.StartsWith("/start/"))
+                {
+                    string code = request.Url.AbsolutePath.Substring("/start/".Length).Trim('/').ToUpper();
+                    HandleStartMatch(response, code);
+                }
                 else if (method == "GET" && (path == "/" || path == "/health"))
                 {
                     // Health check
@@ -605,6 +610,81 @@ namespace GV.Network
 
             done.WaitOne(TimeSpan.FromSeconds(5));
             SendJson(response, 200, $"{{\"deleted\":\"{code}\"}}");
+        }
+
+        /// <summary>
+        /// POST /start/{code} — Client requests match start for a room.
+        /// This bypasses Fusion's ReliableData (which has proven unreliable for signals)
+        /// and uses HTTP (TCP) to guarantee delivery.
+        /// </summary>
+        private void HandleStartMatch(HttpListenerResponse response, string code)
+        {
+            RoomInfo room;
+            lock (_roomLock)
+            {
+                if (!_rooms.TryGetValue(code, out room))
+                {
+                    SendJson(response, 404, "{\"error\":\"room_not_found\"}");
+                    return;
+                }
+            }
+
+            if (room.Manager == null)
+            {
+                SendJson(response, 500, "{\"error\":\"room_manager_null\"}");
+                return;
+            }
+
+            string error = null;
+            bool alreadyStarted = false;
+            var done = new ManualResetEvent(false);
+
+            lock (_mainThreadActions)
+            {
+                _mainThreadActions.Enqueue(() =>
+                {
+                    try
+                    {
+                        var mgr = room.Manager;
+                        if (mgr._countdownActive || mgr._inGameplayScene)
+                        {
+                            alreadyStarted = true;
+                            Debug.Log($"[RoomManager] HTTP /start/{code}: Already in countdown or gameplay — ignoring");
+                        }
+                        else
+                        {
+                            Debug.Log($"[RoomManager] HTTP /start/{code}: Triggering match start via HTTP!");
+                            // Use PlayerRef.None since HTTP doesn't map to a Fusion player
+                            // TriggerMatchStart accepts any PlayerRef for logging
+                            mgr.TriggerMatchStart(Fusion.PlayerRef.None);
+                            room.State = RoomState.InGame;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        error = ex.Message;
+                        Debug.LogError($"[RoomManager] HTTP /start/{code} error: {ex}");
+                    }
+                    finally
+                    {
+                        done.Set();
+                    }
+                });
+            }
+
+            if (done.WaitOne(TimeSpan.FromSeconds(10)))
+            {
+                if (error != null)
+                    SendJson(response, 500, $"{{\"error\":\"{EscapeJson(error)}\"}}");
+                else if (alreadyStarted)
+                    SendJson(response, 200, "{\"status\":\"already_started\"}");
+                else
+                    SendJson(response, 200, "{\"status\":\"match_starting\"}");
+            }
+            else
+            {
+                SendJson(response, 504, "{\"error\":\"timeout\"}");
+            }
         }
 
         // ══════════════════════════════════════════════════════════════
