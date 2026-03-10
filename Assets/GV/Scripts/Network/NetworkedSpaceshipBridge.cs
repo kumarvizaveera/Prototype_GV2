@@ -534,6 +534,16 @@ namespace GV.Network
                     : "VehicleCamera NOT FOUND";
                 Debug.Log($"[CAM-DIAG] BEFORE SetupClientOwnShip: {camStateBefore}");
 
+                // === PRE-EMPTIVE FIX: Disconnect VehicleCamera from GameAgentManager BEFORE
+                // calling SetupClientOwnShip(). SetupClientOwnShip unregisters the GameAgent,
+                // which fires onFocusedVehicleChanged and resets the camera target to null.
+                // By disconnecting the listener first, we prevent the camera from being wiped. ===
+                if (vcBefore != null && GameAgentManager.Instance != null)
+                {
+                    GameAgentManager.Instance.onFocusedVehicleChanged.RemoveListener(vcBefore.SetVehicle);
+                    Debug.Log("[CAM-DIAG] PRE-EMPTIVE: Disconnected VehicleCamera from GameAgentManager BEFORE SetupClientOwnShip");
+                }
+
                 SetupClientOwnShip();
 
                 // Snapshot camera state AFTER SetupClientOwnShip

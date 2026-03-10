@@ -44,16 +44,14 @@ namespace GV.Web3
 
         private void Start()
         {
-            // Enforce vertical stacking: address on top, AVAX below, PRANA below that.
-            // Inspector-placed texts may share the same anchoredPosition (causing overlap),
-            // so we fix their positions programmatically from the address text downward.
-            EnforceTextLayout();
-
             // Auto-create token balance text if not assigned and we have a balance text to copy from
             if (tokenBalanceText == null && balanceText != null)
             {
                 CreateTokenBalanceText();
             }
+
+            // Enforce vertical stacking AFTER token text is created so all 3 are positioned
+            EnforceTextLayout();
         }
 
         private void OnEnable()
@@ -140,35 +138,64 @@ namespace GV.Web3
         }
 
         /// <summary>
-        /// Ensures addressText and balanceText are properly spaced vertically.
-        /// Both may have identical anchoredPosition in the scene (causing overlap).
-        /// Uses the address text as the anchor and pushes balance text below it.
+        /// Forces all 3 texts (address, AVAX, PRANA) into a clean vertical stack.
+        /// Disables word wrapping, widens text fields to prevent line breaks,
+        /// and positions each line with consistent spacing below the previous one.
         /// </summary>
         private void EnforceTextLayout()
         {
             if (addressText == null || balanceText == null) return;
 
+            // Use the largest font size among the texts for spacing
+            float fontSize = Mathf.Max(addressText.fontSize, balanceText.fontSize);
+            float lineSpacing = fontSize * 1.5f; // generous spacing between lines
+            float minWidth = 300f; // wide enough for "0x6dd8...a77c" and "0.0000 AVAX"
+
+            // Fix addressText: disable wrapping, ensure wide enough
+            FixTextField(addressText, minWidth);
+
+            // Fix balanceText: disable wrapping, position below address
+            FixTextField(balanceText, minWidth);
             var addrRect = addressText.GetComponent<RectTransform>();
             var balRect = balanceText.GetComponent<RectTransform>();
+            balRect.anchoredPosition = new Vector2(
+                addrRect.anchoredPosition.x,
+                addrRect.anchoredPosition.y - lineSpacing
+            );
 
-            // Only fix if they're overlapping (Y positions within one line-height of each other)
-            float lineHeight = addressText.fontSize * 1.4f;
-            float gap = Mathf.Abs(addrRect.anchoredPosition.y - balRect.anchoredPosition.y);
-
-            if (gap < lineHeight)
+            // Fix tokenBalanceText: disable wrapping, position below balance
+            if (tokenBalanceText != null)
             {
-                // Push balance text below the address text
-                balRect.anchoredPosition = new Vector2(
+                FixTextField(tokenBalanceText, minWidth);
+                var tokRect = tokenBalanceText.GetComponent<RectTransform>();
+                tokRect.anchoredPosition = new Vector2(
                     addrRect.anchoredPosition.x,
-                    addrRect.anchoredPosition.y - lineHeight - 4
+                    addrRect.anchoredPosition.y - lineSpacing * 2
                 );
-                Debug.Log($"[WalletHUD] EnforceTextLayout: Fixed overlap — moved balanceText {lineHeight + 4}px below addressText.");
+            }
+
+            Debug.Log($"[WalletHUD] EnforceTextLayout: fontSize={fontSize}, lineSpacing={lineSpacing}, " +
+                      $"addrY={addrRect.anchoredPosition.y}, balY={balRect.anchoredPosition.y}" +
+                      (tokenBalanceText != null ? $", tokY={tokenBalanceText.GetComponent<RectTransform>().anchoredPosition.y}" : ""));
+        }
+
+        /// <summary>
+        /// Ensures a TMP_Text won't wrap and is wide enough to display wallet info on one line.
+        /// </summary>
+        private void FixTextField(TMP_Text text, float minWidth)
+        {
+            text.enableWordWrapping = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            var rect = text.GetComponent<RectTransform>();
+            if (rect.sizeDelta.x < minWidth)
+            {
+                rect.sizeDelta = new Vector2(minWidth, rect.sizeDelta.y);
             }
         }
 
         /// <summary>
-        /// Auto-creates a TMP_Text for token balance below the AVAX balance text.
-        /// Copies the style from balanceText so it looks consistent.
+        /// Auto-creates a TMP_Text for token balance.
+        /// Styled to match balanceText. Positioned by EnforceTextLayout() afterward.
         /// </summary>
         private void CreateTokenBalanceText()
         {
@@ -180,25 +207,17 @@ namespace GV.Web3
             tokenBalanceText.color = new Color(0.3f, 1f, 0.5f); // green tint to stand out
             tokenBalanceText.alignment = balanceText.alignment;
             tokenBalanceText.enableWordWrapping = false;
+            tokenBalanceText.overflowMode = TextOverflowModes.Overflow;
             tokenBalanceText.text = "";
 
-            // Position it below the AVAX balance text.
-            // Use the font size as a reliable height estimate — sizeDelta.y can be 0
-            // when the text uses auto-sizing, ContentSizeFitter, or layout groups,
-            // which makes the offset tiny and causes text overlap.
+            // Copy anchoring from balanceText — EnforceTextLayout() will set final position
             var sourceRect = balanceText.GetComponent<RectTransform>();
             var rect = go.GetComponent<RectTransform>();
             rect.anchorMin = sourceRect.anchorMin;
             rect.anchorMax = sourceRect.anchorMax;
-            rect.sizeDelta = sourceRect.sizeDelta;
+            rect.sizeDelta = new Vector2(300f, sourceRect.sizeDelta.y);
 
-            float textHeight = sourceRect.sizeDelta.y;
-            if (textHeight < balanceText.fontSize)
-                textHeight = balanceText.fontSize * 1.4f; // line height ~1.4x font size
-            rect.anchoredPosition = sourceRect.anchoredPosition + new Vector2(0, -textHeight - 8);
-
-            Debug.Log($"[WalletHUD] Auto-created token balance text. Offset={-textHeight - 8}, " +
-                      $"sizeDelta.y={sourceRect.sizeDelta.y}, fontSize={balanceText.fontSize}");
+            Debug.Log("[WalletHUD] Auto-created token balance text.");
         }
 
         // --- Event Handlers ---

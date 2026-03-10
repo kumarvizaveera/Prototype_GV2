@@ -66,8 +66,9 @@ namespace GV
 
         public override void Spawned()
         {
+            Debug.Log($"[RandomPowerSphere] Spawned() — '{gameObject.name}', HasStateAuthority={Object.HasStateAuthority}");
             _changes = GetChangeDetector(ChangeDetector.Source.SimulationState);
-            
+
             // Initialize Visuals based on current network state
             SetVisuals(IsActive);
             UpdatePowerLabel();
@@ -75,10 +76,23 @@ namespace GV
             if (Object.HasStateAuthority)
             {
                 IsActive = true;
-                
+
                 // Initialize Cycle Logic on Server
                 InitializeCycleLogic();
             }
+        }
+
+        public override void Despawned(NetworkRunner runner, bool hasState)
+        {
+            Debug.Log($"[RandomPowerSphere] Despawned() — '{gameObject.name}', resetting for room reuse. hasState={hasState}");
+            // Clear per-player cooldowns and stop cycling so next room starts clean
+            m_PlayerCooldowns.Clear();
+            if (m_CycleRoutine != null)
+            {
+                StopCoroutine(m_CycleRoutine);
+                m_CycleRoutine = null;
+            }
+            m_CurrentCycleIndex = 0;
         }
 
         public override void Render()

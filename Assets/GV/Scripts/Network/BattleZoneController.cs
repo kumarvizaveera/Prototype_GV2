@@ -56,6 +56,9 @@ namespace GV.Network
                       $"sphereVisual={(sphereVisual != null ? sphereVisual.name : "NULL")}, " +
                       $"timerText={(timerText != null ? "assigned" : "NULL")}");
 
+            // Reset local state that may be stale from a previous room
+            _loggedRenderOnce = false;
+
             if (Object.HasStateAuthority)
             {
                 CurrentRadius = initialRadius;
@@ -67,6 +70,14 @@ namespace GV.Network
                     StartShrinking();
                 }
             }
+        }
+
+        public override void Despawned(NetworkRunner runner, bool hasState)
+        {
+            Debug.Log($"[BattleZoneController] Despawned() — resetting local state for room reuse. hasState={hasState}");
+            // Reset local-only state so this scene object is clean for the next room's Runner.
+            _loggedRenderOnce = false;
+            _damageTimer = default;
         }
 
         public override void FixedUpdateNetwork()

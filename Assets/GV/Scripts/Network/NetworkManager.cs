@@ -1610,6 +1610,32 @@ namespace GV.Network
                 Debug.Log($"[CTL-DIAG] WATCHDOG: _clientSendingReady=true, will embed magic%1000==77 for {CLIENT_READY_SEND_DURATION}s");
             }
 
+            // --- CLIENT: PERIODIC RETRY — re-send CLIENT_READY every 5s if still on loading screen ---
+            // If the initial CLIENT_READY was sent but the server didn't receive it (or didn't spawn
+            // the ship), keep retrying periodically. This catches cases where the first CLIENT_READY
+            // was lost in transit via all 3 channels.
+            if (_waitingForShipToAppear && _inGameplayScene
+                && _inGameplaySceneTimestamp > 0f
+                && Runner != null && Runner.IsClient && Runner.IsRunning)
+            {
+                float sinceSceneLoad = Time.time - _inGameplaySceneTimestamp;
+                // Retry at 8s, 13s, 18s — gives server multiple chances to receive CLIENT_READY
+                if (sinceSceneLoad > 8f && sinceSceneLoad % 5f < Time.deltaTime)
+                {
+                    Debug.LogWarning($"[CTL-DIAG] PERIODIC RETRY: Re-sending CLIENT_READY at {sinceSceneLoad:F1}s since scene load");
+                    try { Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC); }
+                    catch { }
+                    try
+                    {
+                        var retryData = new PlayerInputData();
+                        retryData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                        byte[] retryBytes = SerializeInput(retryData);
+                        Runner.SendReliableDataToServer(INPUT_DATA_KEY, retryBytes);
+                    }
+                    catch { }
+                }
+            }
+
             // --- CLIENT: Detect ship spawn and hide loading screen ---
             if (_waitingForShipToAppear && Runner != null && Runner.IsRunning)
             {
@@ -1797,6 +1823,19 @@ namespace GV.Network
                 if (success)
                 {
                     var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+
+                    // CRITICAL: Clean up stale Fusion state on scene objects from previous rooms.
+                    // Scene-placed NetworkObjects persist across room lifecycles but may retain
+                    // internal references to a dead Runner. We must reset them before re-registration.
+                    try
+                    {
+                        PrepareSceneObjectsForNewRunner(activeScene);
+                    }
+                    catch (System.Exception cleanEx)
+                    {
+                        Debug.LogError($"[NetworkManager] StartServerForRoom: PrepareSceneObjectsForNewRunner failed: {cleanEx}");
+                    }
+
                     Debug.Log($"[NetworkManager] StartServerForRoom: Registering scene NetworkObjects for '{activeScene.name}'...");
                     try
                     {
@@ -2201,6 +2240,97 @@ namespace GV.Network
         }
 
         /// <summary>
+        /// Resets scene-placed NetworkObjects so they can be re-registered with a new Runner.
+        /// On a multi-room VPS, scene objects persist across room lifecycles. When Room 1's Runner
+        /// shuts down, these objects may retain stale Fusion internal state (runner references,
+        /// networked property buffers, etc.). This method forces a clean state by:
+        /// 1. Disabling and re-enabling each NetworkObject's GameObject to trigger Fusion cleanup
+        /// 2. Resetting any visible stale state on NetworkBehaviours
+        /// Without this, Room 2+ fails to register scene objects and Spawned() never fires.
+        /// </summary>
+        private void PrepareSceneObjectsForNewRunner(UnityEngine.SceneManagement.Scene scene)
+        {
+            var sceneObjects = scene.GetComponents<NetworkObject>(includeInactive: true, out var rootObjects);
+
+            int resetCount = 0;
+            int alreadyCleanCount = 0;
+            foreach (var netObj in sceneObjects)
+            {
+                if (netObj == null) continue;
+
+                // Check if this object has a stale runner reference (runner is null or not running)
+                bool hasStaleState = false;
+                bool runnerIsNull = false;
+                try
+                {
+                    var objRunner = netObj.Runner;
+                    runnerIsNull = (objRunner == null);
+                    hasStaleState = (objRunner != null && !objRunner.IsRunning);
+                }
+                catch
+                {
+                    hasStaleState = true;
+                }
+
+                if (hasStaleState)
+                {
+                    // Force-reset by toggling the GameObject off/on.
+                    // This causes Fusion's OnDisable cleanup to run, clearing internal state.
+                    var go = netObj.gameObject;
+                    bool wasActive = go.activeSelf;
+                    go.SetActive(false);
+                    go.SetActive(wasActive);
+                    resetCount++;
+                    Debug.Log($"[NetworkManager] PrepareSceneObjects: Reset stale NetworkObject '{netObj.name}'");
+
+                    // Verify the reset worked
+                    try
+                    {
+                        var postRunner = netObj.Runner;
+                        if (postRunner != null && !postRunner.IsRunning)
+                        {
+                            Debug.LogWarning($"[NetworkManager] PrepareSceneObjects: '{netObj.name}' STILL has stale Runner after toggle! " +
+                                             "Attempting reflection cleanup...");
+                            // Last-resort: use reflection to clear the internal runner field
+                            var runnerField = typeof(NetworkObject).GetField("_runner",
+                                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                            if (runnerField != null)
+                            {
+                                runnerField.SetValue(netObj, null);
+                                Debug.Log($"[NetworkManager] PrepareSceneObjects: Cleared _runner via reflection on '{netObj.name}'");
+                            }
+                            else
+                            {
+                                // Try alternative field name
+                                var fields = typeof(NetworkObject).GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                                foreach (var f in fields)
+                                {
+                                    if (f.FieldType == typeof(NetworkRunner) || f.Name.ToLower().Contains("runner"))
+                                    {
+                                        Debug.Log($"[NetworkManager] PrepareSceneObjects: Found field '{f.Name}' of type {f.FieldType.Name}, clearing...");
+                                        f.SetValue(netObj, null);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (System.Exception verifyEx)
+                    {
+                        Debug.LogWarning($"[NetworkManager] PrepareSceneObjects: Post-reset verify failed for '{netObj.name}': {verifyEx.Message}");
+                    }
+                }
+                else if (runnerIsNull)
+                {
+                    alreadyCleanCount++;
+                }
+            }
+
+            Debug.Log($"[NetworkManager] PrepareSceneObjectsForNewRunner: checked {sceneObjects.Length} objects, " +
+                      $"reset {resetCount} stale, {alreadyCleanCount} already clean");
+        }
+
+        /// <summary>
         /// Finds all NetworkObjects placed in the scene and registers them with Fusion.
         /// This is necessary because we load scenes manually (bypassing Fusion's scene manager),
         /// so Fusion doesn't automatically discover scene-placed NetworkObjects.
@@ -2419,6 +2549,13 @@ namespace GV.Network
             var vehicleCamera = FindFirstObjectByType<VehicleCamera>();
             if (vehicleCamera != null)
             {
+                // Disconnect from GameAgentManager to prevent it from resetting our camera target
+                if (GameAgentManager.Instance != null)
+                {
+                    GameAgentManager.Instance.onFocusedVehicleChanged.RemoveListener(vehicleCamera.SetVehicle);
+                    Debug.Log("[NetworkManager] Disconnected VehicleCamera from GameAgentManager before SetVehicle");
+                }
+
                 vehicleCamera.SetVehicle(vehicle);
                 Debug.Log($"[NetworkManager] VehicleCamera now following: {vehicle.name}");
                 return;
