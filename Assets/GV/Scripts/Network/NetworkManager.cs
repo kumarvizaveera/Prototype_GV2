@@ -1788,6 +1788,26 @@ namespace GV.Network
 
                 bool success = Runner != null && Runner.IsRunning;
                 Debug.Log($"[NetworkManager] StartServerForRoom result: success={success}");
+
+                // The gameplay scene is ALREADY loaded on the VPS (Web3Bootstrap loaded it
+                // before RoomManager created this room). OnUnitySceneLoaded won't fire because
+                // no new scene load happens. We must manually register all scene-placed
+                // NetworkObjects (BattleZoneController, RandomPowerSphere, etc.) with this
+                // Runner so their Spawned() fires and [Networked] properties sync to clients.
+                if (success)
+                {
+                    var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                    Debug.Log($"[NetworkManager] StartServerForRoom: Registering scene NetworkObjects for '{activeScene.name}'...");
+                    try
+                    {
+                        RegisterSceneNetworkObjects(activeScene);
+                    }
+                    catch (System.Exception regEx)
+                    {
+                        Debug.LogError($"[NetworkManager] StartServerForRoom: RegisterSceneNetworkObjects failed: {regEx}");
+                    }
+                }
+
                 callback?.Invoke(success);
             }
             catch (Exception ex)
