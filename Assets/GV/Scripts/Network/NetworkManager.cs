@@ -1822,20 +1822,29 @@ namespace GV.Network
                 // Runner so their Spawned() fires and [Networked] properties sync to clients.
                 if (success)
                 {
+                    // SCENE RELOAD STRATEGY for multi-room VPS:
+                    // Scene-placed NetworkObjects (BattleZoneController, RandomPowerSphere) retain
+                    // Fusion's internal state after Room 1's Runner shuts down. No amount of
+                    // toggling, reflection, or cloning reliably clears this state.
+                    // The ONLY guaranteed way to get clean scene objects is to reload the scene.
+                    //
+                    // Room 1: Scene is already loaded by Web3Bootstrap — use objects as-is.
+                    // Room 2+: Reload the scene to get fresh objects, then register them.
+                    if (_hasUsedSceneObjectsBefore)
+                    {
+                        Debug.Log("[NetworkManager] StartServerForRoom: Subsequent room — reloading gameplay scene for fresh NetworkObjects...");
+                        try
+                        {
+                            await ReloadGameplaySceneAsync();
+                        }
+                        catch (System.Exception reloadEx)
+                        {
+                            Debug.LogError($"[NetworkManager] StartServerForRoom: Scene reload failed: {reloadEx}");
+                        }
+                    }
+                    _hasUsedSceneObjectsBefore = true;
+
                     var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-
-                    // CRITICAL: Clean up stale Fusion state on scene objects from previous rooms.
-                    // Scene-placed NetworkObjects persist across room lifecycles but may retain
-                    // internal references to a dead Runner. We must reset them before re-registration.
-                    try
-                    {
-                        PrepareSceneObjectsForNewRunner(activeScene);
-                    }
-                    catch (System.Exception cleanEx)
-                    {
-                        Debug.LogError($"[NetworkManager] StartServerForRoom: PrepareSceneObjectsForNewRunner failed: {cleanEx}");
-                    }
-
                     Debug.Log($"[NetworkManager] StartServerForRoom: Registering scene NetworkObjects for '{activeScene.name}'...");
                     try
                     {
@@ -2240,105 +2249,61 @@ namespace GV.Network
         }
 
         /// <summary>
-        /// Static storage for clean templates of scene-placed NetworkObjects.
-        /// On first room creation, we clone each scene NetworkObject BEFORE Fusion touches it.
-        /// On subsequent rooms, we destroy the stale objects and instantiate fresh copies from
-        /// these templates. This guarantees zero Fusion internal state leakage between rooms.
-        /// Static because each room creates a new NetworkManager instance from prefab.
+        /// Tracks whether any room has previously registered scene objects.
+        /// When true, subsequent rooms must reload the scene to get fresh objects.
+        /// Static because each room creates a new NetworkManager instance from the prefab.
         /// </summary>
-        private static List<GameObject> _sceneObjectTemplates = new List<GameObject>();
-        private static bool _templatesInitialized = false;
+        private static bool _hasUsedSceneObjectsBefore = false;
 
         /// <summary>
-        /// Reset scene object templates on fresh application start (editor Play or VPS boot).
-        /// This does NOT run between rooms — only on domain reload / app start.
+        /// Reset on fresh application start (editor Play or VPS boot).
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetSceneObjectTemplates()
+        private static void ResetSceneObjectFlag()
         {
-            // Destroy any leftover templates from previous editor play session
-            foreach (var t in _sceneObjectTemplates)
-            {
-                if (t != null) DestroyImmediate(t);
-            }
-            _sceneObjectTemplates.Clear();
-            _templatesInitialized = false;
-            Debug.Log("[NetworkManager] Scene object templates RESET (app/domain start)");
+            _hasUsedSceneObjectsBefore = false;
+            Debug.Log("[NetworkManager] _hasUsedSceneObjectsBefore RESET (app/domain start)");
         }
 
         /// <summary>
-        /// Ensures scene-placed NetworkObjects are in a pristine state for a new Runner.
+        /// Reloads the gameplay scene to get completely fresh scene-placed NetworkObjects.
+        /// After Room 1's Runner shuts down, scene objects retain Fusion's internal state
+        /// that cannot be reliably cleaned via code. Reloading the scene destroys everything
+        /// and recreates from the scene asset — pristine objects with zero Fusion state.
         ///
-        /// On a multi-room VPS, scene objects (BattleZoneController, RandomPowerSphere, etc.)
-        /// persist across room lifecycles. After Room 1's Runner shuts down, these objects retain
-        /// Fusion's internal state (networked property buffers, object IDs, flags, etc.) even though
-        /// Runner is null. RegisterSceneObjects() on a new Runner silently fails or registers
-        /// objects with corrupted state, so Spawned() never fires properly.
-        ///
-        /// Solution: On Room 1, cache clean clones of scene objects as templates BEFORE Fusion
-        /// touches them. On Room 2+, destroy the stale objects and instantiate fresh copies from
-        /// the clean templates. This guarantees Fusion has never seen these objects before.
+        /// DontDestroyOnLoad objects (RoomManager, NetworkManagers, Web3Manager) survive the reload.
         /// </summary>
-        private void PrepareSceneObjectsForNewRunner(UnityEngine.SceneManagement.Scene scene)
+        private async Task ReloadGameplaySceneAsync()
         {
-            var sceneObjects = scene.GetComponents<NetworkObject>(includeInactive: true, out var rootObjects);
-            Debug.Log($"[NetworkManager] PrepareSceneObjectsForNewRunner: found {sceneObjects.Length} NetworkObjects in scene '{scene.name}'");
+            var currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            string sceneName = currentScene.name;
+            Debug.Log($"[NetworkManager] ReloadGameplaySceneAsync: reloading '{sceneName}'...");
 
-            if (!_templatesInitialized)
+            // Start async scene load
+            var asyncOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+            if (asyncOp == null)
             {
-                // FIRST ROOM: Cache clean clones as templates before Fusion registers them.
-                // These templates will never be registered with any Runner — they stay pristine.
-                Debug.Log($"[NetworkManager] First room — caching {sceneObjects.Length} scene object templates");
-                foreach (var netObj in sceneObjects)
-                {
-                    if (netObj == null) continue;
-                    var template = UnityEngine.Object.Instantiate(netObj.gameObject);
-                    template.name = netObj.gameObject.name + "__TEMPLATE";
-                    template.SetActive(false);
-                    UnityEngine.Object.DontDestroyOnLoad(template);
-                    _sceneObjectTemplates.Add(template);
-                    Debug.Log($"[NetworkManager] Cached template for '{netObj.gameObject.name}' " +
-                              $"(pos={netObj.transform.position}, rot={netObj.transform.rotation.eulerAngles})");
-                }
-                _templatesInitialized = true;
-                // First room uses the original scene objects directly — no replacement needed.
+                Debug.LogError("[NetworkManager] ReloadGameplaySceneAsync: LoadSceneAsync returned null!");
                 return;
             }
 
-            // SUBSEQUENT ROOMS: Destroy stale objects, instantiate fresh clones from templates.
-            Debug.Log($"[NetworkManager] Subsequent room — destroying {sceneObjects.Length} stale objects, " +
-                      $"instantiating {_sceneObjectTemplates.Count} fresh clones");
-
-            // Step 1: Destroy ALL current scene NetworkObjects (they have stale Fusion state)
-            foreach (var netObj in sceneObjects)
+            // Wait for scene load to complete (poll each frame via Task.Yield)
+            float startTime = Time.realtimeSinceStartup;
+            while (!asyncOp.isDone)
             {
-                if (netObj == null) continue;
-                string name = netObj.gameObject.name;
-                UnityEngine.Object.DestroyImmediate(netObj.gameObject);
-                Debug.Log($"[NetworkManager] Destroyed stale scene object: '{name}'");
-            }
-
-            // Step 2: Instantiate fresh clones from the clean templates
-            int cloneCount = 0;
-            foreach (var template in _sceneObjectTemplates)
-            {
-                if (template == null)
+                if (Time.realtimeSinceStartup - startTime > 30f)
                 {
-                    Debug.LogWarning("[NetworkManager] A scene object template was null — skipping");
-                    continue;
+                    Debug.LogError("[NetworkManager] ReloadGameplaySceneAsync: TIMEOUT after 30s!");
+                    break;
                 }
-
-                var fresh = UnityEngine.Object.Instantiate(template);
-                // Remove "__TEMPLATE" and "(Clone)" suffixes to restore original name
-                fresh.name = template.name.Replace("__TEMPLATE", "").Replace("(Clone)", "").Trim();
-                fresh.SetActive(true);
-                // Move into the gameplay scene so RegisterSceneNetworkObjects can find it
-                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(fresh, scene);
-                cloneCount++;
-                Debug.Log($"[NetworkManager] Instantiated fresh clone: '{fresh.name}' at pos={fresh.transform.position}");
+                await Task.Yield(); // Yield back to Unity's main thread, resume next frame
             }
 
-            Debug.Log($"[NetworkManager] PrepareSceneObjectsForNewRunner complete: destroyed stale, created {cloneCount} fresh clones");
+            Debug.Log($"[NetworkManager] ReloadGameplaySceneAsync: '{sceneName}' reload complete in " +
+                      $"{Time.realtimeSinceStartup - startTime:F2}s");
+
+            // Give Unity one extra frame for Awake()/Start() on fresh scene objects
+            await Task.Yield();
         }
 
         /// <summary>

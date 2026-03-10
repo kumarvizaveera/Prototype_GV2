@@ -95,6 +95,25 @@ namespace GV
             m_CurrentCycleIndex = 0;
         }
 
+        /// <summary>
+        /// SERVER: Ensure collider state always matches IsActive.
+        /// We cannot rely solely on Render()+ChangeDetector for the collider because if the
+        /// ChangeDetector misses the IsActive=true transition, the collider stays disabled
+        /// forever and OnTriggerEnter never fires again — making the sphere uncollectable.
+        /// </summary>
+        public override void FixedUpdateNetwork()
+        {
+            if (!Object.HasStateAuthority) return;
+
+            // Direct sync: collider MUST match IsActive on the server (trigger detection depends on it)
+            if (m_Collider != null && m_Collider.enabled != IsActive)
+            {
+                Debug.Log($"[RandomPowerSphere] FixedUpdateNetwork: Collider out of sync! " +
+                          $"collider.enabled={m_Collider.enabled}, IsActive={IsActive} — fixing on '{gameObject.name}'");
+                m_Collider.enabled = IsActive;
+            }
+        }
+
         public override void Render()
         {
             foreach (var change in _changes.DetectChanges(this))
@@ -237,12 +256,18 @@ namespace GV
         private void OnTriggerEnter(Collider other)
         {
             // Debug Log for detection
-            Debug.Log($"[RandomPowerSphere] OnTriggerEnter hit by {other.name} on {(Object != null && Object.HasStateAuthority ? "SERVER" : "CLIENT")}");
+            Debug.Log($"[RandomPowerSphere] OnTriggerEnter '{gameObject.name}' hit by {other.name} — " +
+                      $"HasStateAuth={Object?.HasStateAuthority}, IsActive={IsActive}, " +
+                      $"collider.enabled={m_Collider?.enabled}");
 
             // Only the server authorities trigger pickups
             if (!Object || !Object.HasStateAuthority) return;
 
-            if (!IsActive) return;
+            if (!IsActive)
+            {
+                Debug.Log($"[RandomPowerSphere] '{gameObject.name}' rejecting trigger — IsActive=false (still on cooldown)");
+                return;
+            }
 
             // Find the vehicle root
             Rigidbody rb = other.attachedRigidbody;
@@ -446,9 +471,23 @@ namespace GV
 
         private IEnumerator CooldownRoutine()
         {
+            Debug.Log($"[RandomPowerSphere] '{gameObject.name}' cooldown started ({cooldownAfterPickup}s). " +
+                      $"IsActive={IsActive}, collider.enabled={m_Collider?.enabled}");
             yield return new WaitForSeconds(cooldownAfterPickup);
-            IsActive = true;
-            Debug.Log("[RandomPowerSphere] Sphere reactivated after cooldown — ready for collection again.");
+
+            if (Object != null && Object.IsValid && Object.HasStateAuthority)
+            {
+                IsActive = true;
+                // Force collider re-enable immediately — don't wait for FixedUpdateNetwork/Render
+                if (m_Collider != null) m_Collider.enabled = true;
+                Debug.Log($"[RandomPowerSphere] '{gameObject.name}' reactivated after cooldown. " +
+                          $"IsActive={IsActive}, collider.enabled={m_Collider?.enabled}");
+            }
+            else
+            {
+                Debug.LogWarning($"[RandomPowerSphere] '{gameObject.name}' cooldown finished but Object is " +
+                                 $"invalid or lost authority. IsValid={Object?.IsValid}, HasStateAuth={Object?.HasStateAuthority}");
+            }
         }
 
         private void SetVisuals(bool active)

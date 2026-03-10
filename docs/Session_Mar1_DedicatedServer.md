@@ -1564,3 +1564,92 @@ ssh root@187.124.96.178 "tail -f /var/log/gv2-server.log"
 - **Unity build targets are independent** — Editor Play mode compiles to `Library/ScriptAssemblies/`. The Dedicated Server build in `ServerBuild/` is a completely separate output. Code changes are NOT reflected in server builds until you explicitly rebuild for that target.
 - **Verify deployed builds** — Always check `BUILD_VERSION` in logs after deploy. If it doesn't match, the build pipeline is broken. Use `strings -e l Assembly-CSharp.dll | grep BUILD_VERSION` to verify DLL content directly.
 - **systemd service filename must match exactly** — A typo in `ExecStart` (missing an "s") means the service silently runs a stale binary or fails entirely.
+
+---
+
+## Session 16 — March 10, 2026: Multi-Room Scene Object Fix, Loading Screen & Camera Fixes, WalletHUD
+
+### Problem Summary
+
+After deploying the dedicated server, four issues were reported:
+1. **Shrinking sphere (BattleZoneController) and power spheres (RandomPowerSphere) only worked on the first room** — creating a second room on the VPS resulted in visible but non-functional scene objects
+2. **Loading screen stuck** — clients sometimes got stuck on the loading screen after clicking Enter Battle
+3. **Camera not following ship** — VehicleCamera spawned but didn't attach to the player's ship
+4. **WalletHUD text overlap** — wallet address, AVAX balance, and PRANA balance text stacked on top of each other
+
+### Root Cause Analysis
+
+#### 1. Scene Objects Broken on Room 2+ (Critical)
+
+**Architecture:** RoomManager creates a NEW NetworkManager instance (from prefab) per room. Each gets its own Fusion NetworkRunner. But scene-placed NetworkObjects (BattleZoneController, RandomPowerSphere) are single instances in the gameplay scene shared across all rooms.
+
+**Root cause:** When Room 1's Runner shuts down, Fusion's internal state buffers on the scene NetworkObjects (object IDs, networked property data, registration flags) are corrupted/stale. When Room 2's Runner calls `RegisterSceneObjects()`, the objects either fail to register or register with corrupted state, so `Spawned()` never fires properly.
+
+**Failed approaches:**
+- **Toggle GameObject off/on** — After shutdown, `netObj.Runner` returns null, so stale detection couldn't identify corrupted objects. Even when forced, toggling didn't clear Fusion's internal state.
+- **Reflection to clear internal Runner field** — Same null-Runner problem; the corruption is in Fusion's state buffers, not the Runner reference.
+- **Destroy-and-clone from templates** — Cached clean clones of scene objects before Fusion touched them, then destroyed stale objects and instantiated fresh clones for Room 2+. Failed because dynamically instantiated clones aren't true scene-placed objects; Fusion's scene object matching between server and client broke (server had clones, clients had originals from their scene load).
+
+**Working solution: Scene reload between rooms.** Before Room 2 starts, reload the entire gameplay scene via `LoadSceneAsync(sceneName, Single)`. This destroys all non-DontDestroyOnLoad objects and recreates them from the scene asset. The fresh objects have zero Fusion state. DontDestroyOnLoad objects (RoomManager, NetworkManagers, Web3Manager) survive the reload.
+
+#### 2. Loading Screen Stuck
+
+**Root cause:** CLIENT_READY signal sent via 3 channels (reliable data, input embedding, 37-byte packet) but all could be lost in transit. The existing watchdog fired once at 3 seconds but never retried.
+
+**Fix:** Added periodic CLIENT_READY retry — re-sends on both reliable channels every 5 seconds starting at 8s post-scene-load (at ~8s, ~13s, ~18s). Gives the server multiple chances to receive the signal.
+
+#### 3. Camera Not Following Ship
+
+**Root cause:** Two camera setup paths conflicted:
+- `NetworkManager.SetupCameraFollow()` — called immediately after spawn
+- `NetworkedSpaceshipBridge.SetupCamera()` — called in FixedUpdateNetwork (1+ frames later)
+
+`SetupClientOwnShip()` unregisters the GameAgent from `GameAgentManager`, which fires `onFocusedVehicleChanged` events that reset VehicleCamera's target to null. The listener disconnection happened inside `SetupCamera()` (too late — the damage was already done by `SetupClientOwnShip()`).
+
+**Fix:** Disconnect `VehicleCamera` from `GameAgentManager.onFocusedVehicleChanged` BEFORE calling `SetupClientOwnShip()`, not after. Applied in both camera setup paths (NetworkedSpaceshipBridge and NetworkManager).
+
+#### 4. WalletHUD Text Overlap
+
+**Root cause:** TMP text fields were too narrow with word wrapping enabled, causing addresses like "0x6dd8...a77c" and "0.0000 AVAX" to wrap across multiple lines.
+
+**Fix:** Rewrote WalletHUD layout: `FixTextField()` disables word wrapping, sets overflow mode to `TextOverflowModes.Overflow`, widens to 300px minimum. `EnforceTextLayout()` positions all 3 texts with explicit `fontSize * 1.5` spacing.
+
+#### 5. Power Sphere Cooldown (Within Same Room)
+
+**Root cause:** After collection, `IsActive = false` disables the collider via `Render()` + ChangeDetector. When cooldown ends and `IsActive` returns to true, the ChangeDetector could miss the transition, leaving the collider permanently disabled.
+
+**Fix:** Added `FixedUpdateNetwork()` override on RandomPowerSphere that directly syncs collider state with `IsActive` every simulation tick on the server. Also made `CooldownRoutine()` force-enable the collider immediately when setting `IsActive = true`.
+
+### Files Modified
+
+**`Assets/GV/Scripts/Network/NetworkManager.cs`**
+- `StartServerForRoom()` — Room 1 uses scene objects as-is; Room 2+ calls `ReloadGameplaySceneAsync()` before registration
+- Added `ReloadGameplaySceneAsync()` — reloads gameplay scene via `LoadSceneAsync` to get fresh scene objects
+- Added `_hasUsedSceneObjectsBefore` static flag with `[RuntimeInitializeOnLoadMethod]` reset
+- Added periodic CLIENT_READY retry (every 5s starting at 8s post-scene-load)
+- `SetupCameraFollow()` — disconnects VehicleCamera from GameAgentManager before `SetVehicle()`
+
+**`Assets/GV/Scripts/Network/NetworkedSpaceshipBridge.cs`**
+- `CheckAuthorityAndSetupInput()` — pre-emptive GameAgentManager disconnection BEFORE `SetupClientOwnShip()` call
+
+**`Assets/GV/Scripts/Network/BattleZoneController.cs`**
+- Added `Despawned()` override — resets local state (`_damageTimer`, `_loggedRenderOnce`) for room reuse
+
+**`Assets/GV/Scripts/RandomPowerSphere.cs`**
+- Added `FixedUpdateNetwork()` — server-side collider sync with `IsActive` every tick
+- Added `Despawned()` override — clears cooldowns, stops cycle coroutine, resets index
+- Enhanced `CooldownRoutine()` — force-enables collider immediately, validates Object state
+- Enhanced `OnTriggerEnter()` — detailed logging for collection attempts
+
+**`Assets/GV/Scripts/Web3/WalletHUD.cs`**
+- `EnforceTextLayout()` — explicit positioning with `fontSize * 1.5` line spacing
+- `FixTextField()` — disables word wrapping, overflow mode, 300px minimum width
+- `CreateTokenBalanceText()` — simplified, delegates positioning to `EnforceTextLayout()`
+
+### Key Lessons
+
+- **Scene-placed NetworkObjects cannot survive Runner lifecycle changes** — Fusion's internal state on NetworkObjects is tied to a specific Runner. No code-level cleanup (toggle, reflection, cloning) reliably resets it. The only guaranteed approach is to reload the scene from the asset.
+- **Dynamically instantiated objects ≠ scene-placed objects** — Even if clones have identical SortKeys and components, Fusion treats runtime-instantiated objects differently from scene-placed ones. Server/client scene object matching relies on objects being genuine scene instances.
+- **Disconnect event listeners BEFORE triggering events** — When manually overriding framework behavior (like camera assignment), disconnect from the framework's event system before the action that fires events, not after.
+- **Don't rely solely on ChangeDetector for critical state** — Fusion's ChangeDetector is designed for visual updates in `Render()`. For gameplay-critical state like collider enable/disable, use `FixedUpdateNetwork()` to directly enforce state every tick.
+- **Periodic retry > single watchdog** — For unreliable network handshakes (CLIENT_READY), a single retry after N seconds can still fail. Periodic retries at intervals give the server multiple chances to receive the signal.
