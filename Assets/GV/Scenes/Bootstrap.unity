@@ -338,8 +338,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dec2d42f5b1668a4b83a47d67dc542f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GV.Web3.Web3Bootstrap
-  nextSceneName: SCK_MainMenu_3
-  gameplaySceneName: Room_Tests_2
+  nextSceneName: Web3_Menu
+  gameplaySceneName: Gameplay
   autoLoadNextScene: 1
   networkManagerPrefab: {fileID: 4457085417121877800, guid: 5ed828d42d12fbf49a94e174b095ff2c,
     type: 3}

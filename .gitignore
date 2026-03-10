@@ -5,6 +5,17 @@
 .utmp/
 .agent/
 *.slnx
+
+# Build outputs (never commit compiled binaries)
+/[Ss]erver[Bb]uild/
+/[Bb]uild/
+/[Bb]uilds/
+
+# Debug logs and scratch files
+timingsynclogs*.txt
+jointest*.txt
+*_Debug_notepad*
+*_DoNotShip/
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/

@@ -66,6 +66,7 @@ MonoBehaviour:
     type: 3}
   spawnSpline: {fileID: 1084239169620881824, guid: ceed05c8864558f48803cf094ed7c1bd,
     type: 3}
+  spawnSplineName: Spline_2
   minSpawnSpacing: 250
   lobbyPanel: {fileID: 0}
   createRoomButton: {fileID: 0}
@@ -77,9 +78,11 @@ MonoBehaviour:
   playerCountText: {fileID: 0}
   clientJoinedText: {fileID: 0}
   disconnectButton: {fileID: 0}
+  enterBattleButton: {fileID: 0}
   showDebugUI: 0
   serverMode: 0
   autoHostInBuild: 0
   autoClientInBuild: 0
   fixedRegion: us
-  gameplaySceneName: Room_Tests_2
+  gameplaySceneName: Gameplay
+  vpsRoomApiUrl: http://187.124.96.178:7350
