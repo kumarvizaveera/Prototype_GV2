@@ -12,7 +12,7 @@ Ancient Vedic mythology meets high-tech sci-fi: fly **Vimanas** (ships), wield *
 
 ## Vision
 
-Akasthara is a mythic-futuristic game universe that begins with aerial combat in the GarudaVana Kingdom and expands into a multi-terrain, multi-vehicle Battle Royale with adventure storytelling and long-term progression. Each phase introduces new kingdoms, vehicle types, combat perspectives, and narrative layers. MythiX is the first playable face of this world: a competitive 4-player battle royale where blockchain is invisible infrastructure. Players never feel like they are using crypto. Wallets are abstracted, onboarding is frictionless, and ownership engagement is optional until the player is ready.
+Akasthara is a mythic-futuristic game universe that begins with aerial combat in the GarudaVana Kingdom and expands into a multi-terrain, multi-vehicle Battle Royale with adventure storytelling and long-term progression. Each phase introduces new kingdoms, vehicle types, combat perspectives, and narrative layers. MythiX is the first playable face of this world: a competitive 100-player battle royale where blockchain is invisible infrastructure. Players never feel like they are using crypto. Wallets are abstracted, onboarding is frictionless, and ownership engagement is optional until the player is ready.
 
 ---
 
@@ -25,9 +25,9 @@ Players connect their wallet, select a ship and characters they own as NFTs, and
 2. Select ship (ownership verified on-chain via ERC-1155)
 3. Select characters from two rosters with rarity-based stat multipliers
 4. Battle in multi-terrain arenas flying Vimana spaceships
-4. Shrinking battle zone forces combat, last ship standing wins
-5. Match ends and PRANA tokens are minted directly to player wallets
-6. Post-match screen shows on-chain earnings + tx confirmation
+5. Shrinking battle zone forces combat, last ship standing wins
+6. Match ends and PRANA tokens are minted directly to player wallets
+7. Post-match screen shows on-chain earnings + tx confirmation
 
 ---
 
@@ -37,7 +37,7 @@ Players connect their wallet, select a ship and characters they own as NFTs, and
 
 | Contract | Type | Address | Verify |
 |----------|------|---------|--------|
-| Ship NFTs | ERC-1155 | `0x8405209745b8f1A43D21876120543d20e4a7600C` | [View on Snowtrace](https://testnet.snowtrace.io/address/0x8405209745b8f1A43D21876120543d20e4a7600C) |
+| Ship and Character NFTs | ERC-1155 | `0x8405209745b8f1A43D21876120543d20e4a7600C` | [View on Snowtrace](https://testnet.snowtrace.io/address/0x8405209745b8f1A43D21876120543d20e4a7600C) |
 | PRANA Token | ERC-20 | `0xBF7c298C0f3E4745Ec902ED0008223747EEbd0d1` | [View on Snowtrace](https://testnet.snowtrace.io/address/0xBF7c298C0f3E4745Ec902ED0008223747EEbd0d1) |
 | Server Wallet | EOA | `0x2bBc1C32224a347eaF8d10cAFaF77F3aBCA2551f` | [View on Snowtrace](https://testnet.snowtrace.io/address/0x2bBc1C32224a347eaF8d10cAFaF77F3aBCA2551f) |
 | Reward Wallet | EOA (Minter) | `0x78A75F10f4c2A20bd30c4A683607ABc1A22Bb352` | [View on Snowtrace](https://testnet.snowtrace.io/address/0x78A75F10f4c2A20bd30c4A683607ABc1A22Bb352) |
@@ -82,9 +82,9 @@ All blockchain code lives in `Assets/GV/Scripts/Web3/` under the `GV.Web3` names
 | Web3 SDK | Thirdweb Unity SDK |
 | Transaction Signing | Nethereum v5.0.0 |
 | External Wallets | Reown AppKit (MetaMask, Coinbase, WalletConnect) |
-| Smart Contracts | ERC-1155 (ships) + ERC-20 (PRANA rewards) |
+| Smart Contracts | ERC-1155 (ships + characters) + ERC-20 (PRANA rewards) |
 | Engine | Unity 6000.3.0f1, Universal Render Pipeline |
-| Multiplayer | Photon Fusion 2 (Host/Client, max 4 players) |
+| Multiplayer | Photon Fusion 2 (Host/Client, prototype 4 players, scaling to 100) |
 | Vehicle Framework | SpaceCombatKit |
 
 ---
