@@ -2,11 +2,9 @@
 
 > Built for the **Avalanche Build Games** hackathon | Main branch: `main` | Development branch: `MythiX_GV`
 
-A multiplayer aerial battle royale built in Unity, with on-chain ship NFTs and play-to-earn token rewards on the **Avalanche C-Chain**. This is Phase 1 of the Akasthara universe, set in the GarudaVana Kingdom.
+A multiplayer aerial battle royale built in Unity, with on-chain ship NFTs and play-and-earn token rewards on the **Avalanche C-Chain**. This is Phase 1 of the Akasthara universe, set in the GarudaVana Kingdom.
 
 Ancient Vedic mythology meets high-tech sci-fi: fly **Vimanas** (ships), wield **Astras** (weapons), and earn **PRANA** tokens, all verifiable on-chain.
-
-<!-- Demo video: [TBA] -->
 
 ---
 
@@ -50,7 +48,7 @@ All contracts are deployed and tested on the Avalanche Fuji C-Chain. The reward 
 
 **Ship and Character NFTs (ERC-1155)** - Ships and characters are on-chain tokens on the Avalanche C-Chain. The game queries the player's NFT balance to determine which ships they can fly and which characters they can use. 8 characters across 2 rosters with rarity tiers (Common, Rare, Epic, Legendary) that apply stat multipliers. Free defaults are available so the game is accessible without holding NFTs.
 
-**Battle Rewards (ERC-20)** - When a match ends, a dedicated reward wallet mints PRANA tokens to each player based on their final placement (1st through 4th). Minting happens asynchronously via the Avalanche Fuji RPC so it never blocks the game loop. Transactions are confirmed on-chain before the UI updates.
+**Battle Rewards (ERC-20)** - When a match ends, a dedicated reward wallet mints PRANA tokens to each player based on their final placement (1st through 4th in the prototype, expanding with more placement tiers at scale). Minting happens asynchronously via the Avalanche Fuji RPC so it never blocks the game loop. Transactions are confirmed on-chain before the UI updates.
 
 **Live Balance Display** - The in-game HUD shows the player's AVAX balance and PRANA token balance in real-time, fetched directly from the Avalanche C-Chain.
 
@@ -85,7 +83,7 @@ All blockchain code lives in `Assets/GV/Scripts/Web3/` under the `GV.Web3` names
 | Smart Contracts | ERC-1155 (ships + characters) + ERC-20 (PRANA rewards) |
 | Engine | Unity 6000.3.0f1, Universal Render Pipeline |
 | Multiplayer | Photon Fusion 2 (Host/Client, prototype 4 players, scaling to 100) |
-| Vehicle Framework | SpaceCombatKit |
+| Vehicle Framework | Custom aerial vehicle combat system |
 
 ---
 
