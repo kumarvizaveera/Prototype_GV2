@@ -18,12 +18,13 @@ Akasthara is a mythic-futuristic game universe that begins with aerial combat in
 
 ## What It Does
 
-Players connect their wallet, select a ship they own as an NFT, and battle in a 4-player shrinking-zone arena. When the match ends, the game automatically mints ERC-20 reward tokens to each player based on their final placement. No claiming UI, no manual transactions, just play and earn.
+Players connect their wallet, select a ship and characters they own as NFTs, and battle in a shrinking-zone arena. The prototype supports 4 players per match, scaling to 100 players for full launch. When the match ends, the game automatically mints ERC-20 reward tokens to each player based on their final placement. No claiming UI, no manual transactions, just play and earn.
 
 **Gameplay Flow:**
 1. Connect wallet (email, Google, Discord, MetaMask, or guest)
 2. Select ship (ownership verified on-chain via ERC-1155)
-3. Battle in multi-terrain arenas flying Vimana spaceships
+3. Select characters from two rosters with rarity-based stat multipliers
+4. Battle in multi-terrain arenas flying Vimana spaceships
 4. Shrinking battle zone forces combat, last ship standing wins
 5. Match ends and PRANA tokens are minted directly to player wallets
 6. Post-match screen shows on-chain earnings + tx confirmation
@@ -47,7 +48,7 @@ All contracts are deployed and tested on the Avalanche Fuji C-Chain. The reward 
 
 **Wallet Authentication** - Players connect via email, Google, Discord, guest login, or external wallets (MetaMask/Coinbase). Powered by Thirdweb InAppWallet + Reown AppKit.
 
-**Ship NFTs (ERC-1155)** - Each ship type is an on-chain token on the Avalanche C-Chain. The game queries the player's NFT balance to determine which ships they can fly. A free default ship is available to all players so the game is accessible without holding NFTs.
+**Ship and Character NFTs (ERC-1155)** - Ships and characters are on-chain tokens on the Avalanche C-Chain. The game queries the player's NFT balance to determine which ships they can fly and which characters they can use. 8 characters across 2 rosters with rarity tiers (Common, Rare, Epic, Legendary) that apply stat multipliers. Free defaults are available so the game is accessible without holding NFTs.
 
 **Battle Rewards (ERC-20)** - When a match ends, a dedicated reward wallet mints PRANA tokens to each player based on their final placement (1st through 4th). Minting happens asynchronously via the Avalanche Fuji RPC so it never blocks the game loop. Transactions are confirmed on-chain before the UI updates.
 
@@ -128,11 +129,9 @@ Assets/GV/Scripts/
 
 | Role | Name | Notes |
 |------|------|-------|
-| Founder | Bharath Vizaveera (Veera) | Non-developer founder managing the project using AI tools (Claude Code, Cowork) |
-| Game Developer | Sai Bharath Kalyan | Unity development, multiplayer systems |
-| Game Developer | Raj Agrahari | Unity development, gameplay mechanics |
-
-The team uses AI as a primary development and management tool. Claude Code handles coding tasks and Cowork manages project workflow, enabling a non-developer founder to actively contribute to technical direction and blockchain integration.
+| Founder | Bharath Vizaveera (Veera) | Filmmaker, Web3 builder, and entrepreneur |
+| Game Developer | Sai Bharath Kalyan | Unity development |
+| Game Developer | Raj Agrahari | Unity development |
 
 ---
 
