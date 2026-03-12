@@ -1497,7 +1497,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 381094079}
+  m_Father: {fileID: 566248458}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -1517,7 +1517,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.31764707}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1944,7 +1944,6 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 937878471}
-  - {fileID: 287868009}
   - {fileID: 973323716}
   - {fileID: 163886859}
   - {fileID: 230230020}
@@ -2174,6 +2173,12 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 2643279768765258688, guid: 495fa160402391a4a970cc570882acd7,
     type: 3}
   m_PrefabInstance: {fileID: 510727989}
+  m_PrefabAsset: {fileID: 0}
+--- !u!224 &566248458 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 5889085586365398974, guid: 3b54c6453f85beb4ea701ea42d976825,
+    type: 3}
+  m_PrefabInstance: {fileID: 767885481}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &597162301
 GameObject:
@@ -3614,6 +3619,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 5889085586365398974, guid: 3b54c6453f85beb4ea701ea42d976825,
+        type: 3}
+      insertIndex: 0
+      addedObject: {fileID: 287868009}
     - targetCorrespondingSourceObject: {fileID: 2643679104159084979, guid: 3b54c6453f85beb4ea701ea42d976825,
         type: 3}
       insertIndex: -1
@@ -3929,7 +3938,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &937878471
 RectTransform:
   m_ObjectHideFlags: 0
