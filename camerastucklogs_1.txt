@@ -1,0 +1,2106 @@
+[RoomManager] Creating room '75SX'...
+OnGUI function detected on MonoBehaviour, but not called, because IMGUI module is stripped.
+[NetworkManager] Awake() on instance -298082, existing Instance=NULL, scene=Gameplay, roomManagerControlled=False
+[NetworkManager] Instance SET to -298082, DontDestroyOnLoad applied
+[NetworkManager] ServerMode=Auto, IsDedicatedServer=True, ParrelSyncClone=False
+[NetworkManager] BUILD_VERSION: 2026-03-10-camera-fix-v8
+[NetworkManager] StartServerForRoom: code=75SX, maxPlayers=4
+[NetworkManager] Static state RESET (prevents stale data from previous play session)
+[NetworkManager] Runner created with DontDestroyOnLoad
+[NetworkManager] Registered SINGLE callback (NetworkManager) BEFORE StartGame — OnInput delegates to NetworkedPlayerInput
+[NetworkManager] Active scene: 'Gameplay', buildIndex=2, isLoaded=True
+[NetworkManager] PhotonAppSettings.Global found: True
+[NetworkManager] Loaded from Global: AppId length=36, AppVersion=''
+[NetworkManager] Photon UserId set to: 5deb008e-ad06-4302-88e1-843df1750c0c
+[NetworkManager] Starting game. Mode=Server, Region=us, Session=75SX, MaxPlayers=4, AppID=...63dc, AppVersion='', UseNameServer=True
+[NetworkManager] Using NoOpSceneManager on Runner GO (NetworkRunner) — scene loading handled manually
+[RoomManager] HTTP: Created room '75SX'
+[NetworkManager] Dedicated Server (RoomManager-controlled) — waiting for StartServerForRoom()
+<color=#144078>[Fusion]</color> [9:21.21] SupportLogger Info: AppID: "4f22d424***" AppVersion: "" Client: v4.1.8.16 (NetStandard20) Build: 6000.3.0f1, LinuxServer, ENABLE_MONO, DEBUG, NET_STANDARD_2_0 Socket: SocketUdp UserId: "5deb008e-ad06-4302-88e1-843df1750c0c" AuthType: None AuthMode: Auth PayloadEncryption State: ConnectingToMasterServer PeerID: 35001 NameServer: ns.photonengine.io Current Server: 5.8.93.201:27001 IP: 5.8.93.201:27001 Region: us 03/13/2026 10:59:26 UTC
+[NoOpSceneManager] Initialized — scene sync is DISABLED for this runner.
+[NetworkManager] StartGame returned: Ok=True, ShutdownReason=Ok
+[SCENE-DIAG] Runner GO 'NetworkRunner' has 1 INetworkSceneManager(s):
+[SCENE-DIAG]   - NoOpSceneManager (instanceID=-298090)
+[SCENE-DIAG] NetworkManager GO 'NetworkManager_Room_75SX' has 0 INetworkSceneManager(s):
+[SCENE-DIAG] Total NetworkSceneManagerDefault in scene: 0
+[SCENE-DIAG] Runner.gameObject == this.gameObject? False
+[SCENE-DIAG] _connectedToDedicatedServer=False, _isRoomManagerControlled=True, _roomFlowActive=True
+[NetworkManager] Post-StartGame: re-registered callbacks, ProvideInput=False, IsClient=False, IsServer=True, LocalPlayer=[Player:None]
+[NetworkManager] Started game as Server, LocalPlayer=[Player:None], Session=75SX
+[LevelSynchronizer] Generated Seed: 75939487
+[NetworkManager] Spawned LevelSynchronizer
+[NetworkManager] StartServerForRoom result: success=True
+[NetworkManager] StartServerForRoom: Subsequent room — reloading gameplay scene for fresh NetworkObjects...
+[NetworkManager] ReloadGameplaySceneAsync: reloading 'Gameplay'...
+[NoOpSceneManager] OnSceneInfoChanged (source=Initial, sceneCount=1) — IGNORING (manual scene control).
+Unloading 5 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 6.583406 ms
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+[BattleRewardBridge] Dedicated server detected — disabling reward bridge (client-only feature)
+[PostMatchRewardUI] Subscribed to BattleRewardManager events.
+OnGUI function detected on MonoBehaviour, but not called, because IMGUI module is stripped.
+[NetworkManager] Unity sceneLoaded — scene: Gameplay, gameplaySceneName: Gameplay, pending: 0, STACK TRACE:
+  at System.Environment.get_StackTrace () [0x00000] in <1a795a29c7af4385b159eb69f68237b8>:0
+  at GV.Network.NetworkManager.OnUnitySceneLoaded (UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode) [0x00000] in <fc09b31542d4488fb7d96de1f4dc2839>:0
+  at UnityEngine.SceneManagement.SceneManager.Internal_SceneLoaded (UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode) [0x00000] in <58c502814e474a9da88e4bf38cd75987>:0
+[NetworkManager] Unity loaded gameplay scene 'Gameplay' but _manualSceneLoadRequested=false — this was Fusion auto-sync, NOT our Enter Battle flow. IGNORING spawn/setup.
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[PostMatchRewardUI] Auto-built reward popup UI.
+[GyroRings] Randomized start: Checkpoint 15 (range was 3-15)
+Placed Gyro_Random Power (1) at checkpoint 15 (Instance-16)
+Placed Gyro_Random Power (2) at checkpoint 33 (Instance-33)
+Placed Gyro_Random Power (3) at checkpoint 51 (Instance-50)
+Placed Gyro_Random Power (4) at checkpoint 69 (Instance-69)
+Placed Gyro_Random Power (5) at checkpoint 87 (Instance-87)
+Placed Gyro_Random Power (6) at checkpoint 105 (Instance-105)
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[NetworkedAstraRefillInitializer] Initializing spawner with seed: 75939487 on Weapon Cubes
+[AstraRefillSpawner] Box: spawned 540/540 objects (seed=41)
+[NetworkedSpawnerInitializer] Initializing spawner with seed: -655014185
+[MassObjectSpawner] Spawned 100/100 objects (seed=41)
+[NetworkManager] ReloadGameplaySceneAsync: 'Gameplay' reload complete in 0.24s
+Unloading 743 unused Assets to reduce memory usage. Loaded Objects now: 45614.
+Total: 24.898511 ms (FindLiveObjects: 2.252737 ms CreateObjectMapping: 0.800807 ms MarkObjects: 21.041557 ms  DeleteObjects: 0.802805 ms)
+
+[NetworkManager] StartServerForRoom: Registering scene NetworkObjects for 'Gameplay'...
+[RandomPowerSphere] Spawned() — 'Sphere_RandomPower', HasStateAuthority=True
+[RandomPowerSphere] Spawned() — 'Sphere_RandomPower', HasStateAuthority=True
+[RandomPowerSphere] Spawned() — 'Sphere_RandomPower', HasStateAuthority=True
+[RandomPowerSphere] Spawned() — 'Sphere_RandomPower', HasStateAuthority=True
+[RandomPowerSphere] Spawned() — 'Sphere_RandomPower', HasStateAuthority=True
+[RandomPowerSphere] Spawned() — 'Sphere_RandomPower', HasStateAuthority=True
+[EliminationTracker] Spawned! IsHost=True
+[BattleZoneController] Spawned() — HasStateAuthority=True, autoStart=True, initialRadius=20000, shrinkDuration=300, IsDedicatedServer=True, sphereVisual=Sphere, timerText=assigned
+[NetworkManager] RegisterSceneNetworkObjects — registered 14/14 NetworkObjects in scene 'Gameplay' (SceneRef=[Scene:#2])
+[RoomManager] Room '75SX' is LIVE — session created, waiting for players
+[EliminationTracker] Subscribed to GameManager events
+[BattleZoneController] Render() SKIPPED — IsDedicatedServer is TRUE. If you're in the Editor, check NetworkManager's ServerMode in Inspector (should be Auto, not DedicatedServer).
+<color=#144078>[Fusion]</color> RegisterUniqueIdPlayerMapping actorid:2 id:367375571669634293, player:[Player:2]
+<color=#144078>[Fusion]</color> adding player [Player:2]
+[SPAWN-DEBUG] OnPlayerJoined: player=2, IsServer=True, inGameplayScene=False, IsDedicatedServer=True, playerPrefab=Player_ForMultiplayer, pendingSpawns=0, spawnedPlayers=0, isRoomManagerControlled=True, instanceID=-298082
+[SPAWN-DEBUG] Player 2 QUEUED in _pendingSpawns (inGameplayScene=false). pendingSpawns will be 1 after add. thisID=-298082, liveID=-298082
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] OnReliableDataReceived #1: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-298082, Instance.ID=-298082, sameInstance=True
+[MATCH-DEBUG] SERVER RAW BYTES [24..32] from player 2: 00 00 00 00 00 FA 07 00 00  (len=37, hasButtons=False)
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=1
+[NetworkManager] OnReliableDataReceived #2: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-298082, Instance.ID=-298082, sameInstance=True
+[MATCH-DEBUG] SERVER RAW BYTES [24..32] from player 2: 00 00 00 00 00 FA 07 00 00  (len=37, hasButtons=False)
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] OnReliableDataReceived #3: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-298082, Instance.ID=-298082, sameInstance=True
+[MATCH-DEBUG] SERVER RAW BYTES [24..32] from player 2: 00 00 00 00 00 FA 07 00 00  (len=37, hasButtons=False)
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] OnReliableDataReceived #4: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-298082, Instance.ID=-298082, sameInstance=True
+[MATCH-DEBUG] SERVER RAW BYTES [24..32] from player 2: 00 00 00 00 00 FA 07 00 00  (len=37, hasButtons=False)
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] OnReliableDataReceived #5: player=[Player:2], dataLen=37, key=Fusion.Sockets.ReliableKey, thisID=-298082, Instance.ID=-298082, sameInstance=True
+[MATCH-DEBUG] SERVER RAW BYTES [24..32] from player 2: 00 00 00 00 00 FA 07 00 00  (len=37, hasButtons=False)
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[MATCH-DEBUG] SERVER RAW BYTES [24..32] from player 2: 00 00 00 00 00 FA 07 00 00  (len=37, hasButtons=False)
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=53
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=107
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+<color=#144078>[Fusion]</color> RegisterUniqueIdPlayerMapping actorid:3 id:17793382611685086990, player:[Player:3]
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=158
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+<color=#144078>[Fusion]</color> adding player [Player:3]
+[SPAWN-DEBUG] OnPlayerJoined: player=3, IsServer=True, inGameplayScene=False, IsDedicatedServer=True, playerPrefab=Player_ForMultiplayer, pendingSpawns=1, spawnedPlayers=0, isRoomManagerControlled=True, instanceID=-298082
+[SPAWN-DEBUG] Player 3 QUEUED in _pendingSpawns (inGameplayScene=false). pendingSpawns will be 2 after add. thisID=-298082, liveID=-298082
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:3]: throttle=0.00, steer=(-0.47,-0.50), magic=3042, recvTotal=214
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[RoomManager] HTTP /start/75SX: Triggering match start via HTTP!
+[SPAWN-DEBUG] SERVER: TriggerMatchStart — sending COUNTDOWN, will spawn after 0.5s (client handles its own 3s countdown)
+[SPAWN-DEBUG] SERVER: Sent COUNTDOWN to player 2
+[SPAWN-DEBUG] SERVER: Sent COUNTDOWN to player 3
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:2]: throttle=0.00, steer=(0.00,0.00), magic=2042, recvTotal=316
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Flag-based countdown finished! Sending SCENE_LOAD to clients (waiting for CLIENT_READY before spawning)...
+[SPAWN-DEBUG] SERVER: _inGameplayScene set to TRUE. pendingSpawns=2, alreadySpawned=0, Runner=True, RunnerIsRunning=True, playerPrefab=Player_ForMultiplayer
+[NetworkManager] Found spawnSpline on scene instance 'Spline_2' at worldPos: (-1357.23, 0.00, 401.62)
+[SPAWN-DEBUG] SERVER: TryFindSpawnSpline done. spawnSpline=Spline_2
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY from 2 players...
+[NetworkManager] SERVER: Sent SCENE_LOAD to player 2
+[NetworkManager] SERVER: Sent SCENE_LOAD to player 3
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=0.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=1.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] HOST RECEIVED RAW INPUT from [Player:3]: throttle=0.00, steer=(0.00,0.00), magic=3042, recvTotal=367
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=2.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=3.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=4.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=5.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=6.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=7.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=8.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=9.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=10.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.4s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=11.5s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=12.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=12.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=12.0s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=12.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=12.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=12.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=12.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/2 connected ready, 0/2 total, elapsed=12.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] Player 3 left
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.1s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.2s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... 0/1 connected ready, 0/1 total, elapsed=12.3s/15s
+[EliminationTracker] Searching for vehicles... Found 0 VehicleHealth in scene
+[NetworkManager] Player 2 left
+[SPAWN-DEBUG] SERVER: All players disconnected while waiting for CLIENT_READY. Aborting spawn.
+[RoomManager] Room '75SX' empty for 60s — shutting down
+[NetworkManager] OnShutdown called! Reason=Ok, Runner=exists, IsRunning=YES, IsDedicatedServer=True
+[RandomPowerSphere] Despawned() — 'Sphere_RandomPower', resetting for room reuse. hasState=False
+[RandomPowerSphere] Despawned() — 'Sphere_RandomPower', resetting for room reuse. hasState=False
+[RandomPowerSphere] Despawned() — 'Sphere_RandomPower', resetting for room reuse. hasState=False
+[RandomPowerSphere] Despawned() — 'Sphere_RandomPower', resetting for room reuse. hasState=False
+[RandomPowerSphere] Despawned() — 'Sphere_RandomPower', resetting for room reuse. hasState=False
+[RandomPowerSphere] Despawned() — 'Sphere_RandomPower', resetting for room reuse. hasState=False
+[BattleZoneController] Despawned() — resetting local state for room reuse. hasState=False
+[NoOpSceneManager] Shutdown called! Stack trace:
+  at System.Environment.get_StackTrace () [0x00000] in <1a795a29c7af4385b159eb69f68237b8>:0
+  at NoOpSceneManager.Shutdown () [0x00000] in <fc09b31542d4488fb7d96de1f4dc2839>:0
+  at Fusion.NetworkRunner.Shutdown (System.Boolean destroyGameObject, Fusion.ShutdownReason shutdownReason, System.Boolean forceShutdownProcedure) [0x00000] in <70c0879301ea465eaf2082d70d62c9c8>:0
+  at GV.Network.NetworkManager.Disconnect () [0x00000] in <fc09b31542d4488fb7d96de1f4dc2839>:0
+  at GV.Network.RoomManager.ShutdownRoomInternal (GV.Network.RoomManager+RoomInfo room) [0x00000] in <fc09b31542d4488fb7d96de1f4dc2839>:0
+  at GV.Network.RoomManager.ShutdownRoom (System.String code) [0x00000] in <fc09b31542d4488fb7d96de1f4dc2839>:0
+  at GV.Network.RoomManager.CleanupEmptyRooms () [0x00000] in <fc09b31542d4488fb7d96de1f4dc2839>:0
+  at GV.Network.RoomManager.Update () [0x00000] in <fc09b31542d4488fb7d96de1f4dc2839>:0
+[RoomManager] Room '75SX' shut down

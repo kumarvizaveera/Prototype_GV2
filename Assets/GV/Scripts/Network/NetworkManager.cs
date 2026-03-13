@@ -13,6 +13,7 @@ using VSX.CameraSystem;
 using VSX.VehicleCombatKits;
 using VSX.Vehicles;
 using UnityEngine.Splines;
+using UnityEngine.Rendering.Universal;
 using Unity.Mathematics;
 
 namespace GV.Network
@@ -153,7 +154,7 @@ namespace GV.Network
         private GameObject _loadingScreenGO;
         private bool _waitingForShipToAppear = false;
         private float _loadingScreenShownTime = 0f;
-        private const float LOADING_SCREEN_TIMEOUT = 25f; // Force-hide after 25s (past server's 15s timeout)
+        private const float LOADING_SCREEN_TIMEOUT = 20f; // Force-hide after 20s (server's CLIENT_READY timeout is 15s + Fusion replication time)
         private int _shipDetectLogCounter = 0;
 
         /// <summary>
@@ -437,6 +438,87 @@ namespace GV.Network
             }
             _waitingForShipToAppear = false;
             Debug.Log("[NetworkManager] Loading screen HIDDEN — ship appeared");
+
+            // POST-HIDE: Enforce correct camera is active.
+            // After loading screen disappears, make sure VehicleCamera is the only rendering camera.
+            // This catches the case where the scene camera was visible in the gap between
+            // loading screen hide and ship spawn.
+            StartCoroutine(EnforceCameraAfterLoadingScreen());
+        }
+
+        /// <summary>
+        /// Coroutine that runs 0.5s after loading screen hides to ensure VehicleCamera is rendering.
+        /// If no VehicleCamera has a target yet, waits up to 5s checking every 0.5s.
+        /// </summary>
+        private System.Collections.IEnumerator EnforceCameraAfterLoadingScreen()
+        {
+            float waited = 0f;
+            while (waited < 5f)
+            {
+                yield return new WaitForSeconds(0.5f);
+                waited += 0.5f;
+
+                var vc = FindFirstObjectByType<VehicleCamera>();
+                if (vc != null && vc.TargetVehicle != null)
+                {
+                    // VehicleCamera is assigned — disable conflicting cameras but preserve URP Base camera
+                    Camera vcCam = vc.MainCamera;
+                    if (vcCam != null) vcCam.enabled = true;
+
+                    // Find the URP Base camera that has our MainCamera in its stack
+                    Camera urpBaseCam = FindURPBaseCameraForOverlay(vcCam);
+
+                    Camera[] allCams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+                    foreach (var cam in allCams)
+                    {
+                        if (cam == vcCam) continue;
+                        if (cam == urpBaseCam)
+                        {
+                            cam.enabled = true;
+                            Debug.Log($"[CAM-ENFORCE] Keeping URP Base camera ENABLED: '{cam.gameObject.name}' (depth={cam.depth})");
+                            continue;
+                        }
+                        if (cam.enabled)
+                        {
+                            Debug.Log($"[CAM-ENFORCE] DISABLING camera: '{cam.gameObject.name}' (tag={cam.tag}, depth={cam.depth})");
+                            cam.enabled = false;
+                        }
+                    }
+                    Debug.Log($"[CAM-ENFORCE] VehicleCamera confirmed active, target={vc.TargetVehicle.name}, cam={vcCam?.name}, depth={vcCam?.depth}, urpBase={(urpBaseCam != null ? urpBaseCam.name : "NONE")}");
+                    yield break;
+                }
+                else
+                {
+                    Debug.Log($"[CAM-ENFORCE] Waiting for VehicleCamera target... ({waited:F1}s)");
+                }
+            }
+            Debug.LogWarning("[CAM-ENFORCE] VehicleCamera never got a target after 5s!");
+        }
+
+        /// <summary>
+        /// Finds the URP Base camera that has the given overlay camera in its camera stack.
+        /// Returns null if the camera is not an Overlay or no Base camera contains it.
+        /// </summary>
+        private Camera FindURPBaseCameraForOverlay(Camera overlayCam)
+        {
+            if (overlayCam == null) return null;
+            var camData = overlayCam.GetComponent<UniversalAdditionalCameraData>();
+            if (camData == null || camData.renderType != CameraRenderType.Overlay) return null;
+
+            Camera[] allCams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            foreach (var cam in allCams)
+            {
+                if (cam == overlayCam) continue;
+                var baseCamData = cam.GetComponent<UniversalAdditionalCameraData>();
+                if (baseCamData != null && baseCamData.renderType == CameraRenderType.Base && baseCamData.cameraStack != null)
+                {
+                    if (baseCamData.cameraStack.Contains(overlayCam))
+                    {
+                        return cam;
+                    }
+                }
+            }
+            return null;
         }
 
         /// <summary>
@@ -1619,12 +1701,15 @@ namespace GV.Network
                 && Runner != null && Runner.IsClient && Runner.IsRunning)
             {
                 float sinceSceneLoad = Time.time - _inGameplaySceneTimestamp;
-                // Retry at 8s, 13s, 18s — gives server multiple chances to receive CLIENT_READY
-                if (sinceSceneLoad > 8f && sinceSceneLoad % 5f < Time.deltaTime)
+                // Retry every 2s starting at 3s — much more aggressive to beat the 15s timeout
+                // Fires at ~3s, 5s, 7s, 9s, 11s, 13s — gives 6 retry attempts before server timeout
+                if (sinceSceneLoad > 3f && ((int)(sinceSceneLoad * 0.5f)) != ((int)((sinceSceneLoad - Time.deltaTime) * 0.5f)))
                 {
                     Debug.LogWarning($"[CTL-DIAG] PERIODIC RETRY: Re-sending CLIENT_READY at {sinceSceneLoad:F1}s since scene load");
+                    // 4-byte channel
                     try { Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC); }
                     catch { }
+                    // 37-byte channel
                     try
                     {
                         var retryData = new PlayerInputData();
@@ -1633,6 +1718,12 @@ namespace GV.Network
                         Runner.SendReliableDataToServer(INPUT_DATA_KEY, retryBytes);
                     }
                     catch { }
+                    // Also re-enable magic embedding if it expired
+                    if (!_clientSendingReady)
+                    {
+                        _clientSendingReady = true;
+                        _clientReadySendStartTime = Time.time;
+                    }
                 }
             }
 
@@ -1643,19 +1734,48 @@ namespace GV.Network
 
                 try
                 {
-                    // GetPlayerObject requires SetPlayerObject which we never call.
-                    // Instead, find any NetworkObject with our InputAuthority.
-                    bool found = false;
-                    int totalObjects = 0;
+                    // Collect all network objects into a list FIRST — Fusion's GetAllNetworkObjects()
+                    // returns a struct enumerator that gets exhausted after one foreach loop.
+                    var allObjects = new System.Collections.Generic.List<Fusion.NetworkObject>();
                     foreach (var no in Runner.GetAllNetworkObjects())
                     {
-                        totalObjects++;
-                        if (no != null && no.InputAuthority == Runner.LocalPlayer && no.gameObject != this.gameObject)
+                        if (no != null) allObjects.Add(no);
+                    }
+
+                    // Search for our ship: any NetworkObject with our InputAuthority
+                    bool found = false;
+                    foreach (var no in allObjects)
+                    {
+                        if (no.InputAuthority == Runner.LocalPlayer && no.gameObject != this.gameObject)
                         {
-                            Debug.Log($"[NetworkManager] CLIENT: Local player ship detected ({no.name})! Hiding loading screen after {loadingElapsed:F1}s.");
+                            Debug.Log($"[NetworkManager] CLIENT: Local player ship detected ({no.name}) at pos={no.transform.position}! " +
+                                      $"Hiding loading screen after {loadingElapsed:F1}s.");
                             HideLoadingScreen();
                             found = true;
                             break;
+                        }
+                    }
+
+                    // FALLBACK: Also search by name pattern — in case InputAuthority hasn't replicated yet
+                    if (!found)
+                    {
+                        foreach (var no in allObjects)
+                        {
+                            if (no.gameObject != this.gameObject &&
+                                (no.name.Contains("Player_ForMultiplayer") || no.name.Contains("SpaceFighter")))
+                            {
+                                // Check if this has a NetworkedSpaceshipBridge — it's a player ship
+                                var bridge = no.GetComponent<NetworkedSpaceshipBridge>();
+                                if (bridge != null && no.HasInputAuthority)
+                                {
+                                    Debug.Log($"[NetworkManager] CLIENT: Ship found via name+bridge fallback ({no.name})! " +
+                                              $"InputAuth={no.InputAuthority}, HasInputAuth={no.HasInputAuthority}. " +
+                                              $"Hiding loading screen after {loadingElapsed:F1}s.");
+                                    HideLoadingScreen();
+                                    found = true;
+                                    break;
+                                }
+                            }
                         }
                     }
 
@@ -1665,9 +1785,16 @@ namespace GV.Network
                         _shipDetectLogCounter++;
                         if (_shipDetectLogCounter % 60 == 1)
                         {
+                            // Dump ALL network objects from the pre-collected list
+                            var objList = new System.Text.StringBuilder();
+                            foreach (var no in allObjects)
+                            {
+                                objList.Append($"\n  [{no.name}] InputAuth={no.InputAuthority}, HasInputAuth={no.HasInputAuthority}, pos={no.transform.position}, isThis={no.gameObject == this.gameObject}");
+                            }
                             Debug.Log($"[SHIP-DETECT] Waiting for ship... elapsed={loadingElapsed:F1}s, " +
-                                      $"totalNetworkObjects={totalObjects}, LocalPlayer={Runner.LocalPlayer}, " +
-                                      $"IsRunning={Runner.IsRunning}, IsClient={Runner.IsClient}");
+                                      $"totalNetworkObjects={allObjects.Count}, LocalPlayer={Runner.LocalPlayer}, " +
+                                      $"IsRunning={Runner.IsRunning}, IsClient={Runner.IsClient}" +
+                                      $"\nAll NetworkObjects:{objList}");
                         }
                     }
                 }
@@ -1681,9 +1808,8 @@ namespace GV.Network
                     }
                 }
 
-                // TIMEOUT: Force-hide loading screen if it's been showing too long.
-                // The server force-spawns after 15s, so by 25s something is clearly wrong.
-                // Don't leave the player stuck on a loading screen forever.
+                // TIMEOUT: Force-hide loading screen after server's 15s CLIENT_READY timeout + buffer.
+                // Server force-spawns at 15s, Fusion needs time to replicate — wait 20s total.
                 if (loadingElapsed > LOADING_SCREEN_TIMEOUT)
                 {
                     Debug.LogWarning($"[NetworkManager] CLIENT: Loading screen TIMEOUT after {loadingElapsed:F1}s! " +
@@ -2510,7 +2636,7 @@ namespace GV.Network
         private void SetupCameraFollow(GameObject playerObject)
         {
             Debug.Log($"[NetworkManager] SetupCameraFollow called for: {playerObject.name}");
-            
+
             // Find the Vehicle component on the spawned player
             var vehicle = playerObject.GetComponentInChildren<Vehicle>(true);
             if (vehicle == null)
@@ -2518,9 +2644,9 @@ namespace GV.Network
                 Debug.LogWarning("[NetworkManager] No Vehicle found on spawned player!");
                 return;
             }
-            
+
             Debug.Log($"[NetworkManager] Found Vehicle: {vehicle.name}");
-            
+
             // Find the VehicleCamera in the scene (SpaceCombatKit's camera system)
             var vehicleCamera = FindFirstObjectByType<VehicleCamera>();
             if (vehicleCamera != null)
@@ -2532,11 +2658,42 @@ namespace GV.Network
                     Debug.Log("[NetworkManager] Disconnected VehicleCamera from GameAgentManager before SetVehicle");
                 }
 
+                // Permanently sever linkToGameAgentManager so VehicleCamera.Start() can't re-link
+                var linkField = typeof(VehicleCamera).GetField("linkToGameAgentManager",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (linkField != null)
+                {
+                    linkField.SetValue(vehicleCamera, false);
+                    Debug.Log("[NetworkManager] Set linkToGameAgentManager = false on VehicleCamera");
+                }
+
+                // Disable conflicting cameras but preserve URP Base camera in the stack
+                Camera vcCam = vehicleCamera.MainCamera;
+                if (vcCam != null) vcCam.enabled = true;
+                Camera urpBaseCam = FindURPBaseCameraForOverlay(vcCam);
+                Camera[] allCameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+                foreach (var cam in allCameras)
+                {
+                    if (cam == vcCam) continue;
+                    if (cam == urpBaseCam)
+                    {
+                        cam.enabled = true;
+                        Debug.Log($"[NetworkManager] Keeping URP Base camera ENABLED: '{cam.gameObject.name}' (depth={cam.depth})");
+                        continue;
+                    }
+                    if (cam.enabled)
+                    {
+                        Debug.Log($"[NetworkManager] DISABLING camera: '{cam.gameObject.name}' (tag={cam.tag}, depth={cam.depth})");
+                        cam.enabled = false;
+                    }
+                }
+
                 vehicleCamera.SetVehicle(vehicle);
+
                 Debug.Log($"[NetworkManager] VehicleCamera now following: {vehicle.name}");
                 return;
             }
-            
+
             // Fallback: try generic CameraEntity
             var cameraEntity = FindFirstObjectByType<CameraEntity>();
             if (cameraEntity != null)
@@ -2549,7 +2706,7 @@ namespace GV.Network
                     return;
                 }
             }
-            
+
             Debug.LogWarning("[NetworkManager] No camera system found in scene!");
         }
         
