@@ -1653,3 +1653,151 @@ After deploying the dedicated server, four issues were reported:
 - **Disconnect event listeners BEFORE triggering events** — When manually overriding framework behavior (like camera assignment), disconnect from the framework's event system before the action that fires events, not after.
 - **Don't rely solely on ChangeDetector for critical state** — Fusion's ChangeDetector is designed for visual updates in `Render()`. For gameplay-critical state like collider enable/disable, use `FixedUpdateNetwork()` to directly enforce state every tick.
 - **Periodic retry > single watchdog** — For unreliable network handshakes (CLIENT_READY), a single retry after N seconds can still fail. Periodic retries at intervals give the server multiple chances to receive the signal.
+
+---
+
+## Session 17 — March 13, 2026: URP Camera Fix, Server Build Compilation & CLIENT_READY Timeout
+
+### Camera Stuck at MainCamera Default Position
+
+**Problem:** Camera view stuck at the MainCamera's default scene position instead of following the spawned ship. Sometimes it works, sometimes it doesn't.
+
+**Root Cause — URP Base/Overlay Camera Architecture:**
+The SCK (SpaceCombatKit) scene uses a URP dual-camera setup:
+- "Camera" (from Background_Space prefab) — URP **Base** camera (renderType=0, depth=-2), renders the space skybox
+- "MainCamera" (from VehicleCamera_SCK prefab) — URP **Overlay** camera (renderType=1, depth=-1), stacks on top of the Base camera
+
+The Base camera's `cameraStack` contains MainCamera. A URP Overlay camera **cannot render on its own** — it requires a Base camera in the stack to work. Our previous camera cleanup code was disabling ALL cameras except the VehicleCamera's MainCamera, which killed the Base camera and left MainCamera (an Overlay) unable to render anything.
+
+**Fix — URP-Aware Camera Management:**
+Updated 4 locations across 2 files to detect and preserve the URP Base camera:
+
+1. **`NetworkedSpaceshipBridge.DisableConflictingCameras()`** — Detects if MainCamera is Overlay, searches all cameras for the Base camera that has MainCamera in its `cameraStack`, keeps it enabled. Falls back to switching MainCamera to Base renderType if no Base camera found.
+2. **`NetworkedSpaceshipBridge` per-frame health check** — Added `_urpBaseCam` skip so the rogue-camera-killer doesn't disable the Base camera.
+3. **`NetworkedSpaceshipBridge` CAM-PROPS diagnostic** — Logs URP renderType and Base camera status.
+4. **`NetworkManager.EnforceCameraAfterLoadingScreen()`** — Same URP-aware fix using `FindURPBaseCameraForOverlay()` helper.
+5. **`NetworkManager.SetupCameraFollow()`** — Same URP-aware fix.
+
+Added `FindURPBaseCameraForOverlay()` helper to NetworkManager that finds the Base camera containing a given Overlay camera in its stack.
+
+### Dedicated Server Build Failing Silently (No BUILD_VERSION)
+
+**Problem:** After adding `using UnityEngine.Rendering.Universal;` to both NetworkManager.cs and NetworkedSpaceshipBridge.cs, the dedicated server build deployed but showed no BUILD_VERSION in logs and shut down immediately. The server log had only startup messages with no NetworkManager initialization.
+
+**Root Cause:** URP assemblies are stripped from Dedicated Server builds when "Dedicated Server Optimizations" is enabled (confirmed by `Trying to access a shader but no shaders were included` messages in logs). The `using UnityEngine.Rendering.Universal` directive caused the scripts to fail to load on the server.
+
+**Fix:** Wrapped all URP code in `#if !UNITY_SERVER` preprocessor guards:
+- `using UnityEngine.Rendering.Universal;` — wrapped in both files
+- `UniversalAdditionalCameraData`, `CameraRenderType`, `.renderType`, `.cameraStack` — all references wrapped
+- `FindURPBaseCameraForOverlay()` — entire method wrapped
+- Server-side CAM-PROPS diagnostic falls back to basic logging without URP data
+
+The server doesn't have cameras anyway, so all URP camera logic is client-only.
+
+### CLIENT_READY Never Received by Server
+
+**Problem:** Despite 7 SCENE_LOAD retries over 14 seconds, the server never received CLIENT_READY from the client. The 15-second timeout force-spawned the ship every time.
+
+**Investigation:**
+- Server sends COUNTDOWN first, then SCENE_LOAD after countdown finishes
+- Client receives COUNTDOWN, which triggers `CountdownThenLoad()` coroutine
+- `CountdownThenLoad()` sets `_countdownActive=true` and `_inGameplayScene=true`, then loads the scene and attempts to send CLIENT_READY
+- When SCENE_LOAD retries arrive, the client's handler sees `_inGameplayScene=true` and `_countdownActive=true`, so it ignores the message entirely
+- CLIENT_READY sent by `CountdownThenLoad` never reaches the server (reason unknown — possibly Fusion reliable data routing issue)
+
+**Fix (two-part):**
+
+1. **SCENE_LOAD retry now triggers CLIENT_READY re-send:** When the client receives SCENE_LOAD but is already in gameplay, instead of just ignoring it, the client now re-sends CLIENT_READY on the 4-byte key channel and activates the magic%77 embed in regular input. Each server retry becomes a fresh trigger to re-send CLIENT_READY.
+
+2. **CLIENT_READY_TIMEOUT reduced from 15s to 3s:** Since the COUNTDOWN already tells the client to start loading, 15 seconds was unnecessarily long. The force-spawn timeout now fires after 3 seconds, meaning ships spawn ~6 seconds after match start instead of ~18 seconds. The force-spawn has proven reliable across all tests — the player connects fine and plays normally even without CLIENT_READY.
+
+### AWS EC2 Deployment
+
+**Single-command deployment pipeline (PowerShell):**
+```powershell
+ssh -i "C:\Users\Veera\Desktop\Unity\MythiX AWS Key.pem" ubuntu@13.203.212.222 "pkill -f MythiX_GV; rm -rf ~/ServerBuild"; scp -i "C:\Users\Veera\Desktop\Unity\MythiX AWS Key.pem" -r "C:\Users\Veera\Desktop\Unity\GitHub\Prototype_GV2\ServerBuild" ubuntu@13.203.212.222:/home/ubuntu/; ssh -t -i "C:\Users\Veera\Desktop\Unity\MythiX AWS Key.pem" ubuntu@13.203.212.222 "chmod +x ~/ServerBuild/MythiX_GV.x86_64; cd ~/ServerBuild; nohup ./MythiX_GV.x86_64 -nographics -batchmode -dedicatedServer > server.log 2>&1 & sleep 5; cat server.log"
+```
+
+**Deployment issues resolved:**
+- PuTTY .ppk to .pem conversion via PuTTYgen (Conversions > Export OpenSSH key)
+- SSH timeout caused by IP change (WiFi to mobile hotspot changed public IP; updated security group inbound rule to "My IP")
+- .pem file permissions too open on Windows — fixed with `icacls` to restrict to current user only
+- PowerShell doesn't support `&&` — use `;` separator
+- `%USERNAME%` doesn't expand in PowerShell — use literal username
+
+### Files Modified
+
+**`Assets/GV/Scripts/Network/NetworkManager.cs`**
+- Added `#if !UNITY_SERVER` around `using UnityEngine.Rendering.Universal`
+- Added `FindURPBaseCameraForOverlay()` wrapped in `#if !UNITY_SERVER`
+- `EnforceCameraAfterLoadingScreen()` — URP-aware camera preservation
+- `SetupCameraFollow()` — URP-aware camera preservation
+- SCENE_LOAD handler — re-sends CLIENT_READY when already in gameplay instead of ignoring
+- `CLIENT_READY_TIMEOUT` reduced from 15s to 3s
+- BUILD_VERSION: `2026-03-13-v3-fast-spawn-3s-timeout`
+
+**`Assets/GV/Scripts/Network/NetworkedSpaceshipBridge.cs`**
+- Added `#if !UNITY_SERVER` around `using UnityEngine.Rendering.Universal`
+- `DisableConflictingCameras()` — rewrote with URP Base/Overlay detection, wrapped in `#if !UNITY_SERVER`
+- Added `_urpBaseCam` field — cached reference to URP Base camera
+- Per-frame camera health check — skips `_urpBaseCam`
+- `SetupCamera()` — URP diagnostic logging wrapped in `#if !UNITY_SERVER`
+- CAM-PROPS diagnostic — URP-aware logging with server fallback
+
+### Key Lessons
+
+- **URP Overlay cameras cannot render alone** — Disabling the Base camera that has an Overlay in its stack causes the Overlay to show nothing. Always detect and preserve the Base camera in the `cameraStack`.
+- **Dedicated Server builds strip rendering assemblies** — `using UnityEngine.Rendering.Universal` compiles in the editor but fails in Dedicated Server builds. Wrap all rendering-specific code in `#if !UNITY_SERVER` guards.
+- **CLIENT_READY handshake is unreliable** — Despite 3 separate channels (4-byte key, 37-byte input key, magic embed in regular input) and 7 retries, CLIENT_READY never reached the server. A fast timeout with force-spawn is more robust than waiting for the handshake.
+- **COUNTDOWN already handles scene loading** — The COUNTDOWN message triggers the full scene load flow on the client. SCENE_LOAD is redundant but useful as a trigger to re-send CLIENT_READY.
+
+---
+
+## Session 18 — March 13, 2026: Manual Scene Load Cleanup, Timeout Fix & Local Ship Callback
+
+### Problem Summary
+
+Current dedicated-server tests still showed intermittent bad outcomes:
+- loading screen sometimes stayed up forever
+- clients sometimes entered gameplay late or inconsistently
+- server always timed out waiting for `CLIENT_READY`
+- ship/camera setup could succeed but the loading screen still relied on polling
+
+### Root Causes Addressed
+
+1. **Room flow still passed a startup `Scene` into Fusion** even though the room architecture uses `NoOpSceneManager` and manual scene loading. That left room clients vulnerable to hidden scene sync / mismatched scene state.
+2. **`CLIENT_READY_TIMEOUT` was reduced to 3 seconds**, but the gameplay scene load is heavy enough that clients often cannot finish loading before that timeout expires.
+3. **Client state flags marked gameplay as active too early** during manual load flow, which blurred the difference between "countdown started," "scene load in progress," and "scene fully loaded."
+4. **Loading screen exit depended mostly on polling**, even when the local ship/camera had already been set up successfully.
+
+### Fixes Applied
+
+**`NetworkManager.cs`**
+- In room/manual scene flow, `StartGame()` now leaves `StartGameArgs.Scene` empty instead of registering the current scene into Fusion at startup
+- Added `_clientSceneLoadInProgress` + `_clientSceneLoadCoroutine` to serialize manual gameplay scene loads
+- Replaced duplicated client load logic with `BeginClientGameplayLoad()` + `ClientLoadGameplaySceneAsync()`
+- Added `SendClientReadySignals()` helper so all CLIENT_READY sends use the same 3-channel path
+- `SCENE_LOAD` retries now only re-send `CLIENT_READY` if the client is **actually already in gameplay**
+- Duplicate `SCENE_LOAD` received during countdown/load-in-progress is ignored instead of being treated as readiness
+- `CLIENT_READY_TIMEOUT` increased from **3s** to **10s**
+- Added `NotifyLocalShipSpawned()` so the local ship can dismiss the loading screen immediately
+- `OnShutdown()` now resets the client load-in-progress coroutine/flag too
+- BUILD_VERSION bumped to `2026-03-13-v4-manual-load-fix`
+
+**`NetworkedSpaceshipBridge.cs`**
+- After successful local camera assignment, it now calls `NetworkManager.NotifyLocalShipSpawned()` to hide the loading screen immediately instead of waiting for polling
+
+### Expected Outcome
+
+- No hidden scene sync during room join/startup
+- Fewer cases where server spawns before clients have any chance to finish loading
+- Cleaner distinction between countdown, scene loading, and scene loaded
+- Loading screen should drop as soon as the local ship/camera is truly ready
+
+### Verification Status
+
+Code updated, but this session ended before a fresh Unity build + live multiplayer retest. The next test should verify:
+- no background gameplay scene load before Enter Battle
+- `CLIENT_READY` arrives before timeout in normal conditions
+- loading screen hides immediately on local ship/camera setup
+- both clients see both ships consistently

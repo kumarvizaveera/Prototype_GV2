@@ -1,0 +1,275 @@
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=262144"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=4194304"
+    "memorysetup-bucket-allocator-block-count=1"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=4194304"
+    "memorysetup-profiler-bucket-allocator-block-count=1"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=4194304"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Processor: Intel(R) Xeon(R) Platinum 8488C, 2 core(s) @ 2400 MHz
+Available Memory: 3816 MB
+Linux Kernel and distribution: Linux 6.14 Ubuntu 24.04 64bit
+System Language: C
+Keyboard Layout: us
+Mono path[0] = '/home/ubuntu/ServerBuild/MythiX_GV_Data/Managed'
+Mono config path = '/home/ubuntu/ServerBuild/MythiX_GV_Data/MonoBleedingEdge/etc'
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+Initialize engine version: 6000.3.0f1 (d1870ce95baf)
+[Subsystems] Discovering subsystems at path /home/ubuntu/ServerBuild/MythiX_GV_Data/UnitySubsystems
+Forcing GfxDevice: Null
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+NullGfxDevice:
+    Version:  NULL 1.0 [1.0]
+    Renderer: Null Device
+    Vendor:   Unity Technologies
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  0.092 seconds
+- Finished resetting the current domain, in  0.001 seconds
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+[NetworkManager] _hasUsedSceneObjectsBefore RESET (app/domain start)
+Built-in Resource Error: dereference potentially before BuiltinResourceManager::InitializeAllResources(). May cause unexpected or untested fall-back logic.
+Built-in Resource Error: dereference potentially before BuiltinResourceManager::InitializeAllResources(). May cause unexpected or untested fall-back logic.
+Built-in Resource Error: dereference potentially before BuiltinResourceManager::InitializeAllResources(). May cause unexpected or untested fall-back logic.
+Built-in Resource Error: dereference potentially before BuiltinResourceManager::InitializeAllResources(). May cause unexpected or untested fall-back logic.
+No mesh data available for mesh Plane on particle system Debris. Make sure Read/Write Enabled is set in the importer to work on the particle system renderer
+No mesh data available for mesh Plane.001 on particle system Debris. Make sure Read/Write Enabled is set in the importer to work on the particle system renderer
+No mesh data available for mesh Plane.002 on particle system Debris. Make sure Read/Write Enabled is set in the importer to work on the particle system renderer
+No mesh data available for mesh Cylinder on particle system Debris. Make sure Read/Write Enabled is set in the importer to work on the particle system renderer
+No mesh data available for mesh Plane on particle system Debris. Make sure Read/Write Enabled is set in the importer to work on the particle system renderer
+No mesh data available for mesh Plane.001 on particle system Debris. Make sure Read/Write Enabled is set in the importer to work on the particle system renderer
+No mesh data available for mesh Plane.002 on particle system Debris. Make sure Read/Write Enabled is set in the importer to work on the particle system renderer
+No mesh data available for mesh Cylinder on particle system Debris. Make sure Read/Write Enabled is set in the importer to work on the particle system renderer
+Built-in Resource Error: dereference potentially before BuiltinResourceManager::InitializeAllResources(). May cause unexpected or untested fall-back logic.
+Trying to access a shader but no shaders were included in the build because Dedicated Server Optimizations is enabled.
+Built-in Resource Error: dereference potentially before BuiltinResourceManager::InitializeAllResources(). May cause unexpected or untested fall-back logic.
+Trying to access a shader but no shaders were included in the build because Dedicated Server Optimizations is enabled.
+Trying to access a shader but no shaders were included in the build because Dedicated Server Optimizations is enabled.
+Trying to access a shader but no shaders were included in the build because Dedicated Server Optimizations is enabled.
+Built-in Resource Error: dereference potentially before BuiltinResourceManager::InitializeAllResources(). May cause unexpected or untested fall-back logic.
+Trying to access a shader but no shaders were included in the build because Dedicated Server Optimizations is enabled.
+Built-in Resource Error: dereference potentially before BuiltinResourceManager::InitializeAllResources(). May cause unexpected or untested fall-back logic.
+Trying to access a shader but no shaders were included in the build because Dedicated Server Optimizations is enabled.
+Trying to access a shader but no shaders were included in the build because Dedicated Server Optimizations is enabled.
+UnloadTime: 0.555350 ms
+=== GV2 DEDICATED SERVER STARTING ===
+[ServerBootstrap] Unity version: 6000.3.0f1
+[ServerBootstrap] Platform: LinuxServer
+[ServerBootstrap] Command line: ./MythiX_GV.x86_64 -nographics -batchmode -dedicatedServer
+[ServerBootstrap] Target framerate set to 60
+[ServerBootstrap] Audio disabled
+=== GV2 DEDICATED SERVER READY ===
+[Web3Manager] Initialized. Chain: Avalanche Fuji (43113)
+[ShipNFTManager] Initialized.
+[BattleRewardManager] Initialized. Token: PRANA (PRANA)
+[CharacterNFTManager] Initialized.
+[RoomManager] Instance created
+DontDestroyOnLoad only works for root GameObjects or components on root GameObjects.
+[Thirdweb] ThirdwebManager initialized.
+[Web3Bootstrap] ThirdwebManager found and ready.
+[Web3Bootstrap] Web3Manager found and ready.
+[Web3Bootstrap] DEDICATED SERVER — skipping menu, loading gameplay scene: Gameplay
+[RoomManager] HTTP listener started on port 7350
+[RoomManager] Ready. HTTP API on port 7350, max 10 rooms
+Unloading 6 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.816141 ms
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+No TrackableSceneManager component found in scene, please add one to enable this radar to track targets.
+No TrackableSceneManager component found in scene, please add one to enable this target to be tracked.
+Trying to access a shader but no shaders were included in the build because Dedicated Server Optimizations is enabled.
+Trying to access a shader but no shaders were included in the build because Dedicated Server Optimizations is enabled.
+[PostMatchRewardUI] Subscribed to BattleRewardManager events.
+OnGUI function detected on MonoBehaviour, but not called, because IMGUI module is stripped.
+Unloading 14 unused Assets to reduce memory usage. Loaded Objects now: 40528.
+Total: 19.886004 ms (FindLiveObjects: 1.362985 ms CreateObjectMapping: 0.488489 ms MarkObjects: 17.961200 ms  DeleteObjects: 0.072630 ms)
+
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[PostMatchRewardUI] Auto-built reward popup UI.
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[ShieldPowerUp] Script started on Sphere_RandomPower. Manual: True
+[InvisibilityPowerUp] Script started on Sphere_RandomPower. Manual: True
+[BattleRewardBridge] Subscribed to EliminationTracker.OnMatchResultsReady
+[RoomManager] HTTP listener stopped
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+PS C:\Users\Veera>

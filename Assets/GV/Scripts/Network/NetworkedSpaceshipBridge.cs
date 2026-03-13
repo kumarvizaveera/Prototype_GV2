@@ -1,5 +1,7 @@
 using UnityEngine;
+#if !UNITY_SERVER
 using UnityEngine.Rendering.Universal;
+#endif
 using Fusion;
 using VSX.Engines3D;
 using VSX.CameraSystem;
@@ -641,11 +643,13 @@ namespace GV.Network
                 // The URP Base camera (from Background_Space) handles clearing with Skybox.
                 // We no longer disable the Base camera, so Overlay clearFlags=Nothing is correct.
                 Camera vcMainCam = vehicleCamera.MainCamera;
+#if !UNITY_SERVER
                 if (vcMainCam != null)
                 {
                     var vcCamData = vcMainCam.GetComponent<UniversalAdditionalCameraData>();
                     Debug.Log($"[CAM-SETUP] MainCamera clearFlags={vcMainCam.clearFlags}, URP renderType={(vcCamData != null ? vcCamData.renderType.ToString() : "NO_URP_DATA")}");
                 }
+#endif
 
                 if (vcMainCam != null)
                 {
@@ -664,6 +668,7 @@ namespace GV.Network
                 Debug.Log($"[CAM-SETUP] VehicleCamera.SetVehicle({vehicle.name}) called. " +
                           $"camPos AFTER={vehicleCamera.transform.position}, " +
                           $"targetVehicle={(vehicleCamera.TargetVehicle != null ? vehicleCamera.TargetVehicle.name : "NULL")}");
+                NetworkManager.Instance?.NotifyLocalShipSpawned(gameObject);
 
                 // === DEEP DIAGNOSTICS: Check entire SCK camera pipeline ===
                 // 1. Check CameraTarget and its CameraViewTargets
@@ -756,6 +761,7 @@ namespace GV.Network
                     cameraEntity.SetCameraTarget(camTarget);
                     _cameraSetupDone = true;
                     Debug.Log($"[CAM-SETUP] CameraEntity now following: {name}");
+                    NetworkManager.Instance?.NotifyLocalShipSpawned(gameObject);
                     return;
                 }
                 else
@@ -793,6 +799,7 @@ namespace GV.Network
 
             // Find the URP Base camera that has our MainCamera in its camera stack
             Camera urpBaseCam = null;
+#if !UNITY_SERVER
             if (vcCam != null)
             {
                 var vcCamData = vcCam.GetComponent<UniversalAdditionalCameraData>();
@@ -825,6 +832,7 @@ namespace GV.Network
                     }
                 }
             }
+#endif
 
             Camera[] allCameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
             Debug.Log($"[CAM-SETUP] Found {allCameras.Length} total cameras in scene. VehicleCamera's cam={(vcCam != null ? vcCam.name : "NULL")}, URP Base={(urpBaseCam != null ? urpBaseCam.name : "NONE")}");
@@ -2349,6 +2357,7 @@ namespace GV.Network
                     if (lateVcCam != null)
                     {
                         // Check camera properties that could prevent proper rendering
+#if !UNITY_SERVER
                         var lateUacData = lateVcCam.GetComponent<UniversalAdditionalCameraData>();
                         Debug.Log($"[CAM-PROPS] t={_camLateLogTimer:F1}s | " +
                                   $"enabled={lateVcCam.enabled}, depth={lateVcCam.depth}, " +
@@ -2359,6 +2368,11 @@ namespace GV.Network
                                   $"rect={lateVcCam.rect} | " +
                                   $"camPos={lateVcCam.transform.position} | " +
                                   $"urpBase={(_urpBaseCam != null ? $"{_urpBaseCam.name} enabled={_urpBaseCam.enabled}" : "NONE")}");
+#else
+                        Debug.Log($"[CAM-PROPS] t={_camLateLogTimer:F1}s | " +
+                                  $"enabled={lateVcCam.enabled}, depth={lateVcCam.depth}, " +
+                                  $"camPos={lateVcCam.transform.position}");
+#endif
 
                         // Check for fullscreen UI canvases that might block the view
                         var canvases = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
