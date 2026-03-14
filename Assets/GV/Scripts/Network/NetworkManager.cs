@@ -268,7 +268,7 @@ namespace GV.Network
                 }
             }
             Debug.Log($"[NetworkManager] ServerMode={serverMode}, IsDedicatedServer={IsDedicatedServer}, ParrelSyncClone={isParrelSyncClone}");
-            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-13-v5-clientready-retry-fix");
+            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-14-v8-pregame-input-throttle");
         }
 
         private void Start()
@@ -843,6 +843,22 @@ namespace GV.Network
                 var readyData = new PlayerInputData();
                 readyData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
                 byte[] readyBytes = SerializeInput(readyData);
+                byte[] readyPacket = new byte[readyBytes.Length + 1];
+                System.Buffer.BlockCopy(readyBytes, 0, readyPacket, 0, readyBytes.Length);
+                readyPacket[readyBytes.Length] = CLIENT_READY_PACKET_MARKER;
+                Runner.SendReliableDataToServer(CLIENT_READY_INPUT_KEY, readyPacket);
+                Debug.Log($"[SPAWN-DEBUG] CLIENT: Sent CLIENT_READY via dedicated ready packet ({source}).");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[SPAWN-DEBUG] CLIENT: Failed dedicated CLIENT_READY packet from {source}: {ex.Message}");
+            }
+
+            try
+            {
+                var readyData = new PlayerInputData();
+                readyData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                byte[] readyBytes = SerializeInput(readyData);
                 Runner.SendReliableDataToServer(INPUT_DATA_KEY, readyBytes);
                 Debug.Log($"[SPAWN-DEBUG] CLIENT: Sent CLIENT_READY via 37-byte INPUT_DATA_KEY ({source}).");
             }
@@ -855,6 +871,49 @@ namespace GV.Network
             _clientReadySendStartTime = Time.time;
             _clientReadyWatchdogFired = true;
             Debug.Log($"[CTL-DIAG] {source}: _clientSendingReady=true for {CLIENT_READY_SEND_DURATION}s.");
+        }
+
+        private bool ShouldStartClientCountdown()
+        {
+            return !_countdownActive && !_manualSceneLoadRequested && !_clientSceneLoadInProgress && !_inGameplayScene;
+        }
+
+        private void SendClientReadyRetryPackets()
+        {
+            try { Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC); }
+            catch { }
+
+            try
+            {
+                var retryData = new PlayerInputData();
+                retryData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                byte[] retryBytes = SerializeInput(retryData);
+                byte[] retryPacket = new byte[retryBytes.Length + 1];
+                System.Buffer.BlockCopy(retryBytes, 0, retryPacket, 0, retryBytes.Length);
+                retryPacket[retryBytes.Length] = CLIENT_READY_PACKET_MARKER;
+                Runner.SendReliableDataToServer(CLIENT_READY_INPUT_KEY, retryPacket);
+            }
+            catch { }
+
+            try
+            {
+                var retryData = new PlayerInputData();
+                retryData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                byte[] retryBytes = SerializeInput(retryData);
+                Runner.SendReliableDataToServer(INPUT_DATA_KEY, retryBytes);
+            }
+            catch { }
+        }
+
+        private void MarkClientReadyReceived(PlayerRef player, string source)
+        {
+            var liveInst = (Instance != null) ? Instance : this;
+            if (!liveInst._clientsReady.Contains(player))
+            {
+                liveInst._clientsReady.Add(player);
+                Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY ({source}) from player {player.PlayerId}! " +
+                          $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
+            }
         }
 
         /// <summary>
@@ -917,18 +976,22 @@ namespace GV.Network
             target._matchStartTriggered = true;
             target._matchStartTime = Time.time;
             target._matchCountdownSentLoad = false;
-            target._serverSendingCountdown = true;
+            target._serverSendingCountdown = false;
 
             Debug.Log($"[SPAWN-DEBUG] SERVER: TriggerMatchStart — sending COUNTDOWN, will spawn after 0.5s (client handles its own {COUNTDOWN_SECONDS}s countdown)");
 
-            // Send COUNTDOWN to ALL clients
+            // Send COUNTDOWN to ALL clients once on both channels.
             if (activeRunner != null)
             {
+                var countdownData = new PlayerInputData();
+                countdownData.magicNumber = COUNTDOWN_SIGNAL_MAGIC;
+                byte[] countdownBytes = SerializeInput(countdownData);
                 foreach (var p in activeRunner.ActivePlayers)
                 {
                     try
                     {
                         activeRunner.SendReliableDataToPlayer(p, COUNTDOWN_KEY, COUNTDOWN_MAGIC);
+                        activeRunner.SendReliableDataToPlayer(p, INPUT_DATA_KEY, countdownBytes);
                         Debug.Log($"[SPAWN-DEBUG] SERVER: Sent COUNTDOWN to player {p.PlayerId}");
                     }
                     catch (System.Exception ex)
@@ -1436,6 +1499,7 @@ namespace GV.Network
         // CLIENT sends this to server after finishing gameplay scene load, telling server it's safe to spawn
         private static readonly ReliableKey CLIENT_READY_KEY = ReliableKey.FromInts(0x47, 0x56, 0x43, 0x52); // "GVCR"
         private static readonly byte[] CLIENT_READY_MAGIC = { 0x52, 0x44, 0x59, 0x21 }; // "RDY!"
+        private static readonly ReliableKey CLIENT_READY_INPUT_KEY = ReliableKey.FromInts(0x47, 0x56, 0x52, 0x49); // "GVRI"
 
         /// <summary>
         /// Magic number for CLIENT_READY signal sent via 37-byte INPUT_DATA_KEY channel (proven delivery).
@@ -1451,6 +1515,7 @@ namespace GV.Network
         /// INPUT_DATA_KEY channel that Fusion always delivers, avoiding the separate
         /// ReliableKey channels that Fusion sometimes silently drops.
         /// </summary>
+        private const int CLIENT_READY_BUTTON_BIT = 30;
         private const int START_MATCH_BUTTON_BIT = 31;
 
         /// <summary>
@@ -1461,6 +1526,8 @@ namespace GV.Network
         /// </summary>
         private const int COUNTDOWN_SIGNAL_MAGIC = 999999;
         private const int SCENE_LOAD_SIGNAL_MAGIC = 888888;
+        private const byte START_MATCH_PACKET_MARKER = 0xFF;
+        private const byte CLIENT_READY_PACKET_MARKER = 0xFE;
 
         /// <summary>
         /// When true, the server sends COUNTDOWN signals to all clients every frame.
@@ -1526,7 +1593,7 @@ namespace GV.Network
         private float _inGameplaySceneTimestamp = 0f;
         private bool _clientReadyWatchdogFired = false;
         private const float CLIENT_READY_WATCHDOG_DELAY = 3f;
-        private const float CLIENT_READY_SEND_DURATION = 10f; // Send for 10 seconds (embedded in regular input, no extra cost)
+        private const float CLIENT_READY_SEND_DURATION = 20f; // Keep embedding ready until the server-side timeout window expires
 
         // --- RAW DATA INPUT TRANSPORT ---
         // Fusion's OnInput/GetInput pipeline and RPCs both silently fail in our setup.
@@ -1645,80 +1712,101 @@ namespace GV.Network
                 }
                 else
                 {
-                    var data = playerInput.CurrentInputData;
-
-                    // Encode signals in the magic number itself (proven delivery channel).
-                    // Normal:       magic = playerId*1000 + 42  (e.g. 2042)
-                    // START_MATCH:  magic = playerId*1000 + 99  (e.g. 2099)
-                    // CLIENT_READY: magic = playerId*1000 + 77  (e.g. 2077)
-                    // The server checks magic % 1000 to detect signals.
-                    if (_clientSendingReady)
+                    // Pre-game raw input creates a large reliable-message backlog while players sit in
+                    // the room/countdown/loading flow. That backlog delays the later CLIENT_READY packet.
+                    // Only use the raw reliable input stream for:
+                    // - START_MATCH
+                    // - CLIENT_READY
+                    // - actual gameplay after the battle scene is active
+                    bool shouldSendRawInput = _inGameplayScene || _clientSendingReady || _sendStartMatchViaInput;
+                    if (!shouldSendRawInput)
                     {
-                        // CLIENT_READY piggybacks on regular input — no separate send needed
-                        data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 77;
-                    }
-                    else if (_sendStartMatchViaInput)
-                    {
-                        data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 99;
-                        data.buttons.Set(START_MATCH_BUTTON_BIT, true); // Also set bit 31 as backup
-                        if (_startMatchSendAttempts <= 3)
-                        {
-                            Debug.Log($"[MATCH-DEBUG] CLIENT: Embedding START_MATCH in magic={data.magicNumber} (% 1000 == 99) " +
-                                      $"+ bit 31. buttons.Bits=0x{data.buttons.Bits:X8}, attempt #{_startMatchSendAttempts}");
-                        }
+                        RawSendBlockReason = "Pre-game raw input suppressed";
                     }
                     else
                     {
-                        data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 42;
-                    }
+                        var data = playerInput.CurrentInputData;
 
-                    byte[] bytes = SerializeInput(data);
+                        // Encode signals in the magic number itself (proven delivery channel).
+                        // Normal:       magic = playerId*1000 + 42  (e.g. 2042)
+                        // START_MATCH:  magic = playerId*1000 + 99  (e.g. 2099)
+                        // CLIENT_READY: magic = playerId*1000 + 77  (e.g. 2077)
+                        // The server checks magic % 1000 to detect signals.
+                        if (_clientSendingReady)
+                        {
+                            // CLIENT_READY piggybacks on regular input using both magic and a reserved
+                            // button bit so the server can still detect it if magic is overwritten.
+                            data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 77;
+                            data.buttons.Set(CLIENT_READY_BUTTON_BIT, true);
+                        }
+                        else if (_sendStartMatchViaInput)
+                        {
+                            data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 99;
+                            data.buttons.Set(START_MATCH_BUTTON_BIT, true); // Also set bit 31 as backup
+                            if (_startMatchSendAttempts <= 3)
+                            {
+                                Debug.Log($"[MATCH-DEBUG] CLIENT: Embedding START_MATCH in magic={data.magicNumber} (% 1000 == 99) " +
+                                          $"+ bit 31. buttons.Bits=0x{data.buttons.Bits:X8}, attempt #{_startMatchSendAttempts}");
+                            }
+                        }
+                        else
+                        {
+                            data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 42;
+                        }
 
-                    // If START_MATCH flag is active, ALSO send on a SEPARATE ReliableKey (38 bytes)
-                    // This uses a different key so Fusion won't merge it with regular input
-                    if (_sendStartMatchViaInput)
-                    {
-                        byte[] startBytes = new byte[bytes.Length + 1];
-                        System.Buffer.BlockCopy(bytes, 0, startBytes, 0, bytes.Length);
-                        startBytes[bytes.Length] = 0xFF; // Marker byte
+                        byte[] bytes = SerializeInput(data);
+
+                        if (_clientSendingReady && Time.frameCount % 60 == 0)
+                        {
+                            Debug.Log($"[CTL-DIAG] CLIENT READY EMBED: magic={data.magicNumber}, buttons=0x{data.buttons.Bits:X8}, player={Runner.LocalPlayer}");
+                        }
+
+                        // If START_MATCH flag is active, ALSO send on a SEPARATE ReliableKey (38 bytes)
+                        // This uses a different key so Fusion won't merge it with regular input
+                        if (_sendStartMatchViaInput)
+                        {
+                            byte[] startBytes = new byte[bytes.Length + 1];
+                            System.Buffer.BlockCopy(bytes, 0, startBytes, 0, bytes.Length);
+                            startBytes[bytes.Length] = 0xFF; // Marker byte
+                            try
+                            {
+                                Runner.SendReliableDataToServer(START_MATCH_INPUT_KEY, startBytes);
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Debug.LogError($"[NetworkManager] CLIENT: Failed to send START_MATCH via input key: {ex.Message}");
+                            }
+                            _startMatchSendAttempts++;
+                            if (_startMatchSendAttempts >= START_MATCH_SEND_REPEATS)
+                            {
+                                _sendStartMatchViaInput = false;
+                                Debug.Log($"[NetworkManager] CLIENT: START_MATCH signal sent {_startMatchSendAttempts} times via dedicated key, stopping.");
+                            }
+                        }
+
                         try
                         {
-                            Runner.SendReliableDataToServer(START_MATCH_INPUT_KEY, startBytes);
+                            Runner.SendReliableDataToServer(INPUT_DATA_KEY, bytes);
+                            RawSendAttempted = true;
+                            RawSendCount++;
+
+                            if (!_loggedFirstRawSend)
+                            {
+                                _loggedFirstRawSend = true;
+                                Debug.Log($"[NetworkManager] CLIENT FIRST RAW INPUT SEND: " +
+                                          $"throttle={data.moveZ:F2}, steer=({data.steerPitch:F2},{data.steerYaw:F2}), " +
+                                          $"magic={data.magicNumber}, bytes={bytes.Length}");
+                            }
                         }
                         catch (System.Exception ex)
                         {
-                            Debug.LogError($"[NetworkManager] CLIENT: Failed to send START_MATCH via input key: {ex.Message}");
-                        }
-                        _startMatchSendAttempts++;
-                        if (_startMatchSendAttempts >= START_MATCH_SEND_REPEATS)
-                        {
-                            _sendStartMatchViaInput = false;
-                            Debug.Log($"[NetworkManager] CLIENT: START_MATCH signal sent {_startMatchSendAttempts} times via dedicated key, stopping.");
-                        }
-                    }
-
-                    try
-                    {
-                        Runner.SendReliableDataToServer(INPUT_DATA_KEY, bytes);
-                        RawSendAttempted = true;
-                        RawSendCount++;
-
-                        if (!_loggedFirstRawSend)
-                        {
-                            _loggedFirstRawSend = true;
-                            Debug.Log($"[NetworkManager] CLIENT FIRST RAW INPUT SEND: " +
-                                      $"throttle={data.moveZ:F2}, steer=({data.steerPitch:F2},{data.steerYaw:F2}), " +
-                                      $"magic={data.magicNumber}, bytes={bytes.Length}");
-                        }
-                    }
-                    catch (System.Exception ex)
-                    {
-                        RawSendErrorCount++;
-                        RawSendError = ex.GetType().Name + ": " + ex.Message;
-                        RawSendErrorStack = ex.StackTrace ?? "no stack";
-                        if (RawSendErrorCount <= 3)
-                        {
-                            Debug.LogError($"[NetworkManager] SendReliableDataToServer FAILED ({RawSendErrorCount}): {ex}");
+                            RawSendErrorCount++;
+                            RawSendError = ex.GetType().Name + ": " + ex.Message;
+                            RawSendErrorStack = ex.StackTrace ?? "no stack";
+                            if (RawSendErrorCount <= 3)
+                            {
+                                Debug.LogError($"[NetworkManager] SendReliableDataToServer FAILED ({RawSendErrorCount}): {ex}");
+                            }
                         }
                     }
                 }
@@ -1769,18 +1857,7 @@ namespace GV.Network
                 if (sinceSceneLoad > 3f && ((int)(sinceSceneLoad * 0.5f)) != ((int)((sinceSceneLoad - Time.deltaTime) * 0.5f)))
                 {
                     Debug.LogWarning($"[CTL-DIAG] PERIODIC RETRY: Re-sending CLIENT_READY at {sinceSceneLoad:F1}s since scene load");
-                    // 4-byte channel
-                    try { Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC); }
-                    catch { }
-                    // 37-byte channel
-                    try
-                    {
-                        var retryData = new PlayerInputData();
-                        retryData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
-                        byte[] retryBytes = SerializeInput(retryData);
-                        Runner.SendReliableDataToServer(INPUT_DATA_KEY, retryBytes);
-                    }
-                    catch { }
+                    SendClientReadyRetryPackets();
                     // Also re-enable magic embedding if it expired
                     if (!_clientSendingReady)
                     {
@@ -3106,8 +3183,15 @@ namespace GV.Network
 
                 if (isCountdown)
                 {
-                    Debug.Log("[NetworkManager] CLIENT: Received COUNTDOWN command from host! Starting countdown...");
-                    StartCoroutine(CountdownThenLoad());
+                    if (ShouldStartClientCountdown())
+                    {
+                        Debug.Log("[NetworkManager] CLIENT: Received COUNTDOWN command from host! Starting countdown...");
+                        StartCoroutine(CountdownThenLoad());
+                    }
+                    else
+                    {
+                        Debug.Log($"[NetworkManager] CLIENT: Ignoring duplicate COUNTDOWN command. manualRequested={_manualSceneLoadRequested}, loadInProgress={_clientSceneLoadInProgress}, inGameplay={_inGameplayScene}, countdown={_countdownActive}");
+                    }
                     return;
                 }
             }
@@ -3169,39 +3253,50 @@ namespace GV.Network
 
                 if (isReady)
                 {
-                    var liveInst = (Instance != null) ? Instance : this;
-                    if (!liveInst._clientsReady.Contains(player))
-                    {
-                        liveInst._clientsReady.Add(player);
-                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY (4-byte) from player {player.PlayerId}! " +
-                                  $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
-                    }
+                    MarkClientReadyReceived(player, "4-byte");
                     return;
                 }
             }
 
-            // --- START_MATCH VIA DEDICATED KEY (38 bytes = 37 input + 1 marker) ---
-            // Client sends on START_MATCH_INPUT_KEY (separate from INPUT_DATA_KEY) to avoid Fusion merging
+            // --- 38-BYTE SPECIAL PACKETS (37-byte input + 1 marker) ---
+            // These use dedicated keys to avoid Fusion merging them with the normal INPUT_DATA_KEY stream.
             if (data.Count == 38 && runner.IsServer && IsDedicatedServer)
             {
                 byte[] bytes = new byte[37];
                 System.Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, 37);
                 var inputData = DeserializeInput(bytes);
+                byte marker = data.Array[data.Offset + 37];
 
-                Debug.Log($"[SPAWN-DEBUG] SERVER: Received 38-byte START_MATCH packet from player {player.PlayerId}! magic={inputData.magicNumber}");
-
-                var liveInst = (Instance != null) ? Instance : this;
-                if (!liveInst._countdownActive && !liveInst._inGameplayScene)
+                if (marker == CLIENT_READY_PACKET_MARKER)
                 {
-                    Debug.Log($"[SPAWN-DEBUG] SERVER: START_MATCH via DEDICATED KEY from player {player.PlayerId}! " +
-                              $"pendingSpawns={liveInst._pendingSpawns.Count}, spawnedPlayers={liveInst._spawnedPlayers.Count}");
-                    TriggerMatchStart(player);
+                    if (inputData.magicNumber == CLIENT_READY_SIGNAL_MAGIC)
+                    {
+                        MarkClientReadyReceived(player, "dedicated ready packet");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[SPAWN-DEBUG] SERVER: Ignoring malformed dedicated CLIENT_READY packet from player {player.PlayerId} (magic={inputData.magicNumber}).");
+                    }
+                    return;
                 }
 
-                // Also store as regular input
-                _clientInputs[player] = inputData;
-                RawRecvCount++;
-                return;
+                if (marker == START_MATCH_PACKET_MARKER)
+                {
+                    Debug.Log($"[SPAWN-DEBUG] SERVER: Received 38-byte START_MATCH packet from player {player.PlayerId}! magic={inputData.magicNumber}");
+
+                    var liveInst = (Instance != null) ? Instance : this;
+                    if (!liveInst._countdownActive && !liveInst._inGameplayScene)
+                    {
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: START_MATCH via DEDICATED KEY from player {player.PlayerId}! " +
+                                  $"pendingSpawns={liveInst._pendingSpawns.Count}, spawnedPlayers={liveInst._spawnedPlayers.Count}");
+                        TriggerMatchStart(player);
+                    }
+
+                    // Also store as regular input
+                    _clientInputs[player] = inputData;
+                    RawRecvCount++;
+                    return;
+                }
             }
 
             // --- INPUT DATA (37 bytes) ---
@@ -3234,10 +3329,14 @@ namespace GV.Network
                 // on custom ReliableKeys.
                 if (!runner.IsServer && inputData.magicNumber == COUNTDOWN_SIGNAL_MAGIC)
                 {
-                    if (!_countdownActive)
+                    if (ShouldStartClientCountdown())
                     {
                         Debug.Log("[NetworkManager] CLIENT: Received COUNTDOWN via 37-byte INPUT_DATA_KEY signal! Starting countdown...");
                         StartCoroutine(CountdownThenLoad());
+                    }
+                    else
+                    {
+                        Debug.Log($"[NetworkManager] CLIENT: Ignoring duplicate COUNTDOWN signal. manualRequested={_manualSceneLoadRequested}, loadInProgress={_clientSceneLoadInProgress}, inGameplay={_inGameplayScene}, countdown={_countdownActive}");
                     }
                     return; // Don't process as regular input
                 }
@@ -3266,13 +3365,7 @@ namespace GV.Network
                 // Client sends this after loading the gameplay scene
                 if (runner.IsServer && inputData.magicNumber == CLIENT_READY_SIGNAL_MAGIC)
                 {
-                    var liveInst = (Instance != null) ? Instance : this;
-                    if (!liveInst._clientsReady.Contains(player))
-                    {
-                        liveInst._clientsReady.Add(player);
-                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY (37-byte signal) from player {player.PlayerId}! " +
-                                  $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
-                    }
+                    MarkClientReadyReceived(player, "37-byte signal");
                     return; // Don't process as regular input
                 }
 
@@ -3280,18 +3373,22 @@ namespace GV.Network
                 // This is the PRIMARY delivery channel: CLIENT_READY piggybacks on regular input.
                 if (inputData.magicNumber % 1000 == 77 && runner.IsServer && IsDedicatedServer)
                 {
-                    var liveInst = (Instance != null) ? Instance : this;
-                    if (!liveInst._clientsReady.Contains(player))
-                    {
-                        liveInst._clientsReady.Add(player);
-                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY (magic%1000==77) from player {player.PlayerId}! " +
-                                  $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
-                    }
+                    MarkClientReadyReceived(player, "magic%1000==77");
                     // Store as regular input (strip the signal)
                     inputData.magicNumber = (inputData.magicNumber / 1000) * 1000 + 42;
                     _clientInputs[player] = inputData;
                     RawRecvCount++;
                     return;
+                }
+
+                // --- CLIENT_READY via reserved button bit on the normal raw input packet ---
+                // This rides on the same INPUT_DATA_KEY traffic that is already known to arrive.
+                bool rawBit30 = (bytes[28] & 0x40) != 0;
+                bool fusionBit30 = (inputData.buttons.Bits & (1 << CLIENT_READY_BUTTON_BIT)) != 0;
+                if ((rawBit30 || fusionBit30) && runner.IsServer && IsDedicatedServer)
+                {
+                    MarkClientReadyReceived(player, "button bit 30");
+                    inputData.buttons.Set(CLIENT_READY_BUTTON_BIT, false);
                 }
 
                 // --- LEGACY CHECK FOR START_MATCH SIGNAL (magic % 1000 == 99) ---
@@ -3319,10 +3416,10 @@ namespace GV.Network
                 // Also check via NetworkButtons for comparison
                 bool fusionBit31 = (inputData.buttons.Bits & (1 << START_MATCH_BUTTON_BIT)) != 0;
 
-                if (runner.IsServer && IsDedicatedServer && (rawBit31 || fusionBit31 || inputData.buttons.Bits != 0))
+                if (runner.IsServer && IsDedicatedServer && (rawBit30 || fusionBit30 || rawBit31 || fusionBit31 || inputData.buttons.Bits != 0))
                 {
                     Debug.Log($"[MATCH-DEBUG] SERVER: Input from player {player.PlayerId}: " +
-                              $"rawBit31={rawBit31}, fusionBit31={fusionBit31}, " +
+                              $"rawBit30={rawBit30}, fusionBit30={fusionBit30}, rawBit31={rawBit31}, fusionBit31={fusionBit31}, " +
                               $"buttons.Bits=0x{inputData.buttons.Bits:X8}, rawByte28=0x{bytes[28]:X2}, magic={inputData.magicNumber}");
                 }
 

@@ -1856,3 +1856,161 @@ Code updated, but no fresh Unity client/server retest was possible in this sessi
 - build log shows `2026-03-13-v5-clientready-retry-fix`
 - client logs show either async progress or `OnSceneLoadDone` / `OnUnitySceneLoaded` sending `CLIENT_READY`
 - server receives at least one `CLIENT_READY` before timeout on the bad cases that previously froze
+
+---
+
+## Session 20 - March 14, 2026: Dedicated CLIENT_READY Packet and Duplicate Countdown Guard
+
+### Problem Summary
+
+The next redeployed test looked better on the surface, but the logs showed the handshake was still broken:
+- both clients loaded gameplay successfully
+- both clients logged repeated `CLIENT_READY` sends
+- both clients eventually got ships, hid the loading screen, and had working cameras
+- but the server still never logged a single `Received CLIENT_READY`
+- the server only spawned after the full `20s` timeout
+
+There was also still a client-side state bug:
+- after gameplay loading had already begun, a late COUNTDOWN signal could start a second countdown
+- that second countdown usually self-healed, but it was unnecessary and noisy
+
+### Root Cause Addressed
+
+The strongest remaining suspicion is packet merging / replacement on the shared reliable input key:
+- normal raw input and the 37-byte `CLIENT_READY` signal both used the same `INPUT_DATA_KEY`
+- server logs showed only ordinary `2042/3042` input, never the ready variants
+- clients were therefore "sending ready" locally, but the dedicated server was not observing it
+
+### Fixes Applied
+
+**`Assets/GV/Scripts/Network/NetworkManager.cs`**
+- Added a dedicated `CLIENT_READY` reliable packet path using its own key plus a packet marker byte
+- Server now accepts `CLIENT_READY` from four paths:
+  - 4-byte `RDY!`
+  - dedicated ready packet
+  - 37-byte exact ready signal
+  - regular input magic `% 1000 == 77`
+- Tightened the old 38-byte special-packet handler so it distinguishes START_MATCH vs CLIENT_READY by marker byte instead of treating any 38-byte packet as START_MATCH
+- Added `MarkClientReadyReceived()` helper so all ready paths update the server state consistently
+- Added `ShouldStartClientCountdown()` so clients ignore late duplicate COUNTDOWN messages once scene loading or gameplay is already active
+- Periodic ready retries now include the dedicated ready packet too
+- BUILD_VERSION bumped to `2026-03-14-v6-dedicated-ready-packet`
+
+### Expected Outcome
+
+- Server should finally record at least one `CLIENT_READY` before timeout
+- Match start should happen because clients are actually acknowledged ready, not because timeout force-spawned them
+- Clients should no longer start a second countdown after scene loading is already underway
+
+### Verification Status
+
+Code updated, but this session ended before a fresh retest. The next run should verify:
+- server log contains `Received CLIENT_READY (...)`
+- server no longer reaches `CLIENT_READY TIMEOUT`
+- clients do not start a second countdown after `LoadSceneAsync('Gameplay')` has already started
+
+---
+
+## Session 21 - March 14, 2026: Ready Bit on Proven Input Path and Countdown Flood Reduction
+
+### Problem Summary
+
+The first `v6` redeploy still did not complete the handshake correctly:
+- both clients loaded gameplay
+- both clients logged repeated `CLIENT_READY` sends, including the dedicated ready packet
+- duplicate COUNTDOWN starts were blocked correctly on the client
+- but the server still never logged `Received CLIENT_READY`
+- the server still hit `CLIENT_READY TIMEOUT after 20s`
+
+The client logs also revealed that COUNTDOWN signals were still arriving for a very long time, even after gameplay had started. That suggested a reliable-message backlog caused by the old repeated COUNTDOWN signal strategy.
+
+### Root Cause Addressed
+
+Two follow-up problems were targeted:
+
+1. **`CLIENT_READY` still depended too much on side-channel sends**
+   - regular raw input definitely reached the server
+   - but dedicated ready packets / separate ready sends still were not being observed server-side
+   - the safest path is to embed readiness directly inside the proven normal raw input stream
+
+2. **Server-side repeated COUNTDOWN sends were too aggressive**
+   - repeated reliable COUNTDOWN signals over `INPUT_DATA_KEY` appear to have created a large delayed delivery backlog
+   - clients spent a long time ignoring stale COUNTDOWN packets even after scene load had already begun
+
+### Fixes Applied
+
+**`Assets/GV/Scripts/Network/NetworkManager.cs`**
+- Added reserved `CLIENT_READY_BUTTON_BIT = 30`
+- While `_clientSendingReady` is active, normal raw input now embeds:
+  - magic `% 1000 == 77`
+  - button bit 30
+- Server now recognizes CLIENT_READY from raw input button bit 30, even if the magic number path fails
+- Server clears button bit 30 before storing the packet as normal gameplay input
+- Added `CLIENT READY EMBED` diagnostic log on clients so the next run can prove the raw input packet is carrying the ready signal
+- Stopped repeated every-frame COUNTDOWN sends on `INPUT_DATA_KEY`
+- COUNTDOWN is now sent once at trigger time on both channels instead of being flooded continuously
+- BUILD_VERSION bumped to `2026-03-14-v7-ready-bit-and-countdown-throttle`
+
+### Expected Outcome
+
+- Server should finally observe CLIENT_READY through the same raw input stream it already receives reliably
+- Clients should stop being spammed by stale COUNTDOWN signals long after scene loading starts
+- Match start should happen because the server acknowledged readiness, not because timeout force-spawned
+
+### Verification Status
+
+Code updated, but not retested in this session. The next run should verify:
+- client logs contain `CLIENT READY EMBED: magic=... buttons=...`
+- server logs contain `Received CLIENT_READY (button bit 30)` or another ready path
+- server does not hit `CLIENT_READY TIMEOUT`
+- client logs no longer show massive post-start COUNTDOWN-signal spam
+
+---
+
+## Session 22 - March 14, 2026: Pre-Game Reliable Input Backlog Reduction
+
+### Problem Summary
+
+The first `v7` redeploy still failed:
+- server and both clients were definitely on `2026-03-14-v7-ready-bit-and-countdown-throttle`
+- both clients logged `CLIENT READY EMBED: magic=2077/3077, buttons=0x40000000`
+- both clients also sent all explicit `CLIENT_READY` packets and completed scene load successfully
+- but the server still only logged ordinary raw input `2042/3042` and still timed out waiting for ready
+
+That narrowed the issue further: the client was constructing the ready-bearing packets, but the server was still draining older normal reliable input for too long.
+
+### Root Cause Addressed
+
+The raw client input transport was still sending a reliable `INPUT_DATA_KEY` packet every frame from the room scene onward, even before gameplay:
+- idle room input
+- countdown
+- scene loading
+- repeated post-load retries
+
+Because that stream is reliable, it creates a backlog of stale `2042/3042` packets ahead of the later `CLIENT_READY` packets. The server logs support that: by timeout it was still mostly receiving ordinary raw input and had not observed the ready-bearing packets yet.
+
+### Fixes Applied
+
+**`Assets/GV/Scripts/Network/NetworkManager.cs`**
+- Suppressed normal pre-game raw reliable input traffic
+- The client now uses the raw reliable stream only when one of these is true:
+  - gameplay scene is active
+  - `_clientSendingReady` is active
+  - `_sendStartMatchViaInput` is active
+- This prevents room/countdown/loading idle input from filling the reliable queue before `CLIENT_READY`
+- Extended `CLIENT_READY_SEND_DURATION` from `10s` to `20s` so the ready embed remains active for the full server-side timeout window
+- BUILD_VERSION bumped to `2026-03-14-v8-pregame-input-throttle`
+
+### Expected Outcome
+
+- The reliable input queue should no longer be full of stale pre-game `2042/3042` packets
+- The server should see `CLIENT_READY` much earlier in the wait window
+- Timeout-based force-spawn should stop being the normal path
+
+### Verification Status
+
+Code updated, but not retested in this session. The next run should verify:
+- server log contains `BUILD_VERSION: 2026-03-14-v8-pregame-input-throttle`
+- server log contains `Received CLIENT_READY (...)`
+- server does not reach `CLIENT_READY TIMEOUT`
+- client logs no longer show `CLIENT FIRST RAW INPUT SEND` before the gameplay/ready phase
