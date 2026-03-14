@@ -47,6 +47,10 @@ namespace GV.Network
         private bool _isHost = false;
         private bool _isRacing = false;
         private bool _subscribedToGameManager = false;
+        private float _nextVehicleScanTime = 0f;
+        private int _lastVehicleSearchCount = -1;
+
+        private const float VehicleScanInterval = 0.5f;
 
         // --- Public Properties ---
 
@@ -72,6 +76,8 @@ namespace GV.Network
             _finalPlacements.Clear();
             _matchEnded = false;
             _isRacing = false;
+            _nextVehicleScanTime = 0f;
+            _lastVehicleSearchCount = -1;
         }
 
         private void Update()
@@ -85,7 +91,11 @@ namespace GV.Network
             // Always monitor vehicles — don't gate on _isRacing.
             // Our match flow uses a custom countdown (not NetworkedGameManager),
             // so OnRaceStarted may never fire. Start tracking as soon as ships exist.
-            MonitorPlayerVehicles();
+            if (Time.unscaledTime >= _nextVehicleScanTime)
+            {
+                _nextVehicleScanTime = Time.unscaledTime + VehicleScanInterval;
+                MonitorPlayerVehicles();
+            }
 
             // Only check for eliminations once we have at least 2 players being monitored
             if (_monitoredVehicles.Count >= 2)
@@ -164,6 +174,16 @@ namespace GV.Network
             var runner = NetworkManager.Instance.Runner;
             if (runner == null) return;
 
+            bool hasUnmonitoredPlayer = false;
+            foreach (var player in runner.ActivePlayers)
+            {
+                if (_monitoredVehicles.ContainsKey(player)) continue;
+                hasUnmonitoredPlayer = true;
+                break;
+            }
+
+            if (!hasUnmonitoredPlayer) return;
+
             VehicleHealth[] allVehicleHealths = null;
 
             foreach (var player in runner.ActivePlayers)
@@ -173,8 +193,17 @@ namespace GV.Network
                 if (allVehicleHealths == null)
                 {
                     allVehicleHealths = FindObjectsOfType<VehicleHealth>();
-                    Debug.Log($"[EliminationTracker] Searching for vehicles... " +
-                        $"Found {allVehicleHealths.Length} VehicleHealth in scene");
+                    if (allVehicleHealths.Length != _lastVehicleSearchCount)
+                    {
+                        _lastVehicleSearchCount = allVehicleHealths.Length;
+                        Debug.Log($"[EliminationTracker] Searching for vehicles... " +
+                            $"Found {allVehicleHealths.Length} VehicleHealth in scene");
+                    }
+
+                    if (allVehicleHealths.Length == 0)
+                    {
+                        return;
+                    }
                 }
 
                 foreach (var vh in allVehicleHealths)

@@ -268,7 +268,7 @@ namespace GV.Network
                 }
             }
             Debug.Log($"[NetworkManager] ServerMode={serverMode}, IsDedicatedServer={IsDedicatedServer}, ParrelSyncClone={isParrelSyncClone}");
-            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-14-v8-pregame-input-throttle");
+            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-14-v9-server-load-throttle");
         }
 
         private void Start()
@@ -1117,12 +1117,16 @@ namespace GV.Network
                     // NOW spawn all players (clients have their scene loaded)
                     ServerSpawnAllPendingPlayers();
                 }
-                else if (waitElapsed > 0 && (int)(waitElapsed * 2) % 2 == 0) // Log every ~1s
+                else if (waitElapsed > 0f)
                 {
-                    // Periodic status log
-                    Debug.Log($"[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... {connectedReady}/{connectedWaiting} connected ready, " +
-                              $"{_clientsReady.Count}/{_playersAwaitingReady.Count} total, " +
-                              $"elapsed={waitElapsed:F1}s/{CLIENT_READY_TIMEOUT}s");
+                    int waitLogSecond = Mathf.FloorToInt(waitElapsed);
+                    if (waitLogSecond != _lastClientReadyWaitLogSecond)
+                    {
+                        _lastClientReadyWaitLogSecond = waitLogSecond;
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY... {connectedReady}/{connectedWaiting} connected ready, " +
+                                  $"{_clientsReady.Count}/{_playersAwaitingReady.Count} total, " +
+                                  $"elapsed={waitElapsed:F1}s/{CLIENT_READY_TIMEOUT}s");
+                    }
                 }
 
                 return; // Don't fall through to countdown logic while waiting
@@ -1183,6 +1187,7 @@ namespace GV.Network
             _serverSendingSceneLoad = true;
             _waitingForClientsReady = true;
             _sceneLoadSignalStartTime = Time.time;
+            _lastClientReadyWaitLogSecond = -1;
 
             // Send SCENE_LOAD ONCE on both channels (4-byte key + 37-byte INPUT_DATA_KEY)
             // We do NOT re-send every frame — flooding from OnReliableDataReceived can corrupt
@@ -1306,6 +1311,7 @@ namespace GV.Network
             _serverSendingSceneLoad = true;
             _waitingForClientsReady = true;
             _sceneLoadSignalStartTime = Time.time;
+            _lastClientReadyWaitLogSecond = -1;
 
             Debug.Log($"[SPAWN-DEBUG] SERVER: Waiting for CLIENT_READY from {_playersAwaitingReady.Count} players (coroutine path)...");
 
@@ -1545,6 +1551,7 @@ namespace GV.Network
         /// Time.time when _serverSendingSceneLoad was enabled. Used for timeout fallback.
         /// </summary>
         private float _sceneLoadSignalStartTime = 0f;
+        private int _lastClientReadyWaitLogSecond = -1;
 
         /// <summary>
         /// Set of players who have sent CLIENT_READY (finished loading the gameplay scene).
