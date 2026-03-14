@@ -49,9 +49,10 @@ namespace GV.Web3
         private bool _localShipDead = false;
         private float _shipDeathTime = 0f;
 
-        // Survivor detection: only start checking after all ships have spawned
-        private bool _allShipsSpawned = false;
-        private int _expectedPlayers = 0;
+        // Prevent false-positive winner popups during spawn/load by waiting until we've
+        // seen the alive ship count actually drop from a previously higher value.
+        private bool _hasObservedShipDeath = false;
+        private int _maxAliveShipsSeen = 0;
 
         private void OnEnable()
         {
@@ -68,6 +69,8 @@ namespace GV.Web3
             _subscribedToElimination = false;
             _localVehicleHealth = null;
             _localShipDead = false;
+            _hasObservedShipDeath = false;
+            _maxAliveShipsSeen = 0;
 
             if (postMatchUI == null)
             {
@@ -97,6 +100,7 @@ namespace GV.Web3
             TrySubscribeToGameManager();
             TrySubscribeToEliminationTracker();
             TrySubscribeToLocalVehicle();
+            TrackAliveShipState();
 
             // Fallback: if ship died and EliminationTracker hasn't provided results, use fallback
             if (_localShipDead && !_hasDistributedThisMatch)
@@ -112,7 +116,7 @@ namespace GV.Web3
             // Survivor check: if our ship is alive and we've been monitoring other ships,
             // check if all enemy ships are dead → we win (1st place).
             // This covers the HOST (surviving player) who never gets HandleLocalShipDestroyed.
-            if (!_hasDistributedThisMatch && !_localShipDead && _subscribedToVehicle)
+            if (!_hasDistributedThisMatch && !_localShipDead && _subscribedToVehicle && _hasObservedShipDeath)
             {
                 CheckIfLastStanding();
             }
@@ -274,6 +278,7 @@ namespace GV.Web3
             if (_localShipDead) return; // already tracking
 
             _localShipDead = true;
+            _hasObservedShipDeath = true;
             _shipDeathTime = Time.time;
 
             Debug.Log("[BattleRewardBridge] Local ship destroyed! " +
@@ -292,6 +297,12 @@ namespace GV.Web3
                 return; // EliminationTracker already handled it
             }
 
+            if (!_localShipDead && !_hasObservedShipDeath)
+            {
+                Debug.Log("[BattleRewardBridge] Ignoring OnRaceFinished fallback because no ship destruction has been observed yet.");
+                return;
+            }
+
             Debug.Log("[BattleRewardBridge] Match ended via OnRaceFinished — distributing rewards...");
             DistributeWithDummyPlacement();
         }
@@ -301,6 +312,13 @@ namespace GV.Web3
         private void DistributeWithDummyPlacement()
         {
             if (_hasDistributedThisMatch) return;
+
+            if (!_localShipDead && !_hasObservedShipDeath)
+            {
+                Debug.Log("[BattleRewardBridge] Fallback reward popup blocked — no ship destruction has been observed yet.");
+                return;
+            }
+
             _hasDistributedThisMatch = true;
 
             // Calculate a reasonable placement based on whether our ship is alive or dead.
@@ -344,11 +362,43 @@ namespace GV.Web3
         }
 
         /// <summary>
+        /// Tracks the highest alive ship count we've seen and marks when that count drops.
+        /// This prevents winner fallback/UI from firing during spawn while remote ships
+        /// may exist in-scene but not be fully alive yet.
+        /// </summary>
+        private void TrackAliveShipState()
+        {
+            int totalNetworkedShips = 0;
+            var allVehicles = FindObjectsOfType<VehicleHealth>();
+            foreach (var vh in allVehicles)
+            {
+                if (vh.GetComponentInParent<Fusion.NetworkObject>() != null)
+                {
+                    totalNetworkedShips++;
+                }
+            }
+
+            if (totalNetworkedShips < 2) return;
+
+            int aliveCount = CountAliveShips();
+            if (aliveCount > _maxAliveShipsSeen)
+            {
+                _maxAliveShipsSeen = aliveCount;
+            }
+
+            if (!_hasObservedShipDeath && _maxAliveShipsSeen >= 2 && aliveCount < _maxAliveShipsSeen)
+            {
+                _hasObservedShipDeath = true;
+                Debug.Log($"[BattleRewardBridge] Observed ship death transition: maxAlive={_maxAliveShipsSeen}, currentAlive={aliveCount}");
+            }
+        }
+
+        /// <summary>
         /// Checks if the local player is the last ship standing.
         /// This is the survivor's reward trigger — covers the case where
         /// the host's ship is alive and all enemies are dead.
-        /// Only triggers after we've seen at least 2 ships spawn (avoids
-        /// false positive when we're the only one loaded so far).
+        /// Only triggers after we've observed the alive ship count drop,
+        /// which means at least one ship has actually been destroyed.
         /// </summary>
         private void CheckIfLastStanding()
         {
