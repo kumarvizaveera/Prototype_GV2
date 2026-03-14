@@ -1801,3 +1801,58 @@ Code updated, but this session ended before a fresh Unity build + live multiplay
 - `CLIENT_READY` arrives before timeout in normal conditions
 - loading screen hides immediately on local ship/camera setup
 - both clients see both ships consistently
+
+---
+
+## Session 19 - March 13, 2026: CLIENT_READY Retry Recovery and Timeout Extension
+
+### Problem Summary
+
+`camerastucklogs_5.txt` showed a later dedicated-server run still failing after Session 18:
+- both clients connected and sent normal raw input before match start
+- after `Enter Battle`, neither client ever reported `CLIENT_READY`
+- server waited the full timeout, then force-spawned both ships anyway
+- the user reported the client camera freezing on the loading/transition path
+
+### What The Server Log Proved
+
+This was not a total disconnect:
+- server received regular input from Player 2 and Player 3 before and during the early part of the match-start wait
+- the failure was specifically that the clients never transitioned into the `CLIENT_READY` state in time
+- this points at the client scene-load/retry flow, not basic transport or room join
+
+### Root Cause Addressed
+
+The client retry guard had a real hole:
+- `_countdownActive` was set `true` when countdown started
+- that same flag was used to ignore duplicate `SCENE_LOAD` commands from the server
+- but the client never cleared `_countdownActive` after the countdown ended
+- result: if the first load attempt stalled or failed, every later `SCENE_LOAD` retry was ignored forever
+
+There was also still a backup gap:
+- `OnSceneLoadDone()` marked the client as being in gameplay
+- but it still did not send `CLIENT_READY` there
+- if Unity's `sceneLoaded` backup path or the async fallback missed, the server could still time out
+
+### Fixes Applied
+
+**`Assets/GV/Scripts/Network/NetworkManager.cs`**
+- Cleared `_countdownActive` immediately after the visible countdown ends so later `SCENE_LOAD` retries can recover a failed first load attempt
+- Added a direct `CLIENT_READY` backup send in `OnSceneLoadDone()` for clients
+- Increased `CLIENT_READY_TIMEOUT` from **10s** to **20s**
+- Added 1-second progress diagnostics inside `ClientLoadGameplaySceneAsync()`
+- BUILD_VERSION bumped to `2026-03-13-v5-clientready-retry-fix`
+
+### Expected Outcome
+
+- If the first client load attempt fails, server `SCENE_LOAD` retries can trigger recovery instead of being ignored forever
+- If Fusion/Unity reaches gameplay via `OnSceneLoadDone()` first, the client still reports ready immediately
+- Heavy scene loads get more time before the server force-spawns
+- The next log should clearly show whether clients are stuck inside `LoadSceneAsync()` or failing after the scene becomes active
+
+### Verification Status
+
+Code updated, but no fresh Unity client/server retest was possible in this session. The next run should confirm:
+- build log shows `2026-03-13-v5-clientready-retry-fix`
+- client logs show either async progress or `OnSceneLoadDone` / `OnUnitySceneLoaded` sending `CLIENT_READY`
+- server receives at least one `CLIENT_READY` before timeout on the bad cases that previously froze

@@ -268,7 +268,7 @@ namespace GV.Network
                 }
             }
             Debug.Log($"[NetworkManager] ServerMode={serverMode}, IsDedicatedServer={IsDedicatedServer}, ParrelSyncClone={isParrelSyncClone}");
-            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-13-v4-manual-load-fix");
+            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-13-v5-clientready-retry-fix");
         }
 
         private void Start()
@@ -684,6 +684,11 @@ namespace GV.Network
                       $"_manualSceneLoadRequested={_manualSceneLoadRequested}, " +
                       $"_inGameplayScene={_inGameplayScene}");
 
+            // The visible countdown is done. Clear the guard so later SCENE_LOAD retries can
+            // recover if the first load attempt fails before gameplay becomes active.
+            _countdownActive = false;
+            Debug.Log("[CTL-DIAG] Countdown finished - cleared _countdownActive so SCENE_LOAD retries can recover failed loads.");
+
             // HOST (non-dedicated): send LOAD command to clients and then load the scene
             if (Runner != null && Runner.IsServer && !IsDedicatedServer)
             {
@@ -763,6 +768,8 @@ namespace GV.Network
         private IEnumerator ClientLoadGameplaySceneAsync(string source)
         {
             AsyncOperation asyncOp = null;
+            float loadStartRealtime = Time.realtimeSinceStartup;
+            float nextProgressLogTime = loadStartRealtime;
             try
             {
                 asyncOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(gameplaySceneName);
@@ -776,7 +783,16 @@ namespace GV.Network
             if (asyncOp != null)
             {
                 Debug.Log($"[CTL-DIAG] {source}: waiting for async scene load (isDone={asyncOp.isDone}, progress={asyncOp.progress}).");
-                yield return asyncOp;
+                while (!asyncOp.isDone)
+                {
+                    if (Time.realtimeSinceStartup >= nextProgressLogTime)
+                    {
+                        nextProgressLogTime = Time.realtimeSinceStartup + 1f;
+                        Debug.Log($"[CTL-DIAG] {source}: async load progress={asyncOp.progress:F2}, activeScene='{UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}', manualRequested={_manualSceneLoadRequested}, inGameplay={_inGameplayScene}");
+                    }
+                    yield return null;
+                }
+                Debug.Log($"[CTL-DIAG] {source}: async load completed in {Time.realtimeSinceStartup - loadStartRealtime:F1}s. activeScene='{UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}'");
             }
             else
             {
@@ -1485,7 +1501,7 @@ namespace GV.Network
         /// Timeout in seconds for waiting for CLIENT_READY. If a client hasn't responded
         /// by this time, spawn anyway to avoid infinite hangs.
         /// </summary>
-        private const float CLIENT_READY_TIMEOUT = 10f;
+        private const float CLIENT_READY_TIMEOUT = 20f;
 
         /// <summary>
         /// When true, the client is sending CLIENT_READY signals every frame to ensure delivery.
@@ -3383,6 +3399,11 @@ namespace GV.Network
                 {
                     _clientSceneLoadInProgress = false;
                     _inGameplaySceneTimestamp = Time.time;
+                    if (runner.IsClient && runner.IsRunning && !_clientSendingReady)
+                    {
+                        Debug.Log("[CTL-DIAG] OnSceneLoadDone: gameplay scene active on client, sending CLIENT_READY backup.");
+                        SendClientReadySignals("OnSceneLoadDone");
+                    }
                 }
 
                 // Auto-find the spawn spline in the newly loaded gameplay scene
