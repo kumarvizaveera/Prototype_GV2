@@ -1,4 +1,7 @@
 using UnityEngine;
+#if !UNITY_SERVER
+using UnityEngine.Rendering.Universal;
+#endif
 using Fusion;
 using VSX.Engines3D;
 using VSX.CameraSystem;
@@ -317,6 +320,7 @@ namespace GV.Network
         private const float CAMERA_RETRY_MAX_TIME = 10f;
         private VehicleCamera _assignedVehicleCamera = null; // Track which VehicleCamera we assigned
         private float _cameraHealthCheckTimer = 0f;
+        private float _camLateLogTimer = 0f;
         private const float CAMERA_HEALTH_CHECK_INTERVAL = 2f;
         private const float CAMERA_HEALTH_CHECK_MAX_TIME = 15f;
 
@@ -608,23 +612,131 @@ namespace GV.Network
                           $"camPos={vehicleCamera.transform.position}, " +
                           $"currentTarget={(vehicleCamera.TargetVehicle != null ? vehicleCamera.TargetVehicle.name : "NULL")}");
 
-                // === FIX: Disconnect VehicleCamera from GameAgentManager BEFORE setting vehicle ===
-                // GameAgentManager.onFocusedVehicleChanged can fire when GameAgent is disabled
-                // (in SetupClientOwnShip), which resets the camera target to null AFTER we set it.
-                // By removing the listener, we prevent any GameAgentManager events from overriding
-                // our manual camera assignment.
+                // === FIX: Permanently sever VehicleCamera from GameAgentManager ===
+                // 1. Remove the listener (prevents future events from resetting camera)
+                // 2. Set linkToGameAgentManager = false (prevents Start() from re-checking)
+                // This is essential because GameAgentManager fires onFocusedVehicleChanged(null)
+                // when GameAgent is unregistered in SetupClientOwnShip, AND VehicleCamera.Start()
+                // may run AFTER our RemoveListener if the scene just loaded.
                 if (GameAgentManager.Instance != null)
                 {
                     GameAgentManager.Instance.onFocusedVehicleChanged.RemoveListener(vehicleCamera.SetVehicle);
                     Debug.Log("[CAM-SETUP] Disconnected VehicleCamera from GameAgentManager to prevent interference");
                 }
+                // Prevent VehicleCamera.Start() from re-linking to GameAgentManager
+                var linkField = typeof(VehicleCamera).GetField("linkToGameAgentManager",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (linkField != null)
+                {
+                    linkField.SetValue(vehicleCamera, false);
+                    Debug.Log("[CAM-SETUP] Set linkToGameAgentManager = false to prevent re-subscription");
+                }
+
+                // Disable ALL other cameras in the scene that might conflict
+                DisableConflictingCameras(vehicleCamera);
 
                 vehicleCamera.SetVehicle(vehicle);
                 _cameraSetupDone = true;
                 _assignedVehicleCamera = vehicleCamera;
+
+                // NOTE: MainCamera is a URP Overlay camera — its clearFlags should stay as-is.
+                // The URP Base camera (from Background_Space) handles clearing with Skybox.
+                // We no longer disable the Base camera, so Overlay clearFlags=Nothing is correct.
+                Camera vcMainCam = vehicleCamera.MainCamera;
+#if !UNITY_SERVER
+                if (vcMainCam != null)
+                {
+                    var vcCamData = vcMainCam.GetComponent<UniversalAdditionalCameraData>();
+                    Debug.Log($"[CAM-SETUP] MainCamera clearFlags={vcMainCam.clearFlags}, URP renderType={(vcCamData != null ? vcCamData.renderType.ToString() : "NO_URP_DATA")}");
+                }
+#endif
+
+                if (vcMainCam != null)
+                {
+                    var chain = new System.Text.StringBuilder();
+                    Transform t = vcMainCam.transform;
+                    while (t != null)
+                    {
+                        chain.Append(t.name);
+                        t = t.parent;
+                        if (t != null) chain.Append(" → ");
+                    }
+                    Debug.Log($"[CAM-FIX] MainCamera full parent chain: {chain}");
+                    Debug.Log($"[CAM-FIX] VehicleCamera full chain: {vehicleCamera.name}, parent={(vehicleCamera.transform.parent != null ? vehicleCamera.transform.parent.name : "ROOT")}");
+                }
+
                 Debug.Log($"[CAM-SETUP] VehicleCamera.SetVehicle({vehicle.name}) called. " +
                           $"camPos AFTER={vehicleCamera.transform.position}, " +
                           $"targetVehicle={(vehicleCamera.TargetVehicle != null ? vehicleCamera.TargetVehicle.name : "NULL")}");
+                NetworkManager.Instance?.NotifyLocalShipSpawned(gameObject);
+
+                // === DEEP DIAGNOSTICS: Check entire SCK camera pipeline ===
+                // 1. Check CameraTarget and its CameraViewTargets
+                var ct = vehicleCamera.CameraTarget;
+                if (ct != null)
+                {
+                    Debug.Log($"[CAM-DIAG] CameraTarget={ct.name}, CameraViewTargets.Count={ct.CameraViewTargets.Count}");
+                    for (int i = 0; i < ct.CameraViewTargets.Count; i++)
+                    {
+                        var cvt = ct.CameraViewTargets[i];
+                        Debug.Log($"[CAM-DIAG]   ViewTarget[{i}]: name={cvt?.name}, " +
+                                  $"go.activeInHierarchy={cvt?.gameObject.activeInHierarchy}, " +
+                                  $"view={(cvt?.CameraView != null ? cvt.CameraView.name : "NULL")}, " +
+                                  $"pos={cvt?.transform.position}");
+                    }
+                }
+                else
+                {
+                    Debug.LogError("[CAM-DIAG] CameraTarget is NULL after SetVehicle!");
+                }
+
+                // 2. Check CurrentViewTarget
+                Debug.Log($"[CAM-DIAG] CurrentViewTarget={(vehicleCamera.CurrentViewTarget != null ? vehicleCamera.CurrentViewTarget.name : "NULL")}, " +
+                          $"HasCameraViewTarget={vehicleCamera.HasCameraViewTarget}");
+
+                // 3. Check CameraControllers via reflection
+                var controllersField = typeof(CameraEntity).GetField("cameraControllers",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (controllersField != null)
+                {
+                    var controllers = controllersField.GetValue(vehicleCamera) as System.Collections.IList;
+                    Debug.Log($"[CAM-DIAG] CameraControllers count={controllers?.Count ?? -1}");
+                    if (controllers != null)
+                    {
+                        foreach (var ctrl in controllers)
+                        {
+                            var cc = ctrl as VSX.CameraSystem.CameraController;
+                            if (cc != null)
+                            {
+                                Debug.Log($"[CAM-DIAG]   Controller: {cc.GetType().Name}, " +
+                                          $"Initialized={cc.Initialized}, " +
+                                          $"ControllerEnabled={cc.ControllerEnabled}, " +
+                                          $"go.active={cc.gameObject.activeInHierarchy}");
+                            }
+                        }
+                    }
+                }
+
+                // 4. Check controllerOverriding flag
+                var overrideField = typeof(CameraEntity).GetField("controllerOverriding",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (overrideField != null)
+                {
+                    bool overriding = (bool)overrideField.GetValue(vehicleCamera);
+                    Debug.Log($"[CAM-DIAG] controllerOverriding={overriding}");
+                }
+
+                // 5. Check CameraControlEnabled
+                Debug.Log($"[CAM-DIAG] CameraControlEnabled={vehicleCamera.CameraControlEnabled}");
+
+                // 6. Check if CameraTarget has a Rigidbody (determines Update vs FixedUpdate path)
+                if (ct != null)
+                {
+                    var rb = ct.GetComponent<Rigidbody>();
+                    Debug.Log($"[CAM-DIAG] CameraTarget Rigidbody={(rb != null ? "YES" : "NULL")}, " +
+                              $"isKinematic={(rb != null ? rb.isKinematic.ToString() : "N/A")}");
+                }
+
                 return;
             }
             else
@@ -649,6 +761,7 @@ namespace GV.Network
                     cameraEntity.SetCameraTarget(camTarget);
                     _cameraSetupDone = true;
                     Debug.Log($"[CAM-SETUP] CameraEntity now following: {name}");
+                    NetworkManager.Instance?.NotifyLocalShipSpawned(gameObject);
                     return;
                 }
                 else
@@ -672,6 +785,88 @@ namespace GV.Network
 
             Debug.LogWarning("[CAM-SETUP] No camera system found yet - will retry in Update");
         }
+
+        /// <summary>
+        /// Disables Camera components on scene cameras that are NOT part of the VehicleCamera's
+        /// URP camera stack. In URP, the scene uses a Base camera (from Background_Space, depth=-2)
+        /// with MainCamera as an Overlay (depth=-1) in its camera stack. Disabling the Base camera
+        /// causes the Overlay camera to stop rendering entirely. We must preserve any Base camera
+        /// that has our MainCamera in its stack.
+        /// </summary>
+        private void DisableConflictingCameras(VehicleCamera activeVehicleCamera)
+        {
+            Camera vcCam = activeVehicleCamera.MainCamera;
+
+            // Find the URP Base camera that has our MainCamera in its camera stack
+            Camera urpBaseCam = null;
+#if !UNITY_SERVER
+            if (vcCam != null)
+            {
+                var vcCamData = vcCam.GetComponent<UniversalAdditionalCameraData>();
+                bool isOverlay = vcCamData != null && vcCamData.renderType == CameraRenderType.Overlay;
+                Debug.Log($"[CAM-SETUP] VehicleCamera MainCamera '{vcCam.name}' URP renderType={(vcCamData != null ? vcCamData.renderType.ToString() : "NO_URP_DATA")}, isOverlay={isOverlay}");
+
+                if (isOverlay)
+                {
+                    // MainCamera is an Overlay — find its Base camera by checking all cameras' stacks
+                    Camera[] allCams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+                    foreach (var cam in allCams)
+                    {
+                        if (cam == vcCam) continue;
+                        var camData = cam.GetComponent<UniversalAdditionalCameraData>();
+                        if (camData != null && camData.renderType == CameraRenderType.Base && camData.cameraStack != null)
+                        {
+                            if (camData.cameraStack.Contains(vcCam))
+                            {
+                                urpBaseCam = cam;
+                                Debug.Log($"[CAM-SETUP] Found URP Base camera '{cam.gameObject.name}' (depth={cam.depth}) — has our MainCamera in its stack. KEEPING ENABLED.");
+                                break;
+                            }
+                        }
+                    }
+
+                    if (urpBaseCam == null)
+                    {
+                        Debug.LogWarning("[CAM-SETUP] MainCamera is URP Overlay but no Base camera has it in stack! Switching MainCamera to Base renderType.");
+                        vcCamData.renderType = CameraRenderType.Base;
+                    }
+                }
+            }
+#endif
+
+            Camera[] allCameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            Debug.Log($"[CAM-SETUP] Found {allCameras.Length} total cameras in scene. VehicleCamera's cam={(vcCam != null ? vcCam.name : "NULL")}, URP Base={(urpBaseCam != null ? urpBaseCam.name : "NONE")}");
+            foreach (var cam in allCameras)
+            {
+                if (cam == vcCam)
+                {
+                    cam.enabled = true;
+                    Debug.Log($"[CAM-SETUP] Keeping VehicleCamera's camera ENABLED: {cam.gameObject.name} (depth={cam.depth})");
+                    continue;
+                }
+
+                if (cam == urpBaseCam)
+                {
+                    cam.enabled = true;
+                    Debug.Log($"[CAM-SETUP] Keeping URP Base camera ENABLED: {cam.gameObject.name} (depth={cam.depth})");
+                    continue;
+                }
+
+                Debug.Log($"[CAM-SETUP] Found camera: '{cam.gameObject.name}' tag={cam.tag}, enabled={cam.enabled}, depth={cam.depth}, go.active={cam.gameObject.activeInHierarchy}");
+
+                if (cam.enabled)
+                {
+                    Debug.Log($"[CAM-SETUP] DISABLING camera: '{cam.gameObject.name}' (tag={cam.tag}, depth={cam.depth})");
+                    cam.enabled = false;
+                }
+            }
+
+            // Store the URP Base camera reference so the health check doesn't kill it
+            _urpBaseCam = urpBaseCam;
+        }
+
+        // Cached reference to the URP Base camera that must stay enabled
+        private Camera _urpBaseCam;
 
         /// <summary>
         /// HOST ONLY: Ensures the missile targeting chain is fully connected after Fusion spawning.
@@ -992,6 +1187,43 @@ namespace GV.Network
             if (_cameraSetupDone && _assignedVehicleCamera != null && Object.HasInputAuthority)
             {
                 _cameraHealthCheckTimer += Time.deltaTime;
+
+                // PER-FRAME: Kill rogue cameras (but preserve URP Base camera)
+                Camera vcCam = _assignedVehicleCamera.MainCamera;
+                if (vcCam != null)
+                {
+                    Camera[] allCams = Camera.allCameras; // Only enabled cameras
+                    for (int ci = 0; ci < allCams.Length; ci++)
+                    {
+                        if (allCams[ci] == vcCam) continue;
+                        if (allCams[ci] == _urpBaseCam) continue; // URP Base camera must stay enabled
+                        Debug.LogWarning($"[CAM-GUARD] Disabling rogue camera: '{allCams[ci].gameObject.name}' depth={allCams[ci].depth} (tick {Time.frameCount})");
+                        allCams[ci].enabled = false;
+                    }
+                }
+
+                // CONTINUOUS TRACKING: Log every 2 seconds for 30 seconds to catch when/why things freeze
+                if (_cameraHealthCheckTimer < 30f &&
+                    ((int)(_cameraHealthCheckTimer * 0.5f)) != ((int)((_cameraHealthCheckTimer - Time.deltaTime) * 0.5f)))
+                {
+                    // Also count enabled cameras
+                    int enabledCamCount = Camera.allCamerasCount;
+
+                    var vc = _assignedVehicleCamera;
+                    var cvt = vc.CurrentViewTarget;
+                    var runner = Object.Runner;
+                    Debug.Log($"[CAM-TRACK] t={_cameraHealthCheckTimer:F1}s | " +
+                              $"camPos={vc.transform.position} camRot={vc.transform.rotation.eulerAngles} | " +
+                              $"shipPos={transform.position} | " +
+                              $"viewTarget={(cvt != null ? cvt.name : "NULL")} vtPos={(cvt != null ? cvt.transform.position.ToString() : "N/A")} | " +
+                              $"target={(vc.TargetVehicle != null ? vc.TargetVehicle.name : "NULL")} | " +
+                              $"timeScale={Time.timeScale} deltaTime={Time.deltaTime:F4} | " +
+                              $"runner={(runner != null ? (runner.IsRunning ? "RUNNING" : "STOPPED") : "NULL")} " +
+                              $"isConnected={(runner != null && runner.IsConnectedToServer ? "YES" : "NO")} | " +
+                              $"enabledCams={enabledCamCount} | " +
+                              $"vcCamEnabled={vc.MainCamera?.enabled} vcCamDepth={vc.MainCamera?.depth}");
+                }
+
                 if (_cameraHealthCheckTimer >= CAMERA_HEALTH_CHECK_MAX_TIME)
                 {
                     _cameraHealthCheckTimer = float.MaxValue; // Stop checking
@@ -1012,7 +1244,16 @@ namespace GV.Network
                         if (GameAgentManager.Instance != null)
                             GameAgentManager.Instance.onFocusedVehicleChanged.RemoveListener(_assignedVehicleCamera.SetVehicle);
 
+                        // Re-sever linkToGameAgentManager via reflection
+                        var linkField = typeof(VehicleCamera).GetField("linkToGameAgentManager",
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        if (linkField != null)
+                            linkField.SetValue(_assignedVehicleCamera, false);
+
                         _assignedVehicleCamera.SetVehicle(vehicle);
+
+                        // Also re-disable conflicting cameras
+                        DisableConflictingCameras(_assignedVehicleCamera);
 
                         Debug.Log($"[CAM-HEALTH] Camera re-assigned. " +
                                   $"TargetVehicle={((_assignedVehicleCamera.TargetVehicle != null) ? _assignedVehicleCamera.TargetVehicle.name : "NULL")}, " +
@@ -2105,6 +2346,53 @@ namespace GV.Network
 
         private void LateUpdate()
         {
+            // === CAMERA HIERARCHY DIAGNOSTIC (LateUpdate — right before rendering) ===
+            // Log actual world positions of every level in the gimbal chain to see if MainCamera moves
+            if (_cameraSetupDone && _assignedVehicleCamera != null && Object.HasInputAuthority)
+            {
+                _camLateLogTimer += Time.deltaTime;
+                if (_camLateLogTimer < 20f && ((int)(_camLateLogTimer * 0.5f)) != ((int)((_camLateLogTimer - Time.deltaTime) * 0.5f)))
+                {
+                    Camera lateVcCam = _assignedVehicleCamera.MainCamera;
+                    if (lateVcCam != null)
+                    {
+                        // Check camera properties that could prevent proper rendering
+#if !UNITY_SERVER
+                        var lateUacData = lateVcCam.GetComponent<UniversalAdditionalCameraData>();
+                        Debug.Log($"[CAM-PROPS] t={_camLateLogTimer:F1}s | " +
+                                  $"enabled={lateVcCam.enabled}, depth={lateVcCam.depth}, " +
+                                  $"urpType={(lateUacData != null ? lateUacData.renderType.ToString() : "NO_URP")}, " +
+                                  $"targetTexture={(lateVcCam.targetTexture != null ? lateVcCam.targetTexture.name : "NULL(screen)")} | " +
+                                  $"cullingMask={lateVcCam.cullingMask}, clearFlags={lateVcCam.clearFlags} | " +
+                                  $"near={lateVcCam.nearClipPlane}, far={lateVcCam.farClipPlane}, fov={lateVcCam.fieldOfView} | " +
+                                  $"rect={lateVcCam.rect} | " +
+                                  $"camPos={lateVcCam.transform.position} | " +
+                                  $"urpBase={(_urpBaseCam != null ? $"{_urpBaseCam.name} enabled={_urpBaseCam.enabled}" : "NONE")}");
+#else
+                        Debug.Log($"[CAM-PROPS] t={_camLateLogTimer:F1}s | " +
+                                  $"enabled={lateVcCam.enabled}, depth={lateVcCam.depth}, " +
+                                  $"camPos={lateVcCam.transform.position}");
+#endif
+
+                        // Check for fullscreen UI canvases that might block the view
+                        var canvases = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+                        foreach (var canvas in canvases)
+                        {
+                            if (canvas.gameObject.activeInHierarchy && canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+                            {
+                                // Check if any child has a visible Image/RawImage component
+                                var images = canvas.GetComponentsInChildren<UnityEngine.UI.Graphic>(false);
+                                if (images.Length > 0)
+                                {
+                                    Debug.Log($"[CAM-PROPS] Active overlay canvas: '{canvas.gameObject.name}', " +
+                                              $"sortingOrder={canvas.sortingOrder}, visibleGraphics={images.Length}");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // With direct transform writes and rb.interpolation = None, transform.position
             // in LateUpdate is the same as in FixedUpdate — no deferred physics step involved.
 
