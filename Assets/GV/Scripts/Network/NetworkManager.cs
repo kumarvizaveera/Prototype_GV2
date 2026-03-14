@@ -13,6 +13,9 @@ using VSX.CameraSystem;
 using VSX.VehicleCombatKits;
 using VSX.Vehicles;
 using UnityEngine.Splines;
+#if !UNITY_SERVER
+using UnityEngine.Rendering.Universal;
+#endif
 using Unity.Mathematics;
 
 namespace GV.Network
@@ -153,8 +156,10 @@ namespace GV.Network
         private GameObject _loadingScreenGO;
         private bool _waitingForShipToAppear = false;
         private float _loadingScreenShownTime = 0f;
-        private const float LOADING_SCREEN_TIMEOUT = 25f; // Force-hide after 25s (past server's 15s timeout)
+        private const float LOADING_SCREEN_TIMEOUT = 20f; // Force-hide after 20s even if ready/spawn signaling fails
         private int _shipDetectLogCounter = 0;
+        private bool _clientSceneLoadInProgress = false;
+        private Coroutine _clientSceneLoadCoroutine;
 
         /// <summary>
         /// When true, this NetworkManager instance was created by RoomManager for a specific room.
@@ -263,7 +268,7 @@ namespace GV.Network
                 }
             }
             Debug.Log($"[NetworkManager] ServerMode={serverMode}, IsDedicatedServer={IsDedicatedServer}, ParrelSyncClone={isParrelSyncClone}");
-            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-10-camera-fix-v8");
+            Debug.Log("[NetworkManager] BUILD_VERSION: 2026-03-14-v8-pregame-input-throttle");
         }
 
         private void Start()
@@ -437,7 +442,103 @@ namespace GV.Network
             }
             _waitingForShipToAppear = false;
             Debug.Log("[NetworkManager] Loading screen HIDDEN — ship appeared");
+
+            // POST-HIDE: Enforce correct camera is active.
+            // After loading screen disappears, make sure VehicleCamera is the only rendering camera.
+            // This catches the case where the scene camera was visible in the gap between
+            // loading screen hide and ship spawn.
+            StartCoroutine(EnforceCameraAfterLoadingScreen());
         }
+
+        internal void NotifyLocalShipSpawned(GameObject shipRoot)
+        {
+            if (!_waitingForShipToAppear || shipRoot == null)
+                return;
+
+            Debug.Log($"[NetworkManager] CLIENT: Local ship callback received from '{shipRoot.name}' at {shipRoot.transform.position}. Hiding loading screen.");
+            HideLoadingScreen();
+        }
+
+        /// <summary>
+        /// Coroutine that runs 0.5s after loading screen hides to ensure VehicleCamera is rendering.
+        /// If no VehicleCamera has a target yet, waits up to 5s checking every 0.5s.
+        /// </summary>
+        private System.Collections.IEnumerator EnforceCameraAfterLoadingScreen()
+        {
+            float waited = 0f;
+            while (waited < 5f)
+            {
+                yield return new WaitForSeconds(0.5f);
+                waited += 0.5f;
+
+                var vc = FindFirstObjectByType<VehicleCamera>();
+                if (vc != null && vc.TargetVehicle != null)
+                {
+                    // VehicleCamera is assigned — disable conflicting cameras but preserve URP Base camera
+                    Camera vcCam = vc.MainCamera;
+                    if (vcCam != null) vcCam.enabled = true;
+
+                    // Find the URP Base camera that has our MainCamera in its stack
+#if !UNITY_SERVER
+                    Camera urpBaseCam = FindURPBaseCameraForOverlay(vcCam);
+#else
+                    Camera urpBaseCam = null;
+#endif
+
+                    Camera[] allCams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+                    foreach (var cam in allCams)
+                    {
+                        if (cam == vcCam) continue;
+                        if (cam == urpBaseCam)
+                        {
+                            cam.enabled = true;
+                            Debug.Log($"[CAM-ENFORCE] Keeping URP Base camera ENABLED: '{cam.gameObject.name}' (depth={cam.depth})");
+                            continue;
+                        }
+                        if (cam.enabled)
+                        {
+                            Debug.Log($"[CAM-ENFORCE] DISABLING camera: '{cam.gameObject.name}' (tag={cam.tag}, depth={cam.depth})");
+                            cam.enabled = false;
+                        }
+                    }
+                    Debug.Log($"[CAM-ENFORCE] VehicleCamera confirmed active, target={vc.TargetVehicle.name}, cam={vcCam?.name}, depth={vcCam?.depth}, urpBase={(urpBaseCam != null ? urpBaseCam.name : "NONE")}");
+                    yield break;
+                }
+                else
+                {
+                    Debug.Log($"[CAM-ENFORCE] Waiting for VehicleCamera target... ({waited:F1}s)");
+                }
+            }
+            Debug.LogWarning("[CAM-ENFORCE] VehicleCamera never got a target after 5s!");
+        }
+
+#if !UNITY_SERVER
+        /// <summary>
+        /// Finds the URP Base camera that has the given overlay camera in its camera stack.
+        /// Returns null if the camera is not an Overlay or no Base camera contains it.
+        /// </summary>
+        private Camera FindURPBaseCameraForOverlay(Camera overlayCam)
+        {
+            if (overlayCam == null) return null;
+            var camData = overlayCam.GetComponent<UniversalAdditionalCameraData>();
+            if (camData == null || camData.renderType != CameraRenderType.Overlay) return null;
+
+            Camera[] allCams = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            foreach (var cam in allCams)
+            {
+                if (cam == overlayCam) continue;
+                var baseCamData = cam.GetComponent<UniversalAdditionalCameraData>();
+                if (baseCamData != null && baseCamData.renderType == CameraRenderType.Base && baseCamData.cameraStack != null)
+                {
+                    if (baseCamData.cameraStack.Contains(overlayCam))
+                    {
+                        return cam;
+                    }
+                }
+            }
+            return null;
+        }
+#endif
 
         /// <summary>
         /// Loads the gameplay scene. Called by "Enter Battle" button.
@@ -583,6 +684,11 @@ namespace GV.Network
                       $"_manualSceneLoadRequested={_manualSceneLoadRequested}, " +
                       $"_inGameplayScene={_inGameplayScene}");
 
+            // The visible countdown is done. Clear the guard so later SCENE_LOAD retries can
+            // recover if the first load attempt fails before gameplay becomes active.
+            _countdownActive = false;
+            Debug.Log("[CTL-DIAG] Countdown finished - cleared _countdownActive so SCENE_LOAD retries can recover failed loads.");
+
             // HOST (non-dedicated): send LOAD command to clients and then load the scene
             if (Runner != null && Runner.IsServer && !IsDedicatedServer)
             {
@@ -596,102 +702,11 @@ namespace GV.Network
             // on heavy scenes, causing Fusion to disconnect the client.
             else if (Runner != null && Runner.IsClient && _connectedToDedicatedServer)
             {
-                Debug.Log($"[CTL-DIAG] Taking CLIENT+DEDICATED path. Loading '{gameplaySceneName}' ASYNC.");
-                _manualSceneLoadRequested = true;
-                _inGameplayScene = true;
-                _inGameplaySceneTimestamp = Time.time;
-                _clientReadyWatchdogFired = false;
-
-                // Show a persistent loading screen that survives scene load
-                try
+                Debug.Log($"[CTL-DIAG] Taking CLIENT+DEDICATED path. Starting manual load for '{gameplaySceneName}'.");
+                BeginClientGameplayLoad("CountdownThenLoad");
+                if (_clientSceneLoadCoroutine != null)
                 {
-                    ShowLoadingScreen();
-                    HideAllMenuUI();
-                }
-                catch (System.Exception ex)
-                {
-                    Debug.LogError($"[CTL-DIAG] EXCEPTION in ShowLoadingScreen/HideAllMenuUI: {ex}");
-                }
-
-                // Async load — game loop continues, network stays alive
-                AsyncOperation asyncOp = null;
-                try
-                {
-                    asyncOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(gameplaySceneName);
-                    Debug.Log($"[CTL-DIAG] LoadSceneAsync('{gameplaySceneName}') returned: {(asyncOp != null ? "valid AsyncOperation" : "NULL")}");
-                }
-                catch (System.Exception ex)
-                {
-                    Debug.LogError($"[CTL-DIAG] EXCEPTION in LoadSceneAsync: {ex}");
-                }
-
-                if (asyncOp != null)
-                {
-                    Debug.Log($"[CTL-DIAG] Yielding on asyncOp (isDone={asyncOp.isDone}, progress={asyncOp.progress})...");
-                    yield return asyncOp; // Coroutine waits for load to complete
-                    Debug.Log($"[CTL-DIAG] Async scene load COMPLETED for '{gameplaySceneName}'. " +
-                              $"_clientSendingReady={_clientSendingReady}, _manualSceneLoadRequested={_manualSceneLoadRequested}");
-                }
-                else
-                {
-                    // Fallback to sync load if async returns null (shouldn't happen)
-                    Debug.LogWarning("[CTL-DIAG] LoadSceneAsync returned null! Falling back to sync load.");
-                    try
-                    {
-                        UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Debug.LogError($"[CTL-DIAG] EXCEPTION in sync LoadScene: {ex}");
-                    }
-                }
-
-                // === FALLBACK CLIENT_READY ===
-                // OnUnitySceneLoaded SHOULD have fired during the scene load above and set
-                // _clientSendingReady=true + sent CLIENT_READY on all 3 channels. But if it
-                // didn't fire (e.g., scene name mismatch, _manualSceneLoadRequested was false,
-                // RegisterSceneNetworkObjects threw, or any other failure), we send CLIENT_READY
-                // here as a safety net. The server uses a HashSet for _clientsReady, so duplicate
-                // signals are harmless.
-                if (!_clientSendingReady && Runner != null && Runner.IsClient && Runner.IsRunning)
-                {
-                    Debug.LogWarning($"[CTL-DIAG] FALLBACK: _clientSendingReady is STILL false after scene load! " +
-                                     $"OnUnitySceneLoaded did NOT send CLIENT_READY. Sending from CountdownThenLoad fallback. " +
-                                     $"_manualSceneLoadRequested={_manualSceneLoadRequested}, _inGameplayScene={_inGameplayScene}");
-
-                    // Channel 1: 4-byte CLIENT_READY_KEY
-                    try
-                    {
-                        Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC);
-                        Debug.Log("[CTL-DIAG] FALLBACK: Sent CLIENT_READY via 4-byte key.");
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Debug.LogWarning($"[CTL-DIAG] FALLBACK: Failed 4-byte CLIENT_READY: {ex.Message}");
-                    }
-
-                    // Channel 2: 37-byte CLIENT_READY_SIGNAL_MAGIC on INPUT_DATA_KEY
-                    try
-                    {
-                        var readyData = new PlayerInputData();
-                        readyData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
-                        byte[] readyBytes = SerializeInput(readyData);
-                        Runner.SendReliableDataToServer(INPUT_DATA_KEY, readyBytes);
-                        Debug.Log("[CTL-DIAG] FALLBACK: Sent CLIENT_READY via 37-byte INPUT_DATA_KEY.");
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Debug.LogWarning($"[CTL-DIAG] FALLBACK: Failed 37-byte CLIENT_READY: {ex.Message}");
-                    }
-
-                    // Channel 3: Embed in regular input
-                    _clientSendingReady = true;
-                    _clientReadySendStartTime = Time.time;
-                    Debug.Log($"[CTL-DIAG] FALLBACK: _clientSendingReady=true, will embed magic%1000==77 for {CLIENT_READY_SEND_DURATION}s");
-                }
-                else if (_clientSendingReady)
-                {
-                    Debug.Log("[CTL-DIAG] CLIENT_READY already active (sent by OnUnitySceneLoaded). No fallback needed.");
+                    yield return _clientSceneLoadCoroutine;
                 }
             }
             else
@@ -706,6 +721,199 @@ namespace GV.Network
             }
 
             Debug.Log($"[CTL-DIAG] CountdownThenLoad EXITING. _clientSendingReady={_clientSendingReady}");
+        }
+
+        private void BeginClientGameplayLoad(string source)
+        {
+            if (string.IsNullOrEmpty(gameplaySceneName))
+            {
+                Debug.LogError($"[CTL-DIAG] {source}: gameplaySceneName is empty. Cannot load gameplay.");
+                return;
+            }
+
+            if (_clientSceneLoadInProgress)
+            {
+                Debug.Log($"[CTL-DIAG] {source}: gameplay load already in progress for '{gameplaySceneName}'.");
+                return;
+            }
+
+            if (_inGameplayScene)
+            {
+                Debug.Log($"[CTL-DIAG] {source}: already in gameplay scene '{gameplaySceneName}'.");
+                return;
+            }
+
+            _manualSceneLoadRequested = true;
+            _clientSceneLoadInProgress = true;
+            _clientReadyWatchdogFired = false;
+
+            try
+            {
+                ShowLoadingScreen();
+                HideAllMenuUI();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[CTL-DIAG] {source}: EXCEPTION in ShowLoadingScreen/HideAllMenuUI: {ex}");
+            }
+
+            if (_clientSceneLoadCoroutine != null)
+            {
+                StopCoroutine(_clientSceneLoadCoroutine);
+            }
+
+            _clientSceneLoadCoroutine = StartCoroutine(ClientLoadGameplaySceneAsync(source));
+        }
+
+        private IEnumerator ClientLoadGameplaySceneAsync(string source)
+        {
+            AsyncOperation asyncOp = null;
+            float loadStartRealtime = Time.realtimeSinceStartup;
+            float nextProgressLogTime = loadStartRealtime;
+            try
+            {
+                asyncOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(gameplaySceneName);
+                Debug.Log($"[CTL-DIAG] {source}: LoadSceneAsync('{gameplaySceneName}') returned {(asyncOp != null ? "valid AsyncOperation" : "NULL")}.");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[CTL-DIAG] {source}: EXCEPTION in LoadSceneAsync: {ex}");
+            }
+
+            if (asyncOp != null)
+            {
+                Debug.Log($"[CTL-DIAG] {source}: waiting for async scene load (isDone={asyncOp.isDone}, progress={asyncOp.progress}).");
+                while (!asyncOp.isDone)
+                {
+                    if (Time.realtimeSinceStartup >= nextProgressLogTime)
+                    {
+                        nextProgressLogTime = Time.realtimeSinceStartup + 1f;
+                        Debug.Log($"[CTL-DIAG] {source}: async load progress={asyncOp.progress:F2}, activeScene='{UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}', manualRequested={_manualSceneLoadRequested}, inGameplay={_inGameplayScene}");
+                    }
+                    yield return null;
+                }
+                Debug.Log($"[CTL-DIAG] {source}: async load completed in {Time.realtimeSinceStartup - loadStartRealtime:F1}s. activeScene='{UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}'");
+            }
+            else
+            {
+                Debug.LogWarning($"[CTL-DIAG] {source}: LoadSceneAsync returned null. Falling back to sync LoadScene.");
+                try
+                {
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(gameplaySceneName);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[CTL-DIAG] {source}: EXCEPTION in sync LoadScene: {ex}");
+                }
+                yield return null;
+            }
+
+            _clientSceneLoadInProgress = false;
+            _clientSceneLoadCoroutine = null;
+
+            if (!_clientSendingReady && _manualSceneLoadRequested && Runner != null && Runner.IsClient && Runner.IsRunning)
+            {
+                Debug.LogWarning($"[CTL-DIAG] {source}: scene load finished but CLIENT_READY is still inactive. Sending fallback CLIENT_READY.");
+                SendClientReadySignals($"{source} fallback");
+            }
+        }
+
+        private void SendClientReadySignals(string source)
+        {
+            if (Runner == null || !Runner.IsClient || !Runner.IsRunning)
+            {
+                Debug.LogWarning($"[CTL-DIAG] {source}: cannot send CLIENT_READY because Runner is not an active client.");
+                return;
+            }
+
+            Debug.Log($"[CTL-DIAG] {source}: sending CLIENT_READY on all channels. LocalPlayer={Runner.LocalPlayer}");
+
+            try
+            {
+                Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC);
+                Debug.Log($"[SPAWN-DEBUG] CLIENT: Sent CLIENT_READY via 4-byte key ({source}).");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[SPAWN-DEBUG] CLIENT: Failed 4-byte CLIENT_READY from {source}: {ex.Message}");
+            }
+
+            try
+            {
+                var readyData = new PlayerInputData();
+                readyData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                byte[] readyBytes = SerializeInput(readyData);
+                byte[] readyPacket = new byte[readyBytes.Length + 1];
+                System.Buffer.BlockCopy(readyBytes, 0, readyPacket, 0, readyBytes.Length);
+                readyPacket[readyBytes.Length] = CLIENT_READY_PACKET_MARKER;
+                Runner.SendReliableDataToServer(CLIENT_READY_INPUT_KEY, readyPacket);
+                Debug.Log($"[SPAWN-DEBUG] CLIENT: Sent CLIENT_READY via dedicated ready packet ({source}).");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[SPAWN-DEBUG] CLIENT: Failed dedicated CLIENT_READY packet from {source}: {ex.Message}");
+            }
+
+            try
+            {
+                var readyData = new PlayerInputData();
+                readyData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                byte[] readyBytes = SerializeInput(readyData);
+                Runner.SendReliableDataToServer(INPUT_DATA_KEY, readyBytes);
+                Debug.Log($"[SPAWN-DEBUG] CLIENT: Sent CLIENT_READY via 37-byte INPUT_DATA_KEY ({source}).");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[SPAWN-DEBUG] CLIENT: Failed 37-byte CLIENT_READY from {source}: {ex.Message}");
+            }
+
+            _clientSendingReady = true;
+            _clientReadySendStartTime = Time.time;
+            _clientReadyWatchdogFired = true;
+            Debug.Log($"[CTL-DIAG] {source}: _clientSendingReady=true for {CLIENT_READY_SEND_DURATION}s.");
+        }
+
+        private bool ShouldStartClientCountdown()
+        {
+            return !_countdownActive && !_manualSceneLoadRequested && !_clientSceneLoadInProgress && !_inGameplayScene;
+        }
+
+        private void SendClientReadyRetryPackets()
+        {
+            try { Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC); }
+            catch { }
+
+            try
+            {
+                var retryData = new PlayerInputData();
+                retryData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                byte[] retryBytes = SerializeInput(retryData);
+                byte[] retryPacket = new byte[retryBytes.Length + 1];
+                System.Buffer.BlockCopy(retryBytes, 0, retryPacket, 0, retryBytes.Length);
+                retryPacket[retryBytes.Length] = CLIENT_READY_PACKET_MARKER;
+                Runner.SendReliableDataToServer(CLIENT_READY_INPUT_KEY, retryPacket);
+            }
+            catch { }
+
+            try
+            {
+                var retryData = new PlayerInputData();
+                retryData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
+                byte[] retryBytes = SerializeInput(retryData);
+                Runner.SendReliableDataToServer(INPUT_DATA_KEY, retryBytes);
+            }
+            catch { }
+        }
+
+        private void MarkClientReadyReceived(PlayerRef player, string source)
+        {
+            var liveInst = (Instance != null) ? Instance : this;
+            if (!liveInst._clientsReady.Contains(player))
+            {
+                liveInst._clientsReady.Add(player);
+                Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY ({source}) from player {player.PlayerId}! " +
+                          $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
+            }
         }
 
         /// <summary>
@@ -768,18 +976,22 @@ namespace GV.Network
             target._matchStartTriggered = true;
             target._matchStartTime = Time.time;
             target._matchCountdownSentLoad = false;
-            target._serverSendingCountdown = true;
+            target._serverSendingCountdown = false;
 
             Debug.Log($"[SPAWN-DEBUG] SERVER: TriggerMatchStart — sending COUNTDOWN, will spawn after 0.5s (client handles its own {COUNTDOWN_SECONDS}s countdown)");
 
-            // Send COUNTDOWN to ALL clients
+            // Send COUNTDOWN to ALL clients once on both channels.
             if (activeRunner != null)
             {
+                var countdownData = new PlayerInputData();
+                countdownData.magicNumber = COUNTDOWN_SIGNAL_MAGIC;
+                byte[] countdownBytes = SerializeInput(countdownData);
                 foreach (var p in activeRunner.ActivePlayers)
                 {
                     try
                     {
                         activeRunner.SendReliableDataToPlayer(p, COUNTDOWN_KEY, COUNTDOWN_MAGIC);
+                        activeRunner.SendReliableDataToPlayer(p, INPUT_DATA_KEY, countdownBytes);
                         Debug.Log($"[SPAWN-DEBUG] SERVER: Sent COUNTDOWN to player {p.PlayerId}");
                     }
                     catch (System.Exception ex)
@@ -813,11 +1025,35 @@ namespace GV.Network
             {
                 float waitElapsed = Time.time - _sceneLoadSignalStartTime;
 
-                // NOTE: We do NOT re-send SCENE_LOAD every frame anymore.
-                // Flooding SCENE_LOAD on INPUT_DATA_KEY can cause the client's OnReliableDataReceived
-                // to fire repeatedly, and if the client loads a scene from inside that callback it
-                // corrupts Fusion's runner. SCENE_LOAD was already sent once when entering PHASE 3.
-                // Clients that received COUNTDOWN will load the scene via CountdownThenLoad() anyway.
+                // RETRY: Re-send SCENE_LOAD every 2s using ONLY the safe 4-byte key channel.
+                // The 4-byte SCENE_LOAD_KEY is handled via _pendingSceneLoadFromServer flag in Update()
+                // (NOT inside OnReliableDataReceived), so it won't corrupt the runner.
+                // We do NOT re-send on INPUT_DATA_KEY (37-byte) as that can trigger scene loading
+                // inside OnReliableDataReceived which corrupts Fusion.
+                if (waitElapsed > 0f && waitElapsed < CLIENT_READY_TIMEOUT)
+                {
+                    int retryTick = (int)(waitElapsed / 2f);
+                    int prevRetryTick = (int)((waitElapsed - Time.deltaTime) / 2f);
+                    if (retryTick > prevRetryTick && retryTick > 0) // Every 2s, starting at 2s
+                    {
+                        foreach (var p in _playersAwaitingReady)
+                        {
+                            if (_clientsReady.Contains(p)) continue; // Already ready
+                            bool stillConnected = false;
+                            foreach (var ap in Runner.ActivePlayers) { if (ap == p) { stillConnected = true; break; } }
+                            if (!stillConnected) continue;
+                            try
+                            {
+                                Runner.SendReliableDataToPlayer(p, SCENE_LOAD_KEY, SCENE_LOAD_MAGIC);
+                                Debug.Log($"[SPAWN-DEBUG] SERVER: RETRY #{retryTick} — Re-sent SCENE_LOAD (4-byte) to player {p.PlayerId}");
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Debug.LogWarning($"[SPAWN-DEBUG] SERVER: RETRY SCENE_LOAD failed for {p.PlayerId}: {ex.Message}");
+                            }
+                        }
+                    }
+                }
 
                 // Check if all expected players are ready
                 bool allReady = false; // Default to false — only true if at least one connected player is ready
@@ -1263,6 +1499,7 @@ namespace GV.Network
         // CLIENT sends this to server after finishing gameplay scene load, telling server it's safe to spawn
         private static readonly ReliableKey CLIENT_READY_KEY = ReliableKey.FromInts(0x47, 0x56, 0x43, 0x52); // "GVCR"
         private static readonly byte[] CLIENT_READY_MAGIC = { 0x52, 0x44, 0x59, 0x21 }; // "RDY!"
+        private static readonly ReliableKey CLIENT_READY_INPUT_KEY = ReliableKey.FromInts(0x47, 0x56, 0x52, 0x49); // "GVRI"
 
         /// <summary>
         /// Magic number for CLIENT_READY signal sent via 37-byte INPUT_DATA_KEY channel (proven delivery).
@@ -1278,6 +1515,7 @@ namespace GV.Network
         /// INPUT_DATA_KEY channel that Fusion always delivers, avoiding the separate
         /// ReliableKey channels that Fusion sometimes silently drops.
         /// </summary>
+        private const int CLIENT_READY_BUTTON_BIT = 30;
         private const int START_MATCH_BUTTON_BIT = 31;
 
         /// <summary>
@@ -1288,6 +1526,8 @@ namespace GV.Network
         /// </summary>
         private const int COUNTDOWN_SIGNAL_MAGIC = 999999;
         private const int SCENE_LOAD_SIGNAL_MAGIC = 888888;
+        private const byte START_MATCH_PACKET_MARKER = 0xFF;
+        private const byte CLIENT_READY_PACKET_MARKER = 0xFE;
 
         /// <summary>
         /// When true, the server sends COUNTDOWN signals to all clients every frame.
@@ -1328,7 +1568,7 @@ namespace GV.Network
         /// Timeout in seconds for waiting for CLIENT_READY. If a client hasn't responded
         /// by this time, spawn anyway to avoid infinite hangs.
         /// </summary>
-        private const float CLIENT_READY_TIMEOUT = 15f;
+        private const float CLIENT_READY_TIMEOUT = 20f;
 
         /// <summary>
         /// When true, the client is sending CLIENT_READY signals every frame to ensure delivery.
@@ -1353,7 +1593,7 @@ namespace GV.Network
         private float _inGameplaySceneTimestamp = 0f;
         private bool _clientReadyWatchdogFired = false;
         private const float CLIENT_READY_WATCHDOG_DELAY = 3f;
-        private const float CLIENT_READY_SEND_DURATION = 10f; // Send for 10 seconds (embedded in regular input, no extra cost)
+        private const float CLIENT_READY_SEND_DURATION = 20f; // Keep embedding ready until the server-side timeout window expires
 
         // --- RAW DATA INPUT TRANSPORT ---
         // Fusion's OnInput/GetInput pipeline and RPCs both silently fail in our setup.
@@ -1472,80 +1712,101 @@ namespace GV.Network
                 }
                 else
                 {
-                    var data = playerInput.CurrentInputData;
-
-                    // Encode signals in the magic number itself (proven delivery channel).
-                    // Normal:       magic = playerId*1000 + 42  (e.g. 2042)
-                    // START_MATCH:  magic = playerId*1000 + 99  (e.g. 2099)
-                    // CLIENT_READY: magic = playerId*1000 + 77  (e.g. 2077)
-                    // The server checks magic % 1000 to detect signals.
-                    if (_clientSendingReady)
+                    // Pre-game raw input creates a large reliable-message backlog while players sit in
+                    // the room/countdown/loading flow. That backlog delays the later CLIENT_READY packet.
+                    // Only use the raw reliable input stream for:
+                    // - START_MATCH
+                    // - CLIENT_READY
+                    // - actual gameplay after the battle scene is active
+                    bool shouldSendRawInput = _inGameplayScene || _clientSendingReady || _sendStartMatchViaInput;
+                    if (!shouldSendRawInput)
                     {
-                        // CLIENT_READY piggybacks on regular input — no separate send needed
-                        data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 77;
-                    }
-                    else if (_sendStartMatchViaInput)
-                    {
-                        data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 99;
-                        data.buttons.Set(START_MATCH_BUTTON_BIT, true); // Also set bit 31 as backup
-                        if (_startMatchSendAttempts <= 3)
-                        {
-                            Debug.Log($"[MATCH-DEBUG] CLIENT: Embedding START_MATCH in magic={data.magicNumber} (% 1000 == 99) " +
-                                      $"+ bit 31. buttons.Bits=0x{data.buttons.Bits:X8}, attempt #{_startMatchSendAttempts}");
-                        }
+                        RawSendBlockReason = "Pre-game raw input suppressed";
                     }
                     else
                     {
-                        data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 42;
-                    }
+                        var data = playerInput.CurrentInputData;
 
-                    byte[] bytes = SerializeInput(data);
+                        // Encode signals in the magic number itself (proven delivery channel).
+                        // Normal:       magic = playerId*1000 + 42  (e.g. 2042)
+                        // START_MATCH:  magic = playerId*1000 + 99  (e.g. 2099)
+                        // CLIENT_READY: magic = playerId*1000 + 77  (e.g. 2077)
+                        // The server checks magic % 1000 to detect signals.
+                        if (_clientSendingReady)
+                        {
+                            // CLIENT_READY piggybacks on regular input using both magic and a reserved
+                            // button bit so the server can still detect it if magic is overwritten.
+                            data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 77;
+                            data.buttons.Set(CLIENT_READY_BUTTON_BIT, true);
+                        }
+                        else if (_sendStartMatchViaInput)
+                        {
+                            data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 99;
+                            data.buttons.Set(START_MATCH_BUTTON_BIT, true); // Also set bit 31 as backup
+                            if (_startMatchSendAttempts <= 3)
+                            {
+                                Debug.Log($"[MATCH-DEBUG] CLIENT: Embedding START_MATCH in magic={data.magicNumber} (% 1000 == 99) " +
+                                          $"+ bit 31. buttons.Bits=0x{data.buttons.Bits:X8}, attempt #{_startMatchSendAttempts}");
+                            }
+                        }
+                        else
+                        {
+                            data.magicNumber = Runner.LocalPlayer.PlayerId * 1000 + 42;
+                        }
 
-                    // If START_MATCH flag is active, ALSO send on a SEPARATE ReliableKey (38 bytes)
-                    // This uses a different key so Fusion won't merge it with regular input
-                    if (_sendStartMatchViaInput)
-                    {
-                        byte[] startBytes = new byte[bytes.Length + 1];
-                        System.Buffer.BlockCopy(bytes, 0, startBytes, 0, bytes.Length);
-                        startBytes[bytes.Length] = 0xFF; // Marker byte
+                        byte[] bytes = SerializeInput(data);
+
+                        if (_clientSendingReady && Time.frameCount % 60 == 0)
+                        {
+                            Debug.Log($"[CTL-DIAG] CLIENT READY EMBED: magic={data.magicNumber}, buttons=0x{data.buttons.Bits:X8}, player={Runner.LocalPlayer}");
+                        }
+
+                        // If START_MATCH flag is active, ALSO send on a SEPARATE ReliableKey (38 bytes)
+                        // This uses a different key so Fusion won't merge it with regular input
+                        if (_sendStartMatchViaInput)
+                        {
+                            byte[] startBytes = new byte[bytes.Length + 1];
+                            System.Buffer.BlockCopy(bytes, 0, startBytes, 0, bytes.Length);
+                            startBytes[bytes.Length] = 0xFF; // Marker byte
+                            try
+                            {
+                                Runner.SendReliableDataToServer(START_MATCH_INPUT_KEY, startBytes);
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Debug.LogError($"[NetworkManager] CLIENT: Failed to send START_MATCH via input key: {ex.Message}");
+                            }
+                            _startMatchSendAttempts++;
+                            if (_startMatchSendAttempts >= START_MATCH_SEND_REPEATS)
+                            {
+                                _sendStartMatchViaInput = false;
+                                Debug.Log($"[NetworkManager] CLIENT: START_MATCH signal sent {_startMatchSendAttempts} times via dedicated key, stopping.");
+                            }
+                        }
+
                         try
                         {
-                            Runner.SendReliableDataToServer(START_MATCH_INPUT_KEY, startBytes);
+                            Runner.SendReliableDataToServer(INPUT_DATA_KEY, bytes);
+                            RawSendAttempted = true;
+                            RawSendCount++;
+
+                            if (!_loggedFirstRawSend)
+                            {
+                                _loggedFirstRawSend = true;
+                                Debug.Log($"[NetworkManager] CLIENT FIRST RAW INPUT SEND: " +
+                                          $"throttle={data.moveZ:F2}, steer=({data.steerPitch:F2},{data.steerYaw:F2}), " +
+                                          $"magic={data.magicNumber}, bytes={bytes.Length}");
+                            }
                         }
                         catch (System.Exception ex)
                         {
-                            Debug.LogError($"[NetworkManager] CLIENT: Failed to send START_MATCH via input key: {ex.Message}");
-                        }
-                        _startMatchSendAttempts++;
-                        if (_startMatchSendAttempts >= START_MATCH_SEND_REPEATS)
-                        {
-                            _sendStartMatchViaInput = false;
-                            Debug.Log($"[NetworkManager] CLIENT: START_MATCH signal sent {_startMatchSendAttempts} times via dedicated key, stopping.");
-                        }
-                    }
-
-                    try
-                    {
-                        Runner.SendReliableDataToServer(INPUT_DATA_KEY, bytes);
-                        RawSendAttempted = true;
-                        RawSendCount++;
-
-                        if (!_loggedFirstRawSend)
-                        {
-                            _loggedFirstRawSend = true;
-                            Debug.Log($"[NetworkManager] CLIENT FIRST RAW INPUT SEND: " +
-                                      $"throttle={data.moveZ:F2}, steer=({data.steerPitch:F2},{data.steerYaw:F2}), " +
-                                      $"magic={data.magicNumber}, bytes={bytes.Length}");
-                        }
-                    }
-                    catch (System.Exception ex)
-                    {
-                        RawSendErrorCount++;
-                        RawSendError = ex.GetType().Name + ": " + ex.Message;
-                        RawSendErrorStack = ex.StackTrace ?? "no stack";
-                        if (RawSendErrorCount <= 3)
-                        {
-                            Debug.LogError($"[NetworkManager] SendReliableDataToServer FAILED ({RawSendErrorCount}): {ex}");
+                            RawSendErrorCount++;
+                            RawSendError = ex.GetType().Name + ": " + ex.Message;
+                            RawSendErrorStack = ex.StackTrace ?? "no stack";
+                            if (RawSendErrorCount <= 3)
+                            {
+                                Debug.LogError($"[NetworkManager] SendReliableDataToServer FAILED ({RawSendErrorCount}): {ex}");
+                            }
                         }
                     }
                 }
@@ -1554,18 +1815,11 @@ namespace GV.Network
             // --- CLIENT: Deferred scene load from SCENE_LOAD signal ---
             // OnReliableDataReceived sets _pendingSceneLoadFromServer=true instead of calling
             // SceneManager.LoadScene directly (which would corrupt Fusion's runner).
-            if (_pendingSceneLoadFromServer && !_inGameplayScene)
+            if (_pendingSceneLoadFromServer && !_inGameplayScene && !_clientSceneLoadInProgress)
             {
                 _pendingSceneLoadFromServer = false;
-                _manualSceneLoadRequested = true;
-                _inGameplayScene = true;
-                _inGameplaySceneTimestamp = Time.time;
-                _clientReadyWatchdogFired = false;
-                Debug.Log($"[SPAWN-DEBUG] CLIENT: Executing deferred ASYNC scene load for '{gameplaySceneName}'...");
-                ShowLoadingScreen();
-                HideAllMenuUI();
-                // Use async load so game loop keeps running and Fusion connection stays alive
-                UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(gameplaySceneName);
+                Debug.Log($"[SPAWN-DEBUG] CLIENT: Executing deferred gameplay load for '{gameplaySceneName}'...");
+                BeginClientGameplayLoad("DeferredSceneLoad");
             }
 
             // --- CLIENT: CLIENT_READY is now embedded in regular input magic (% 1000 == 77) ---
@@ -1581,33 +1835,13 @@ namespace GV.Network
             // This catches ALL edge cases: OnUnitySceneLoaded didn't fire, threw an exception,
             // scene name mismatch, _manualSceneLoadRequested race condition, etc.
             // Fires once, CLIENT_READY_WATCHDOG_DELAY seconds after _inGameplayScene was set true.
-            if (_inGameplayScene && !_clientSendingReady && !_clientReadyWatchdogFired
+            if (_inGameplayScene && !_clientSceneLoadInProgress && !_clientSendingReady && !_clientReadyWatchdogFired
                 && _inGameplaySceneTimestamp > 0f
                 && Time.time - _inGameplaySceneTimestamp > CLIENT_READY_WATCHDOG_DELAY
                 && Runner != null && Runner.IsClient && Runner.IsRunning)
             {
-                _clientReadyWatchdogFired = true;
-                Debug.LogWarning($"[CTL-DIAG] WATCHDOG: _inGameplayScene=true for {CLIENT_READY_WATCHDOG_DELAY}s " +
-                                 $"but CLIENT_READY was NEVER sent! Force-sending now.");
-
-                // Channel 1: 4-byte
-                try { Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC); }
-                catch (System.Exception ex) { Debug.LogWarning($"[CTL-DIAG] WATCHDOG 4-byte failed: {ex.Message}"); }
-
-                // Channel 2: 37-byte
-                try
-                {
-                    var readyData = new PlayerInputData();
-                    readyData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
-                    byte[] readyBytes = SerializeInput(readyData);
-                    Runner.SendReliableDataToServer(INPUT_DATA_KEY, readyBytes);
-                }
-                catch (System.Exception ex) { Debug.LogWarning($"[CTL-DIAG] WATCHDOG 37-byte failed: {ex.Message}"); }
-
-                // Channel 3: Embed in regular input
-                _clientSendingReady = true;
-                _clientReadySendStartTime = Time.time;
-                Debug.Log($"[CTL-DIAG] WATCHDOG: _clientSendingReady=true, will embed magic%1000==77 for {CLIENT_READY_SEND_DURATION}s");
+                Debug.LogWarning($"[CTL-DIAG] WATCHDOG: gameplay scene has been active for {CLIENT_READY_WATCHDOG_DELAY}s but CLIENT_READY is still inactive.");
+                SendClientReadySignals("Watchdog");
             }
 
             // --- CLIENT: PERIODIC RETRY — re-send CLIENT_READY every 5s if still on loading screen ---
@@ -1619,20 +1853,17 @@ namespace GV.Network
                 && Runner != null && Runner.IsClient && Runner.IsRunning)
             {
                 float sinceSceneLoad = Time.time - _inGameplaySceneTimestamp;
-                // Retry at 8s, 13s, 18s — gives server multiple chances to receive CLIENT_READY
-                if (sinceSceneLoad > 8f && sinceSceneLoad % 5f < Time.deltaTime)
+                // Retry every 2s starting at 3s while the loading screen is still up.
+                if (sinceSceneLoad > 3f && ((int)(sinceSceneLoad * 0.5f)) != ((int)((sinceSceneLoad - Time.deltaTime) * 0.5f)))
                 {
                     Debug.LogWarning($"[CTL-DIAG] PERIODIC RETRY: Re-sending CLIENT_READY at {sinceSceneLoad:F1}s since scene load");
-                    try { Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC); }
-                    catch { }
-                    try
+                    SendClientReadyRetryPackets();
+                    // Also re-enable magic embedding if it expired
+                    if (!_clientSendingReady)
                     {
-                        var retryData = new PlayerInputData();
-                        retryData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
-                        byte[] retryBytes = SerializeInput(retryData);
-                        Runner.SendReliableDataToServer(INPUT_DATA_KEY, retryBytes);
+                        _clientSendingReady = true;
+                        _clientReadySendStartTime = Time.time;
                     }
-                    catch { }
                 }
             }
 
@@ -1643,19 +1874,48 @@ namespace GV.Network
 
                 try
                 {
-                    // GetPlayerObject requires SetPlayerObject which we never call.
-                    // Instead, find any NetworkObject with our InputAuthority.
-                    bool found = false;
-                    int totalObjects = 0;
+                    // Collect all network objects into a list FIRST — Fusion's GetAllNetworkObjects()
+                    // returns a struct enumerator that gets exhausted after one foreach loop.
+                    var allObjects = new System.Collections.Generic.List<Fusion.NetworkObject>();
                     foreach (var no in Runner.GetAllNetworkObjects())
                     {
-                        totalObjects++;
-                        if (no != null && no.InputAuthority == Runner.LocalPlayer && no.gameObject != this.gameObject)
+                        if (no != null) allObjects.Add(no);
+                    }
+
+                    // Search for our ship: any NetworkObject with our InputAuthority
+                    bool found = false;
+                    foreach (var no in allObjects)
+                    {
+                        if (no.InputAuthority == Runner.LocalPlayer && no.gameObject != this.gameObject)
                         {
-                            Debug.Log($"[NetworkManager] CLIENT: Local player ship detected ({no.name})! Hiding loading screen after {loadingElapsed:F1}s.");
+                            Debug.Log($"[NetworkManager] CLIENT: Local player ship detected ({no.name}) at pos={no.transform.position}! " +
+                                      $"Hiding loading screen after {loadingElapsed:F1}s.");
                             HideLoadingScreen();
                             found = true;
                             break;
+                        }
+                    }
+
+                    // FALLBACK: Also search by name pattern — in case InputAuthority hasn't replicated yet
+                    if (!found)
+                    {
+                        foreach (var no in allObjects)
+                        {
+                            if (no.gameObject != this.gameObject &&
+                                (no.name.Contains("Player_ForMultiplayer") || no.name.Contains("SpaceFighter")))
+                            {
+                                // Check if this has a NetworkedSpaceshipBridge — it's a player ship
+                                var bridge = no.GetComponent<NetworkedSpaceshipBridge>();
+                                if (bridge != null && no.HasInputAuthority)
+                                {
+                                    Debug.Log($"[NetworkManager] CLIENT: Ship found via name+bridge fallback ({no.name})! " +
+                                              $"InputAuth={no.InputAuthority}, HasInputAuth={no.HasInputAuthority}. " +
+                                              $"Hiding loading screen after {loadingElapsed:F1}s.");
+                                    HideLoadingScreen();
+                                    found = true;
+                                    break;
+                                }
+                            }
                         }
                     }
 
@@ -1665,9 +1925,16 @@ namespace GV.Network
                         _shipDetectLogCounter++;
                         if (_shipDetectLogCounter % 60 == 1)
                         {
+                            // Dump ALL network objects from the pre-collected list
+                            var objList = new System.Text.StringBuilder();
+                            foreach (var no in allObjects)
+                            {
+                                objList.Append($"\n  [{no.name}] InputAuth={no.InputAuthority}, HasInputAuth={no.HasInputAuthority}, pos={no.transform.position}, isThis={no.gameObject == this.gameObject}");
+                            }
                             Debug.Log($"[SHIP-DETECT] Waiting for ship... elapsed={loadingElapsed:F1}s, " +
-                                      $"totalNetworkObjects={totalObjects}, LocalPlayer={Runner.LocalPlayer}, " +
-                                      $"IsRunning={Runner.IsRunning}, IsClient={Runner.IsClient}");
+                                      $"totalNetworkObjects={allObjects.Count}, LocalPlayer={Runner.LocalPlayer}, " +
+                                      $"IsRunning={Runner.IsRunning}, IsClient={Runner.IsClient}" +
+                                      $"\nAll NetworkObjects:{objList}");
                         }
                     }
                 }
@@ -1681,9 +1948,7 @@ namespace GV.Network
                     }
                 }
 
-                // TIMEOUT: Force-hide loading screen if it's been showing too long.
-                // The server force-spawns after 15s, so by 25s something is clearly wrong.
-                // Don't leave the player stuck on a loading screen forever.
+                // TIMEOUT: Force-hide the loading screen if ship detection never succeeds.
                 if (loadingElapsed > LOADING_SCREEN_TIMEOUT)
                 {
                     Debug.LogWarning($"[NetworkManager] CLIENT: Loading screen TIMEOUT after {loadingElapsed:F1}s! " +
@@ -1937,13 +2202,21 @@ namespace GV.Network
 
             var sceneInfo = new NetworkSceneInfo();
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-            Debug.Log($"[NetworkManager] Active scene: '{scene.name}', buildIndex={scene.buildIndex}, isLoaded={scene.isLoaded}");
+            bool useManualSceneControl = _isRoomManagerControlled || _connectedToDedicatedServer || _roomFlowActive;
+            Debug.Log($"[NetworkManager] Active scene: '{scene.name}', buildIndex={scene.buildIndex}, isLoaded={scene.isLoaded}, manualSceneControl={useManualSceneControl}");
 
-            if (scene.buildIndex < 0)
+            if (!useManualSceneControl)
             {
-                Debug.LogError("[NetworkManager] WARNING: Scene buildIndex is negative! This scene may not be in Build Settings.");
+                if (scene.buildIndex < 0)
+                {
+                    Debug.LogError("[NetworkManager] WARNING: Scene buildIndex is negative! This scene may not be in Build Settings.");
+                }
+                sceneInfo.AddSceneRef(SceneRef.FromIndex(scene.buildIndex));
             }
-            sceneInfo.AddSceneRef(SceneRef.FromIndex(scene.buildIndex));
+            else
+            {
+                Debug.Log("[NetworkManager] Room/manual scene flow detected — leaving StartGameArgs.Scene empty to prevent hidden scene sync.");
+            }
             
             // Setup AppSettings with fixed region and fallback AppID
             var appSettings = new Fusion.Photon.Realtime.FusionAppSettings();
@@ -2178,6 +2451,8 @@ namespace GV.Network
 
                 Debug.Log($"[NetworkManager] Gameplay scene '{scene.name}' loaded via manual request — activating gameplay.");
                 _inGameplayScene = true;
+                _clientSceneLoadInProgress = false;
+                _inGameplaySceneTimestamp = Time.time;
                 _manualSceneLoadRequested = false; // Reset for next time
 
                 // Auto-find the spawn spline in the newly loaded gameplay scene
@@ -2204,39 +2479,7 @@ namespace GV.Network
                 // and it's safe to spawn our player object. Send on ALL channels for reliability.
                 if (Runner != null && Runner.IsClient)
                 {
-                    Debug.Log($"[CTL-DIAG] CLIENT: Gameplay scene loaded! Sending CLIENT_READY on ALL channels. " +
-                              $"LocalPlayer={Runner.LocalPlayer}, IsRunning={Runner.IsRunning}");
-
-                    // Channel 1: 4-byte CLIENT_READY_KEY ("RDY!")
-                    try
-                    {
-                        Runner.SendReliableDataToServer(CLIENT_READY_KEY, CLIENT_READY_MAGIC);
-                        Debug.Log("[SPAWN-DEBUG] CLIENT: Sent CLIENT_READY via 4-byte key.");
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Debug.LogWarning($"[SPAWN-DEBUG] CLIENT: Failed to send CLIENT_READY via 4-byte key: {ex.Message}");
-                    }
-
-                    // Channel 2: 37-byte CLIENT_READY_SIGNAL_MAGIC on INPUT_DATA_KEY (proven channel)
-                    try
-                    {
-                        var readyData = new PlayerInputData();
-                        readyData.magicNumber = CLIENT_READY_SIGNAL_MAGIC;
-                        byte[] readyBytes = SerializeInput(readyData);
-                        Runner.SendReliableDataToServer(INPUT_DATA_KEY, readyBytes);
-                        Debug.Log("[SPAWN-DEBUG] CLIENT: Sent CLIENT_READY via 37-byte INPUT_DATA_KEY (magic=777777).");
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Debug.LogWarning($"[SPAWN-DEBUG] CLIENT: Failed to send CLIENT_READY via 37-byte key: {ex.Message}");
-                    }
-
-                    // Channel 3: Embed CLIENT_READY in regular input magic (% 1000 == 77) every frame
-                    _clientSendingReady = true;
-                    _clientReadySendStartTime = Time.time;
-                    _clientReadyWatchdogFired = true; // Mark watchdog as satisfied — CLIENT_READY was sent
-                    Debug.Log($"[CTL-DIAG] CLIENT: _clientSendingReady=true, will embed magic%1000==77 for {CLIENT_READY_SEND_DURATION}s");
+                    SendClientReadySignals("OnUnitySceneLoaded");
                 }
 
                 // SERVER: Delay spawning by 1 frame so all scene objects (VehicleCamera, etc.)
@@ -2510,7 +2753,7 @@ namespace GV.Network
         private void SetupCameraFollow(GameObject playerObject)
         {
             Debug.Log($"[NetworkManager] SetupCameraFollow called for: {playerObject.name}");
-            
+
             // Find the Vehicle component on the spawned player
             var vehicle = playerObject.GetComponentInChildren<Vehicle>(true);
             if (vehicle == null)
@@ -2518,9 +2761,9 @@ namespace GV.Network
                 Debug.LogWarning("[NetworkManager] No Vehicle found on spawned player!");
                 return;
             }
-            
+
             Debug.Log($"[NetworkManager] Found Vehicle: {vehicle.name}");
-            
+
             // Find the VehicleCamera in the scene (SpaceCombatKit's camera system)
             var vehicleCamera = FindFirstObjectByType<VehicleCamera>();
             if (vehicleCamera != null)
@@ -2532,11 +2775,46 @@ namespace GV.Network
                     Debug.Log("[NetworkManager] Disconnected VehicleCamera from GameAgentManager before SetVehicle");
                 }
 
+                // Permanently sever linkToGameAgentManager so VehicleCamera.Start() can't re-link
+                var linkField = typeof(VehicleCamera).GetField("linkToGameAgentManager",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (linkField != null)
+                {
+                    linkField.SetValue(vehicleCamera, false);
+                    Debug.Log("[NetworkManager] Set linkToGameAgentManager = false on VehicleCamera");
+                }
+
+                // Disable conflicting cameras but preserve URP Base camera in the stack
+                Camera vcCam = vehicleCamera.MainCamera;
+                if (vcCam != null) vcCam.enabled = true;
+#if !UNITY_SERVER
+                Camera urpBaseCam = FindURPBaseCameraForOverlay(vcCam);
+#else
+                Camera urpBaseCam = (Camera)null;
+#endif
+                Camera[] allCameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+                foreach (var cam in allCameras)
+                {
+                    if (cam == vcCam) continue;
+                    if (cam == urpBaseCam)
+                    {
+                        cam.enabled = true;
+                        Debug.Log($"[NetworkManager] Keeping URP Base camera ENABLED: '{cam.gameObject.name}' (depth={cam.depth})");
+                        continue;
+                    }
+                    if (cam.enabled)
+                    {
+                        Debug.Log($"[NetworkManager] DISABLING camera: '{cam.gameObject.name}' (tag={cam.tag}, depth={cam.depth})");
+                        cam.enabled = false;
+                    }
+                }
+
                 vehicleCamera.SetVehicle(vehicle);
+
                 Debug.Log($"[NetworkManager] VehicleCamera now following: {vehicle.name}");
                 return;
             }
-            
+
             // Fallback: try generic CameraEntity
             var cameraEntity = FindFirstObjectByType<CameraEntity>();
             if (cameraEntity != null)
@@ -2549,7 +2827,7 @@ namespace GV.Network
                     return;
                 }
             }
-            
+
             Debug.LogWarning("[NetworkManager] No camera system found in scene!");
         }
         
@@ -2793,9 +3071,15 @@ namespace GV.Network
             _inGameplayScene = false;
             _inGameplaySceneTimestamp = 0f;
             _clientReadyWatchdogFired = false;
+            _clientSceneLoadInProgress = false;
             _waitingForShipToAppear = false;
             _loadingScreenShownTime = 0f;
             _shipDetectLogCounter = 0;
+            if (_clientSceneLoadCoroutine != null)
+            {
+                StopCoroutine(_clientSceneLoadCoroutine);
+                _clientSceneLoadCoroutine = null;
+            }
             // Clean up loading screen so it doesn't persist into the next game
             if (_loadingScreenGO != null)
             {
@@ -2899,8 +3183,15 @@ namespace GV.Network
 
                 if (isCountdown)
                 {
-                    Debug.Log("[NetworkManager] CLIENT: Received COUNTDOWN command from host! Starting countdown...");
-                    StartCoroutine(CountdownThenLoad());
+                    if (ShouldStartClientCountdown())
+                    {
+                        Debug.Log("[NetworkManager] CLIENT: Received COUNTDOWN command from host! Starting countdown...");
+                        StartCoroutine(CountdownThenLoad());
+                    }
+                    else
+                    {
+                        Debug.Log($"[NetworkManager] CLIENT: Ignoring duplicate COUNTDOWN command. manualRequested={_manualSceneLoadRequested}, loadInProgress={_clientSceneLoadInProgress}, inGameplay={_inGameplayScene}, countdown={_countdownActive}");
+                    }
                     return;
                 }
             }
@@ -2920,11 +3211,22 @@ namespace GV.Network
 
                 if (isLoadCommand)
                 {
-                    // Skip if already in gameplay scene or countdown is handling it
-                    if (_inGameplayScene || _countdownActive)
+                    // Already in gameplay or countdown is handling scene load?
+                    // Don't re-load, but DO re-send CLIENT_READY — the server's retries
+                    // mean it never got our previous CLIENT_READY.
+                    if (_inGameplayScene)
                     {
                         Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD but already handled — " +
-                                  $"inGameplay={_inGameplayScene}, countdown={_countdownActive}. Ignoring.");
+                                  $"inGameplay={_inGameplayScene}, countdown={_countdownActive}. " +
+                                  $"Re-sending CLIENT_READY in case server missed it.");
+                        SendClientReadySignals("SCENE_LOAD retry");
+                        return;
+                    }
+
+                    if (_clientSceneLoadInProgress || _countdownActive)
+                    {
+                        Debug.Log($"[NetworkManager] CLIENT: Received SCENE_LOAD while countdown/load is already in progress. " +
+                                  $"inGameplay={_inGameplayScene}, countdown={_countdownActive}, loadInProgress={_clientSceneLoadInProgress}. Ignoring duplicate load command.");
                         return;
                     }
                     // CRITICAL: Do NOT call SceneManager.LoadScene from inside OnReliableDataReceived!
@@ -2951,39 +3253,50 @@ namespace GV.Network
 
                 if (isReady)
                 {
-                    var liveInst = (Instance != null) ? Instance : this;
-                    if (!liveInst._clientsReady.Contains(player))
-                    {
-                        liveInst._clientsReady.Add(player);
-                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY (4-byte) from player {player.PlayerId}! " +
-                                  $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
-                    }
+                    MarkClientReadyReceived(player, "4-byte");
                     return;
                 }
             }
 
-            // --- START_MATCH VIA DEDICATED KEY (38 bytes = 37 input + 1 marker) ---
-            // Client sends on START_MATCH_INPUT_KEY (separate from INPUT_DATA_KEY) to avoid Fusion merging
+            // --- 38-BYTE SPECIAL PACKETS (37-byte input + 1 marker) ---
+            // These use dedicated keys to avoid Fusion merging them with the normal INPUT_DATA_KEY stream.
             if (data.Count == 38 && runner.IsServer && IsDedicatedServer)
             {
                 byte[] bytes = new byte[37];
                 System.Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, 37);
                 var inputData = DeserializeInput(bytes);
+                byte marker = data.Array[data.Offset + 37];
 
-                Debug.Log($"[SPAWN-DEBUG] SERVER: Received 38-byte START_MATCH packet from player {player.PlayerId}! magic={inputData.magicNumber}");
-
-                var liveInst = (Instance != null) ? Instance : this;
-                if (!liveInst._countdownActive && !liveInst._inGameplayScene)
+                if (marker == CLIENT_READY_PACKET_MARKER)
                 {
-                    Debug.Log($"[SPAWN-DEBUG] SERVER: START_MATCH via DEDICATED KEY from player {player.PlayerId}! " +
-                              $"pendingSpawns={liveInst._pendingSpawns.Count}, spawnedPlayers={liveInst._spawnedPlayers.Count}");
-                    TriggerMatchStart(player);
+                    if (inputData.magicNumber == CLIENT_READY_SIGNAL_MAGIC)
+                    {
+                        MarkClientReadyReceived(player, "dedicated ready packet");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[SPAWN-DEBUG] SERVER: Ignoring malformed dedicated CLIENT_READY packet from player {player.PlayerId} (magic={inputData.magicNumber}).");
+                    }
+                    return;
                 }
 
-                // Also store as regular input
-                _clientInputs[player] = inputData;
-                RawRecvCount++;
-                return;
+                if (marker == START_MATCH_PACKET_MARKER)
+                {
+                    Debug.Log($"[SPAWN-DEBUG] SERVER: Received 38-byte START_MATCH packet from player {player.PlayerId}! magic={inputData.magicNumber}");
+
+                    var liveInst = (Instance != null) ? Instance : this;
+                    if (!liveInst._countdownActive && !liveInst._inGameplayScene)
+                    {
+                        Debug.Log($"[SPAWN-DEBUG] SERVER: START_MATCH via DEDICATED KEY from player {player.PlayerId}! " +
+                                  $"pendingSpawns={liveInst._pendingSpawns.Count}, spawnedPlayers={liveInst._spawnedPlayers.Count}");
+                        TriggerMatchStart(player);
+                    }
+
+                    // Also store as regular input
+                    _clientInputs[player] = inputData;
+                    RawRecvCount++;
+                    return;
+                }
             }
 
             // --- INPUT DATA (37 bytes) ---
@@ -3016,17 +3329,21 @@ namespace GV.Network
                 // on custom ReliableKeys.
                 if (!runner.IsServer && inputData.magicNumber == COUNTDOWN_SIGNAL_MAGIC)
                 {
-                    if (!_countdownActive)
+                    if (ShouldStartClientCountdown())
                     {
                         Debug.Log("[NetworkManager] CLIENT: Received COUNTDOWN via 37-byte INPUT_DATA_KEY signal! Starting countdown...");
                         StartCoroutine(CountdownThenLoad());
+                    }
+                    else
+                    {
+                        Debug.Log($"[NetworkManager] CLIENT: Ignoring duplicate COUNTDOWN signal. manualRequested={_manualSceneLoadRequested}, loadInProgress={_clientSceneLoadInProgress}, inGameplay={_inGameplayScene}, countdown={_countdownActive}");
                     }
                     return; // Don't process as regular input
                 }
 
                 if (!runner.IsServer && inputData.magicNumber == SCENE_LOAD_SIGNAL_MAGIC)
                 {
-                    if (!_inGameplayScene && !_countdownActive)
+                    if (!_inGameplayScene && !_countdownActive && !_clientSceneLoadInProgress)
                     {
                         // CRITICAL: Do NOT call SceneManager.LoadScene from inside OnReliableDataReceived!
                         // Synchronous scene load inside a Fusion callback corrupts the runner's internal
@@ -3036,7 +3353,7 @@ namespace GV.Network
                         _manualSceneLoadRequested = true;
                         _pendingSceneLoadFromServer = true;
                     }
-                    else if (_countdownActive)
+                    else if (_countdownActive || _clientSceneLoadInProgress)
                     {
                         // Countdown is already running — it will handle scene loading via CountdownThenLoad().
                         // No need to do anything here.
@@ -3048,13 +3365,7 @@ namespace GV.Network
                 // Client sends this after loading the gameplay scene
                 if (runner.IsServer && inputData.magicNumber == CLIENT_READY_SIGNAL_MAGIC)
                 {
-                    var liveInst = (Instance != null) ? Instance : this;
-                    if (!liveInst._clientsReady.Contains(player))
-                    {
-                        liveInst._clientsReady.Add(player);
-                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY (37-byte signal) from player {player.PlayerId}! " +
-                                  $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
-                    }
+                    MarkClientReadyReceived(player, "37-byte signal");
                     return; // Don't process as regular input
                 }
 
@@ -3062,18 +3373,22 @@ namespace GV.Network
                 // This is the PRIMARY delivery channel: CLIENT_READY piggybacks on regular input.
                 if (inputData.magicNumber % 1000 == 77 && runner.IsServer && IsDedicatedServer)
                 {
-                    var liveInst = (Instance != null) ? Instance : this;
-                    if (!liveInst._clientsReady.Contains(player))
-                    {
-                        liveInst._clientsReady.Add(player);
-                        Debug.Log($"[SPAWN-DEBUG] SERVER: Received CLIENT_READY (magic%1000==77) from player {player.PlayerId}! " +
-                                  $"Ready: {liveInst._clientsReady.Count}/{liveInst._playersAwaitingReady.Count}");
-                    }
+                    MarkClientReadyReceived(player, "magic%1000==77");
                     // Store as regular input (strip the signal)
                     inputData.magicNumber = (inputData.magicNumber / 1000) * 1000 + 42;
                     _clientInputs[player] = inputData;
                     RawRecvCount++;
                     return;
+                }
+
+                // --- CLIENT_READY via reserved button bit on the normal raw input packet ---
+                // This rides on the same INPUT_DATA_KEY traffic that is already known to arrive.
+                bool rawBit30 = (bytes[28] & 0x40) != 0;
+                bool fusionBit30 = (inputData.buttons.Bits & (1 << CLIENT_READY_BUTTON_BIT)) != 0;
+                if ((rawBit30 || fusionBit30) && runner.IsServer && IsDedicatedServer)
+                {
+                    MarkClientReadyReceived(player, "button bit 30");
+                    inputData.buttons.Set(CLIENT_READY_BUTTON_BIT, false);
                 }
 
                 // --- LEGACY CHECK FOR START_MATCH SIGNAL (magic % 1000 == 99) ---
@@ -3101,10 +3416,10 @@ namespace GV.Network
                 // Also check via NetworkButtons for comparison
                 bool fusionBit31 = (inputData.buttons.Bits & (1 << START_MATCH_BUTTON_BIT)) != 0;
 
-                if (runner.IsServer && IsDedicatedServer && (rawBit31 || fusionBit31 || inputData.buttons.Bits != 0))
+                if (runner.IsServer && IsDedicatedServer && (rawBit30 || fusionBit30 || rawBit31 || fusionBit31 || inputData.buttons.Bits != 0))
                 {
                     Debug.Log($"[MATCH-DEBUG] SERVER: Input from player {player.PlayerId}: " +
-                              $"rawBit31={rawBit31}, fusionBit31={fusionBit31}, " +
+                              $"rawBit30={rawBit30}, fusionBit30={fusionBit30}, rawBit31={rawBit31}, fusionBit31={fusionBit31}, " +
                               $"buttons.Bits=0x{inputData.buttons.Bits:X8}, rawByte28=0x{bytes[28]:X2}, magic={inputData.magicNumber}");
                 }
 
@@ -3177,6 +3492,16 @@ namespace GV.Network
                 }
 
                 _inGameplayScene = true;
+                if (!runner.IsServer)
+                {
+                    _clientSceneLoadInProgress = false;
+                    _inGameplaySceneTimestamp = Time.time;
+                    if (runner.IsClient && runner.IsRunning && !_clientSendingReady)
+                    {
+                        Debug.Log("[CTL-DIAG] OnSceneLoadDone: gameplay scene active on client, sending CLIENT_READY backup.");
+                        SendClientReadySignals("OnSceneLoadDone");
+                    }
+                }
 
                 // Auto-find the spawn spline in the newly loaded gameplay scene
                 TryFindSpawnSpline();
